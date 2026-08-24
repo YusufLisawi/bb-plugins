@@ -13,6 +13,7 @@ var __export = (target, all) => {
 // server.ts
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -14570,6 +14571,13 @@ function pathPluginId(source, repoPath) {
   const relative = sourcePath.slice(pluginRoot.length);
   return relative && !relative.includes(sep) ? relative : null;
 }
+function rootPluginId(rootDir, repoPath) {
+  try {
+    return pathPluginId(`path:${realpathSync(rootDir)}`, repoPath);
+  } catch {
+    return null;
+  }
+}
 async function git(repoPath, args, signal) {
   try {
     const { stdout, stderr } = await execFileAsync("git", ["-C", repoPath, ...args], {
@@ -14665,7 +14673,10 @@ async function plugin(bb) {
       const failures = [];
       if (updated) {
         const installed = await bb.sdk.plugins.list();
-        const pluginIds = installed.plugins.filter((item) => item.id !== bb.pluginId).map((item) => ({ id: item.id, managedId: pathPluginId(item.source, repoPath) })).filter((item) => item.managedId !== null).map((item) => item.id).sort();
+        const pluginIds = installed.plugins.filter((item) => item.id !== bb.pluginId).map((item) => ({
+          id: item.id,
+          managedId: pathPluginId(item.source, repoPath) ?? rootPluginId(item.rootDir, repoPath)
+        })).filter((item) => item.managedId !== null).map((item) => item.id).sort();
         for (const pluginId of pluginIds) {
           try {
             await bb.sdk.plugins.reload({ pluginId });

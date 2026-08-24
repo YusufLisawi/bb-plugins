@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -49,6 +50,14 @@ function pathPluginId(source: string, repoPath: string): string | null {
   if (!sourcePath.startsWith(pluginRoot)) return null;
   const relative = sourcePath.slice(pluginRoot.length);
   return relative && !relative.includes(sep) ? relative : null;
+}
+
+function rootPluginId(rootDir: string, repoPath: string): string | null {
+  try {
+    return pathPluginId(`path:${realpathSync(rootDir)}`, repoPath);
+  } catch {
+    return null;
+  }
 }
 
 async function git(repoPath: string, args: string[], signal?: AbortSignal): Promise<string> {
@@ -164,7 +173,10 @@ export default async function plugin(bb: BbPluginApi) {
         const installed = await bb.sdk.plugins.list();
         const pluginIds = installed.plugins
           .filter((item) => item.id !== bb.pluginId)
-          .map((item) => ({ id: item.id, managedId: pathPluginId(item.source, repoPath) }))
+          .map((item) => ({
+            id: item.id,
+            managedId: pathPluginId(item.source, repoPath) ?? rootPluginId(item.rootDir, repoPath),
+          }))
           .filter((item): item is { id: string; managedId: string } => item.managedId !== null)
           .map((item) => item.id)
           .sort();

@@ -25,10 +25,13 @@ Each machine keeps one local clone of the private repository:
 - Mac: `/Users/yusufisawi/Developer/bb-plugins`
 - PC: `/home/yusuf/Developer/bb-plugins`
 
-Existing path-based plugins are moved in place to their matching directory in
-that clone with `bb plugin install path:<clone>/plugins/<plugin-id>`. BB
-preserves their settings, secrets, schedules, and database when moving a path
-source, unlike an uninstall/reinstall migration.
+Existing path-based plugins keep their registered BB path, because the
+installed BB release rejects the safe path-move operation documented by newer
+BB releases. During the one-time migration, each old source directory is moved
+to a dated local backup and replaced by a symbolic link to its matching folder
+in the clone. BB therefore retains the same registration and its settings,
+secrets, schedules, and database; Git becomes the source of the code reached
+through that registered path.
 
 The Plugin Sync button is a local Git refresh on the server where it is
 pressed. It runs `git pull --ff-only` inside that machine's clone, discovers
@@ -49,7 +52,8 @@ each BB server independently pulls from the same private GitHub repository.
   overwriting, or deleting any files.
 - No plugin data, BB databases, secrets, or general settings are synchronized
   through Git. This feature synchronizes plugin source code only.
-- Each machine is moved to the local checkout and verified independently.
+- Each machine is linked to the local checkout and verified independently;
+  the original source folder remains as a recoverable dated backup.
 
 ## Validation
 
@@ -57,7 +61,7 @@ each BB server independently pulls from the same private GitHub repository.
   publishing.
 - Confirm the GitHub repository is private and its collection manifest lists
   each migrated plugin.
-- Confirm each machine reports a `path:` source under its local clone for
-  every migrated plugin.
+- Confirm each machine's registered plugin path resolves to the local clone
+  for every migrated plugin.
 - Confirm the Sync button performs a clean fast-forward pull and reloads the
   matching plugins without modifying unrelated plugins.
