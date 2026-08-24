@@ -147,7 +147,9 @@ export default async function plugin(bb: BbPluginApi) {
     };
   }
 
-  async function syncNow(): Promise<SyncRun> {
+  let activeSync: Promise<SyncRun> | null = null;
+
+  async function performSyncNow(): Promise<SyncRun> {
     const startedAt = Date.now();
     const current = await settings.get();
     const repoPath = checkoutPath(current.repoPath);
@@ -212,6 +214,17 @@ export default async function plugin(bb: BbPluginApi) {
       const message = error instanceof Error ? error.message : String(error);
       recordRun("error", message, startedAt);
       return statusResult(message, { failures: [message] });
+    }
+  }
+
+  async function syncNow(): Promise<SyncRun> {
+    if (activeSync) return activeSync;
+    const run = performSyncNow();
+    activeSync = run;
+    try {
+      return await run;
+    } finally {
+      if (activeSync === run) activeSync = null;
     }
   }
 

@@ -14652,7 +14652,8 @@ async function plugin(bb) {
       message
     };
   }
-  async function syncNow() {
+  let activeSync = null;
+  async function performSyncNow() {
     const startedAt = Date.now();
     const current = await settings.get();
     const repoPath = checkoutPath(current.repoPath);
@@ -14703,6 +14704,16 @@ async function plugin(bb) {
       const message = error51 instanceof Error ? error51.message : String(error51);
       recordRun("error", message, startedAt);
       return statusResult(message, { failures: [message] });
+    }
+  }
+  async function syncNow() {
+    if (activeSync) return activeSync;
+    const run = performSyncNow();
+    activeSync = run;
+    try {
+      return await run;
+    } finally {
+      if (activeSync === run) activeSync = null;
     }
   }
   bb.rpc.register(rpcContract, {
