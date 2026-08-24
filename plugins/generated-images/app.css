@@ -1,0 +1,435 @@
+.bb-generated-images-panel {
+  --bb-generated-images-control-size: 2.25rem;
+  --bb-generated-images-gap: clamp(0.75rem, 1.6vw, 1.25rem);
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--canvas);
+}
+
+.bb-generated-images-panel *,
+.bb-generated-images-panel *::before,
+.bb-generated-images-panel *::after {
+  box-sizing: border-box;
+}
+
+.bb-generated-images-panel button {
+  font: inherit;
+}
+
+.bb-generated-images-panel button:focus-visible,
+.bb-generated-images-panel [tabindex="0"]:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+.bb-generated-images-panel-toolbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-inline-size: 0;
+  min-block-size: 3.25rem;
+  padding: 0.45rem var(--bb-generated-images-gap);
+  gap: 0.75rem;
+  border-block-end: 1px solid var(--border-seam);
+  background: var(--canvas);
+}
+
+.bb-generated-images-panel-heading {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.bb-generated-images-panel-kicker {
+  display: inline-flex;
+  align-items: center;
+  min-inline-size: 0;
+  gap: 0.45rem;
+  color: var(--foreground);
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb-generated-images-panel-kicker .bb-generated-images-panel-icon {
+  inline-size: 0.92rem;
+  block-size: 0.92rem;
+  color: var(--muted-foreground);
+}
+
+.bb-generated-images-panel-toolbar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  min-inline-size: 0;
+  gap: 0.3rem;
+}
+
+.bb-generated-images-panel-status {
+  display: block;
+  max-inline-size: min(14rem, 22vw);
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  line-height: 1.25;
+  text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb-generated-images-panel-status[data-visible="false"] {
+  display: none;
+}
+
+.bb-generated-images-panel-counter {
+  flex: 0 0 auto;
+  min-inline-size: 2.85rem;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.bb-generated-images-panel-navigation {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0.1rem;
+  gap: 0.05rem;
+  border: 1px solid var(--border-seam);
+  border-radius: 0.55rem;
+  background: var(--surface-recessed-solid);
+}
+
+.bb-generated-images-panel-navigation .bb-generated-images-panel-icon-button {
+  inline-size: 2rem;
+  block-size: 2rem;
+}
+
+.bb-generated-images-panel-navigation .bb-generated-images-panel-icon {
+  inline-size: 0.92rem;
+  block-size: 0.92rem;
+}
+
+.bb-generated-images-panel-navigation .bb-generated-images-panel-counter {
+  min-inline-size: 2.55rem;
+  color: var(--foreground);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.bb-generated-images-panel-zoom {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0.1rem;
+  gap: 0.04rem;
+  border: 1px solid var(--border-seam);
+  border-radius: 0.6rem;
+  background: var(--surface-recessed-solid);
+}
+
+.bb-generated-images-panel-icon-button,
+.bb-generated-images-panel-zoom-value,
+.bb-generated-images-panel-menu-item,
+.bb-generated-images-panel-thumbnail {
+  appearance: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.bb-generated-images-panel-icon-button {
+  display: inline-grid;
+  inline-size: var(--bb-generated-images-control-size);
+  block-size: var(--bb-generated-images-control-size);
+  place-items: center;
+  border-radius: 0.42rem;
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.bb-generated-images-panel-icon-button:hover,
+.bb-generated-images-panel-menu-item:hover,
+.bb-generated-images-panel-thumbnail:hover {
+  background: var(--surface-recessed-solid);
+  color: var(--foreground);
+}
+
+.bb-generated-images-panel-icon-button:disabled,
+.bb-generated-images-panel-zoom-value:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.bb-generated-images-panel-icon-button .bb-generated-images-panel-icon,
+.bb-generated-images-panel-menu-item .bb-generated-images-panel-icon {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
+.bb-generated-images-panel-zoom-value {
+  min-inline-size: 2.85rem;
+  block-size: calc(var(--bb-generated-images-control-size) - 0.08rem);
+  padding-inline: 0.25rem;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.bb-generated-images-panel-zoom-value:hover:not(:disabled) {
+  background: var(--canvas);
+  color: var(--foreground);
+}
+
+.bb-generated-images-panel-menu-wrap {
+  position: relative;
+}
+
+.bb-generated-images-panel-menu {
+  position: absolute;
+  inset-block-start: calc(100% + 0.4rem);
+  inset-inline-end: 0;
+  z-index: 5;
+  display: grid;
+  min-inline-size: 12.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--border-seam);
+  border-radius: 0.65rem;
+  background: var(--canvas);
+  color: var(--foreground);
+}
+
+.bb-generated-images-panel-menu-item {
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  min-block-size: 2.5rem;
+  padding: 0.4rem 0.55rem;
+  gap: 0.6rem;
+  border-radius: 0.42rem;
+  background: transparent;
+  text-align: start;
+}
+
+.bb-generated-images-panel-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  background: var(--canvas);
+  cursor: zoom-in;
+  touch-action: none;
+  user-select: none;
+}
+
+.bb-generated-images-panel-stage[data-zoomed="true"] {
+  cursor: grab;
+}
+
+.bb-generated-images-panel-stage[data-panning="true"] {
+  cursor: grabbing;
+}
+
+.bb-generated-images-panel-active-image {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  object-fit: contain;
+  object-position: center;
+  transform-origin: center;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
+  transition: transform 160ms ease-out;
+}
+
+.bb-generated-images-panel-stage[data-panning="true"]
+  .bb-generated-images-panel-active-image {
+  transition: none;
+}
+
+.bb-generated-images-panel-empty {
+  display: grid;
+  justify-items: center;
+  max-inline-size: 25rem;
+  padding: 2rem;
+  gap: 0.75rem;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.bb-generated-images-panel-empty .bb-generated-images-panel-icon {
+  inline-size: 2rem;
+  block-size: 2rem;
+  color: var(--muted-foreground);
+}
+
+.bb-generated-images-panel-empty h1,
+.bb-generated-images-panel-empty p {
+  margin: 0;
+}
+
+.bb-generated-images-panel-empty h1 {
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.bb-generated-images-panel-empty p {
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.bb-generated-images-panel-carousel {
+  min-inline-size: 0;
+  padding: 0.65rem var(--bb-generated-images-gap) 0.8rem;
+  border-block-start: 1px solid var(--border-seam);
+  background: var(--canvas);
+}
+
+.bb-generated-images-panel-carousel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.bb-generated-images-panel-carousel-track {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  padding-block: 0.15rem 0.25rem;
+  gap: 0.6rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  scroll-snap-type: inline proximity;
+}
+
+.bb-generated-images-panel-thumbnail {
+  position: relative;
+  display: block;
+  flex: 0 0 clamp(5.25rem, 10vw, 7.5rem);
+  inline-size: clamp(5.25rem, 10vw, 7.5rem);
+  aspect-ratio: 1.2;
+  padding: 0.18rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--foreground) 14%, transparent);
+  border-radius: 0.55rem;
+  background: var(--surface-recessed-solid);
+  scroll-snap-align: start;
+}
+
+.bb-generated-images-panel-thumbnail[data-active="true"] {
+  border-color: var(--foreground);
+  outline: 1px solid var(--foreground);
+  outline-offset: 1px;
+}
+
+.bb-generated-images-panel-thumbnail img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.bb-generated-images-panel-thumbnail span {
+  position: absolute;
+  inset-block-end: 0.3rem;
+  inset-inline-start: 0.3rem;
+  display: grid;
+  min-inline-size: 1.25rem;
+  block-size: 1.25rem;
+  place-items: center;
+  border: 1px solid var(--border-seam);
+  border-radius: 999px;
+  background: var(--canvas);
+  color: var(--muted-foreground);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 48rem) {
+  .bb-generated-images-panel-toolbar {
+    padding-inline: 0.65rem;
+    gap: 0.45rem;
+  }
+
+  .bb-generated-images-panel-toolbar-actions {
+    gap: 0.2rem;
+  }
+
+  .bb-generated-images-panel-status {
+    max-inline-size: min(10rem, 22vw);
+  }
+
+  .bb-generated-images-panel-navigation .bb-generated-images-panel-icon-button {
+    inline-size: 2rem;
+    block-size: 2rem;
+  }
+}
+
+@media (max-width: 32rem) {
+  .bb-generated-images-panel-toolbar-actions {
+    gap: 0.12rem;
+  }
+
+  .bb-generated-images-panel-status {
+    position: absolute;
+    inset-block-start: calc(100% + 0.35rem);
+    inset-inline-end: 0.65rem;
+    z-index: 3;
+    max-inline-size: 9rem;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid var(--border-seam);
+    border-radius: 0.4rem;
+    background: var(--canvas);
+  }
+
+  .bb-generated-images-panel-stage {
+    padding: 0.65rem;
+  }
+
+  .bb-generated-images-panel-thumbnail {
+    flex-basis: 5rem;
+    inline-size: 5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-generated-images-panel-active-image {
+    transition: none;
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://getbb.app/schemas/plugins.schema.json",
+  "schemaVersion": 1,
+  "name": "yusuf-bb-plugins",
+  "plugins": [
+    { "name": "dispatch", "source": "./plugins/dispatch" },
+    { "name": "generated-images", "source": "./plugins/generated-images" },
+    { "name": "sync", "source": "./plugins/sync" }
+  ]
+}
