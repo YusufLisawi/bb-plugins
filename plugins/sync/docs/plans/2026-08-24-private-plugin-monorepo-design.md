@@ -49,7 +49,8 @@ each BB server independently pulls from the same private GitHub repository.
 - No plugin data, BB databases, secrets, or general settings are placed in
   Git.
 - Git pulls use `--ff-only`; a divergence or local edit stops without merging,
-  overwriting, or deleting any files.
+  overwriting, or deleting any files. Generated plugin `dist/` output is
+  ignored for this cleanliness check because BB rebuilds it on path reload.
 - No plugin data, BB databases, secrets, or general settings are synchronized
   through Git. This feature synchronizes plugin source code only.
 - Each machine is linked to the local checkout and verified independently;

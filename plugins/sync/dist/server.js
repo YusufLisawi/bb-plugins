@@ -14661,7 +14661,14 @@ async function plugin(bb) {
       if (resolve(root) !== repoPath) {
         throw new Error(`Plugin repository folder resolves to ${root}; choose the repository root, not a subfolder.`);
       }
-      const changes = await git(repoPath, ["status", "--porcelain"]);
+      const changes = await git(repoPath, [
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+        "--",
+        ".",
+        ":(exclude)plugins/**/dist/**"
+      ]);
       if (changes) {
         throw new Error("Your local plugin repository has uncommitted changes. Commit or stash them before syncing so nothing is overwritten.");
       }
