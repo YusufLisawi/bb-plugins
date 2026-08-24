@@ -5,6 +5,9 @@
   "plugins": [
     { "name": "dispatch", "source": "./plugins/dispatch" },
     { "name": "generated-images", "source": "./plugins/generated-images" },
-    { "name": "sync", "source": "./plugins/sync" }
+    { "name": "sidebar-plus", "source": "./plugins/sidebar-plus" },
+    { "name": "sync", "source": "./plugins/sync" },
+    { "name": "system-tools", "source": "./plugins/system-tools" },
+    { "name": "usage", "source": "./plugins/usage" }
   ]
 }
