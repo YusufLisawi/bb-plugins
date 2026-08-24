@@ -20,25 +20,36 @@ own `package.json`, source, tests, and build output policy.
 
 ## Installation and updates
 
-Each BB server installs a selected collection entry using the private Git
-source and `--plugin <plugin-id>`. That makes BB record the Git branch as the
-managed source rather than a machine-local `path:` directory.
+Each machine keeps one local clone of the private repository:
 
-When a plugin changes, Yusuf commits and pushes it once. On either server,
-`bb plugin update --all` fetches and applies compatible updates through BB's
-normal rollback-capable plugin updater. A scheduled update command may be
-added later, but the initial migration keeps updating explicit and
-inspectable.
+- Mac: `/Users/yusufisawi/Developer/bb-plugins`
+- PC: `/home/yusuf/Developer/bb-plugins`
+
+Existing path-based plugins are moved in place to their matching directory in
+that clone with `bb plugin install path:<clone>/plugins/<plugin-id>`. BB
+preserves their settings, secrets, schedules, and database when moving a path
+source, unlike an uninstall/reinstall migration.
+
+The Plugin Sync button is a local Git refresh on the server where it is
+pressed. It runs `git pull --ff-only` inside that machine's clone, discovers
+the installed plugins sourced from that clone, and reloads them so the new
+code takes effect. It deliberately excludes reloading itself until the next
+manual reload, avoiding an in-flight RPC being interrupted.
+
+The sync command may be run manually or on the existing automatic interval.
+There is no peer URL, token, Tailscale endpoint, or server-to-server request:
+each BB server independently pulls from the same private GitHub repository.
 
 ## Safety
 
 - The GitHub repository is private.
 - No plugin data, BB databases, secrets, or general settings are placed in
   Git.
-- The current direct peer-sync settings are left intact during verification;
-  they can be disabled after Git-managed installs work on both machines.
-- Each machine is migrated and verified independently. A failed Git activation
-  leaves BB's previous managed state available through its updater rollback.
+- Git pulls use `--ff-only`; a divergence or local edit stops without merging,
+  overwriting, or deleting any files.
+- No plugin data, BB databases, secrets, or general settings are synchronized
+  through Git. This feature synchronizes plugin source code only.
+- Each machine is moved to the local checkout and verified independently.
 
 ## Validation
 
@@ -46,6 +57,7 @@ inspectable.
   publishing.
 - Confirm the GitHub repository is private and its collection manifest lists
   each migrated plugin.
-- Confirm each machine reports the Git source for every migrated plugin.
-- Confirm `bb plugin outdated`/`bb plugin update` recognize the managed
-  source, without modifying unrelated plugins.
+- Confirm each machine reports a `path:` source under its local clone for
+  every migrated plugin.
+- Confirm the Sync button performs a clean fast-forward pull and reloads the
+  matching plugins without modifying unrelated plugins.
