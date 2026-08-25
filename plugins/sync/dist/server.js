@@ -14698,7 +14698,7 @@ async function plugin(bb) {
       const changedPaths = statusPaths(changes);
       const sourceChanges = changedPaths.filter((path) => !isGeneratedArtifact(path));
       if (sourceChanges.length > 0) {
-        throw new Error("Your local plugin repository has uncommitted changes. Commit or stash them before syncing so nothing is overwritten.");
+        throw new Error(`Your local plugin repository has uncommitted changes (${sourceChanges.join(", ")}). Commit or stash them before syncing so nothing is overwritten.`);
       }
       let generatedArtifactsStashed = false;
       if (changedPaths.length > 0) {
