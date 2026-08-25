@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -9,6 +10,17 @@ import { z } from "zod";
 
 const execFileAsync = promisify(execFile);
 const defaultCheckoutPath = `${homedir()}/Developer/bb-plugins`;
+const privateCollectionSource = "git:https://github.com/YusufLisawi/bb-plugins.git@main";
+
+const collectionManifestSchema = z.object({
+  schemaVersion: z.literal(1),
+  plugins: z.array(z.object({
+    name: z.string().min(1),
+    source: z.string().regex(/^\.\/plugins\/[^/]+$/),
+  })),
+});
+
+type CollectionManifest = z.infer<typeof collectionManifestSchema>;
 
 const syncRunSchema = z.object({
   configured: z.boolean(),
@@ -17,7 +29,10 @@ const syncRunSchema = z.object({
   lastRunAt: z.number().int().nullable(),
   lastRunStatus: z.string().nullable(),
   updated: z.boolean(),
+  installedPluginIds: z.array(z.string()),
+  updatedPluginIds: z.array(z.string()),
   reloadedPluginIds: z.array(z.string()),
+  skippedPluginIds: z.array(z.string()),
   failures: z.array(z.string()),
   message: z.string(),
 });
@@ -58,6 +73,15 @@ function rootPluginId(rootDir: string, repoPath: string): string | null {
   } catch {
     return null;
   }
+}
+
+function isPrivateCollectionSource(source: string): boolean {
+  return source === privateCollectionSource || source.startsWith(`${privateCollectionSource}@`);
+}
+
+async function readCollectionManifest(repoPath: string): Promise<CollectionManifest> {
+  const raw = await readFile(resolve(repoPath, ".bb", "plugins.json"), "utf8");
+  return collectionManifestSchema.parse(JSON.parse(raw));
 }
 
 async function git(repoPath: string, args: string[], signal?: AbortSignal): Promise<string> {
@@ -122,7 +146,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function statusResult(
     message: string,
-    options: Partial<Pick<SyncRun, "updated" | "reloadedPluginIds" | "failures">> = {},
+    options: Partial<Pick<SyncRun, "updated" | "installedPluginIds" | "updatedPluginIds" | "reloadedPluginIds" | "skippedPluginIds" | "failures">> = {},
   ): Promise<SyncRun> {
     const current = await settings.get();
     const repoPath = checkoutPath(current.repoPath);
@@ -141,7 +165,10 @@ export default async function plugin(bb: BbPluginApi) {
       lastRunAt: last?.finishedAt ?? null,
       lastRunStatus: last?.status ?? null,
       updated: options.updated ?? false,
+      installedPluginIds: options.installedPluginIds ?? [],
+      updatedPluginIds: options.updatedPluginIds ?? [],
       reloadedPluginIds: options.reloadedPluginIds ?? [],
+      skippedPluginIds: options.skippedPluginIds ?? [],
       failures: options.failures ?? [],
       message,
     };
@@ -175,40 +202,74 @@ export default async function plugin(bb: BbPluginApi) {
       await git(repoPath, ["pull", "--ff-only"]);
       const after = await git(repoPath, ["rev-parse", "HEAD"]);
       const updated = before !== after;
+      const collection = await readCollectionManifest(repoPath);
+      const installed = await bb.sdk.plugins.list();
+      const installedById = new Map(installed.plugins.map((item) => [item.id, item]));
+      const installedPluginIds: string[] = [];
+      const updatedPluginIds: string[] = [];
       const reloadedPluginIds: string[] = [];
+      const skippedPluginIds: string[] = [];
       const failures: string[] = [];
 
-      if (updated) {
-        const installed = await bb.sdk.plugins.list();
-        const pluginIds = installed.plugins
-          .filter((item) => item.id !== bb.pluginId)
-          .map((item) => ({
-            id: item.id,
-            managedId: pathPluginId(item.source, repoPath) ?? rootPluginId(item.rootDir, repoPath),
-          }))
-          .filter((item): item is { id: string; managedId: string } => item.managedId !== null)
-          .map((item) => item.id)
-          .sort();
+      for (const entry of collection.plugins) {
+        if (entry.name === bb.pluginId) continue;
 
-        for (const pluginId of pluginIds) {
+        const currentPlugin = installedById.get(entry.name);
+        if (!currentPlugin) {
           try {
-            await bb.sdk.plugins.reload({ pluginId });
-            reloadedPluginIds.push(pluginId);
+            const installedPlugin = await bb.sdk.plugins.install({
+              source: privateCollectionSource,
+              plugin: entry.name,
+            });
+            installedById.set(installedPlugin.id, installedPlugin);
+            installedPluginIds.push(installedPlugin.id);
           } catch (error) {
-            failures.push(`Could not reload ${pluginId}: ${error instanceof Error ? error.message : String(error)}`);
+            failures.push(`Could not install ${entry.name}: ${error instanceof Error ? error.message : String(error)}`);
           }
+          continue;
         }
+
+        const managedId = pathPluginId(currentPlugin.source, repoPath) ?? rootPluginId(currentPlugin.rootDir, repoPath);
+        if (managedId === entry.name) {
+          if (!updated) continue;
+          try {
+            await bb.sdk.plugins.reload({ pluginId: currentPlugin.id });
+            reloadedPluginIds.push(currentPlugin.id);
+          } catch (error) {
+            failures.push(`Could not reload ${currentPlugin.id}: ${error instanceof Error ? error.message : String(error)}`);
+          }
+          continue;
+        }
+
+        if (isPrivateCollectionSource(currentPlugin.source)) {
+          try {
+            const updateResults = await bb.sdk.plugins.checkUpdates({ pluginId: currentPlugin.id });
+            const update = updateResults.find((item) => item.id === currentPlugin.id);
+            if (update?.outcome !== "update-available") continue;
+            const applied = await bb.sdk.plugins.applyUpdate({ pluginId: currentPlugin.id });
+            if (applied.outcome === "updated") updatedPluginIds.push(currentPlugin.id);
+          } catch (error) {
+            failures.push(`Could not update ${currentPlugin.id}: ${error instanceof Error ? error.message : String(error)}`);
+          }
+          continue;
+        }
+
+        skippedPluginIds.push(entry.name);
       }
 
       const status = failures.length === 0 ? "ok" : "error";
-      recordRun(status, updated ? `Pulled new commit; reloaded ${reloadedPluginIds.length} plugin(s).` : "Already up to date.", startedAt);
+      recordRun(status, updated
+        ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s).`
+        : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s).`, startedAt);
       return statusResult(
-        updated
-          ? failures.length === 0
-            ? `Updated from GitHub and reloaded ${reloadedPluginIds.length} plugin(s).`
-            : "Updates were pulled, but one or more plugins could not reload."
-          : "Already up to date.",
-        { updated, reloadedPluginIds, failures },
+        failures.length === 0
+          ? updated
+            ? `Updated from GitHub and reconciled the plugin collection.`
+            : installedPluginIds.length > 0 || updatedPluginIds.length > 0
+              ? "Plugin collection reconciled."
+              : "Already up to date."
+          : "The collection was pulled, but one or more plugin actions failed.",
+        { updated, installedPluginIds, updatedPluginIds, reloadedPluginIds, skippedPluginIds, failures },
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -14,6 +14,7 @@ var __export = (target, all) => {
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -14536,6 +14537,14 @@ config(en_default());
 // server.ts
 var execFileAsync = promisify(execFile);
 var defaultCheckoutPath = `${homedir()}/Developer/bb-plugins`;
+var privateCollectionSource = "git:https://github.com/YusufLisawi/bb-plugins.git@main";
+var collectionManifestSchema = external_exports.object({
+  schemaVersion: external_exports.literal(1),
+  plugins: external_exports.array(external_exports.object({
+    name: external_exports.string().min(1),
+    source: external_exports.string().regex(/^\.\/plugins\/[^/]+$/)
+  }))
+});
 var syncRunSchema = external_exports.object({
   configured: external_exports.boolean(),
   repoPath: external_exports.string(),
@@ -14543,7 +14552,10 @@ var syncRunSchema = external_exports.object({
   lastRunAt: external_exports.number().int().nullable(),
   lastRunStatus: external_exports.string().nullable(),
   updated: external_exports.boolean(),
+  installedPluginIds: external_exports.array(external_exports.string()),
+  updatedPluginIds: external_exports.array(external_exports.string()),
   reloadedPluginIds: external_exports.array(external_exports.string()),
+  skippedPluginIds: external_exports.array(external_exports.string()),
   failures: external_exports.array(external_exports.string()),
   message: external_exports.string()
 });
@@ -14577,6 +14589,13 @@ function rootPluginId(rootDir, repoPath) {
   } catch {
     return null;
   }
+}
+function isPrivateCollectionSource(source) {
+  return source === privateCollectionSource || source.startsWith(`${privateCollectionSource}@`);
+}
+async function readCollectionManifest(repoPath) {
+  const raw = await readFile(resolve(repoPath, ".bb", "plugins.json"), "utf8");
+  return collectionManifestSchema.parse(JSON.parse(raw));
 }
 async function git(repoPath, args, signal) {
   try {
@@ -14647,7 +14666,10 @@ async function plugin(bb) {
       lastRunAt: last?.finishedAt ?? null,
       lastRunStatus: last?.status ?? null,
       updated: options.updated ?? false,
+      installedPluginIds: options.installedPluginIds ?? [],
+      updatedPluginIds: options.updatedPluginIds ?? [],
       reloadedPluginIds: options.reloadedPluginIds ?? [],
+      skippedPluginIds: options.skippedPluginIds ?? [],
       failures: options.failures ?? [],
       message
     };
@@ -14677,28 +14699,60 @@ async function plugin(bb) {
       await git(repoPath, ["pull", "--ff-only"]);
       const after = await git(repoPath, ["rev-parse", "HEAD"]);
       const updated = before !== after;
+      const collection = await readCollectionManifest(repoPath);
+      const installed = await bb.sdk.plugins.list();
+      const installedById = new Map(installed.plugins.map((item) => [item.id, item]));
+      const installedPluginIds = [];
+      const updatedPluginIds = [];
       const reloadedPluginIds = [];
+      const skippedPluginIds = [];
       const failures = [];
-      if (updated) {
-        const installed = await bb.sdk.plugins.list();
-        const pluginIds = installed.plugins.filter((item) => item.id !== bb.pluginId).map((item) => ({
-          id: item.id,
-          managedId: pathPluginId(item.source, repoPath) ?? rootPluginId(item.rootDir, repoPath)
-        })).filter((item) => item.managedId !== null).map((item) => item.id).sort();
-        for (const pluginId of pluginIds) {
+      for (const entry of collection.plugins) {
+        if (entry.name === bb.pluginId) continue;
+        const currentPlugin = installedById.get(entry.name);
+        if (!currentPlugin) {
           try {
-            await bb.sdk.plugins.reload({ pluginId });
-            reloadedPluginIds.push(pluginId);
+            const installedPlugin = await bb.sdk.plugins.install({
+              source: privateCollectionSource,
+              plugin: entry.name
+            });
+            installedById.set(installedPlugin.id, installedPlugin);
+            installedPluginIds.push(installedPlugin.id);
           } catch (error51) {
-            failures.push(`Could not reload ${pluginId}: ${error51 instanceof Error ? error51.message : String(error51)}`);
+            failures.push(`Could not install ${entry.name}: ${error51 instanceof Error ? error51.message : String(error51)}`);
           }
+          continue;
         }
+        const managedId = pathPluginId(currentPlugin.source, repoPath) ?? rootPluginId(currentPlugin.rootDir, repoPath);
+        if (managedId === entry.name) {
+          if (!updated) continue;
+          try {
+            await bb.sdk.plugins.reload({ pluginId: currentPlugin.id });
+            reloadedPluginIds.push(currentPlugin.id);
+          } catch (error51) {
+            failures.push(`Could not reload ${currentPlugin.id}: ${error51 instanceof Error ? error51.message : String(error51)}`);
+          }
+          continue;
+        }
+        if (isPrivateCollectionSource(currentPlugin.source)) {
+          try {
+            const updateResults = await bb.sdk.plugins.checkUpdates({ pluginId: currentPlugin.id });
+            const update = updateResults.find((item) => item.id === currentPlugin.id);
+            if (update?.outcome !== "update-available") continue;
+            const applied = await bb.sdk.plugins.applyUpdate({ pluginId: currentPlugin.id });
+            if (applied.outcome === "updated") updatedPluginIds.push(currentPlugin.id);
+          } catch (error51) {
+            failures.push(`Could not update ${currentPlugin.id}: ${error51 instanceof Error ? error51.message : String(error51)}`);
+          }
+          continue;
+        }
+        skippedPluginIds.push(entry.name);
       }
       const status = failures.length === 0 ? "ok" : "error";
-      recordRun(status, updated ? `Pulled new commit; reloaded ${reloadedPluginIds.length} plugin(s).` : "Already up to date.", startedAt);
+      recordRun(status, updated ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s).` : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s).`, startedAt);
       return statusResult(
-        updated ? failures.length === 0 ? `Updated from GitHub and reloaded ${reloadedPluginIds.length} plugin(s).` : "Updates were pulled, but one or more plugins could not reload." : "Already up to date.",
-        { updated, reloadedPluginIds, failures }
+        failures.length === 0 ? updated ? `Updated from GitHub and reconciled the plugin collection.` : installedPluginIds.length > 0 || updatedPluginIds.length > 0 ? "Plugin collection reconciled." : "Already up to date." : "The collection was pulled, but one or more plugin actions failed.",
+        { updated, installedPluginIds, updatedPluginIds, reloadedPluginIds, skippedPluginIds, failures }
       );
     } catch (error51) {
       const message = error51 instanceof Error ? error51.message : String(error51);

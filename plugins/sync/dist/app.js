@@ -3747,7 +3747,7 @@ function SyncControl() {
   return /* @__PURE__ */ jsxs(Card, { className: "max-w-3xl", children: [
     /* @__PURE__ */ jsx(CardHeader, { children: /* @__PURE__ */ jsx(CardTitle, { children: "Plugin updates" }) }),
     /* @__PURE__ */ jsxs(CardContent, { className: "space-y-4 text-sm", children: [
-      /* @__PURE__ */ jsx("p", { className: "text-muted-foreground", children: "This machine pulls your private GitHub plugin repository and reloads updated plugins. No peer URL, token, or Tailscale setup is needed." }),
+      /* @__PURE__ */ jsx("p", { className: "text-muted-foreground", children: "This machine pulls your private GitHub plugin repository, installs missing owned plugins, and applies their updates. No peer URL, token, or Tailscale setup is needed." }),
       /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap gap-2", children: [
         /* @__PURE__ */ jsx(Button, { size: "sm", variant: "outline", disabled: busy, onClick: () => void run("status"), children: "Status" }),
         /* @__PURE__ */ jsx(Button, { size: "sm", disabled: busy || !result?.configured, onClick: () => void run("syncNow"), children: "Pull updates now" })
@@ -3759,9 +3759,24 @@ function SyncControl() {
           /* @__PURE__ */ jsx("code", { children: result.repoPath }),
           result.lastRunAt ? ` \xB7 Last check: ${new Date(result.lastRunAt).toLocaleString()}.` : ""
         ] }),
+        result.installedPluginIds.length > 0 && /* @__PURE__ */ jsxs("p", { children: [
+          "Installed: ",
+          result.installedPluginIds.join(", "),
+          "."
+        ] }),
+        result.updatedPluginIds.length > 0 && /* @__PURE__ */ jsxs("p", { children: [
+          "Updated: ",
+          result.updatedPluginIds.join(", "),
+          "."
+        ] }),
         result.reloadedPluginIds.length > 0 && /* @__PURE__ */ jsxs("p", { children: [
           "Reloaded: ",
           result.reloadedPluginIds.join(", "),
+          "."
+        ] }),
+        result.skippedPluginIds.length > 0 && /* @__PURE__ */ jsxs("p", { className: "text-muted-foreground", children: [
+          "Skipped existing plugins from another source: ",
+          result.skippedPluginIds.join(", "),
           "."
         ] }),
         result.failures.length > 0 && /* @__PURE__ */ jsx("ul", { className: "list-disc space-y-1 pl-5 text-destructive", children: result.failures.map((failure) => /* @__PURE__ */ jsx("li", { children: failure }, failure)) })
