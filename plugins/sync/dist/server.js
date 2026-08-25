@@ -14599,7 +14599,8 @@ async function readCollectionManifest(repoPath) {
 }
 function statusPaths(status) {
   return status.split("\n").filter(Boolean).map((line) => {
-    const path = line.slice(3).trim();
+    const normalized = line.trim();
+    const path = (normalized[1] === " " ? normalized.slice(2) : normalized.slice(3)).trim();
     const renameParts = path.split(" -> ");
     return renameParts[renameParts.length - 1] ?? path;
   });

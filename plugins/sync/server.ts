@@ -86,7 +86,10 @@ async function readCollectionManifest(repoPath: string): Promise<CollectionManif
 
 function statusPaths(status: string): string[] {
   return status.split("\n").filter(Boolean).map((line) => {
-    const path = line.slice(3).trim();
+    // git() trims the complete command output, so the leading XY status column
+    // may lose its first space on the first line. Parse both forms.
+    const normalized = line.trim();
+    const path = (normalized[1] === " " ? normalized.slice(2) : normalized.slice(3)).trim();
     const renameParts = path.split(" -> ");
     return renameParts[renameParts.length - 1] ?? path;
   });
