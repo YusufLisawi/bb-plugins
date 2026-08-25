@@ -84,6 +84,18 @@ async function readCollectionManifest(repoPath: string): Promise<CollectionManif
   return collectionManifestSchema.parse(JSON.parse(raw));
 }
 
+function statusPaths(status: string): string[] {
+  return status.split("\n").filter(Boolean).map((line) => {
+    const path = line.slice(3).trim();
+    const renameParts = path.split(" -> ");
+    return renameParts[renameParts.length - 1] ?? path;
+  });
+}
+
+function isGeneratedArtifact(path: string): boolean {
+  return /^plugins\/[^/]+\/dist\//.test(path);
+}
+
 async function git(repoPath: string, args: string[], signal?: AbortSignal): Promise<string> {
   try {
     const { stdout, stderr } = await execFileAsync("git", ["-C", repoPath, ...args], {
@@ -186,20 +198,41 @@ export default async function plugin(bb: BbPluginApi) {
       if (resolve(root) !== repoPath) {
         throw new Error(`Plugin repository folder resolves to ${root}; choose the repository root, not a subfolder.`);
       }
-      const changes = await git(repoPath, [
-        "status",
-        "--porcelain",
-        "--untracked-files=all",
-        "--",
-        ".",
-        ":(exclude)plugins/**/dist/**",
-      ]);
-      if (changes) {
+      const changes = await git(repoPath, ["status", "--porcelain", "--untracked-files=all", "--", "."]);
+      const changedPaths = statusPaths(changes);
+      const sourceChanges = changedPaths.filter((path) => !isGeneratedArtifact(path));
+      if (sourceChanges.length > 0) {
         throw new Error("Your local plugin repository has uncommitted changes. Commit or stash them before syncing so nothing is overwritten.");
       }
 
+      let generatedArtifactsStashed = false;
+      if (changedPaths.length > 0) {
+        const stashResult = await git(repoPath, [
+          "stash",
+          "push",
+          "--include-untracked",
+          "--message",
+          "bb-sync-generated-artifacts",
+          "--",
+          "plugins/**/dist/**",
+        ]);
+        generatedArtifactsStashed = !stashResult.includes("No local changes to save");
+      }
+
       const before = await git(repoPath, ["rev-parse", "HEAD"]);
-      await git(repoPath, ["pull", "--ff-only"]);
+      try {
+        await git(repoPath, ["pull", "--ff-only"]);
+      } catch (error) {
+        if (generatedArtifactsStashed) {
+          try {
+            await git(repoPath, ["stash", "pop"]);
+          } catch (restoreError) {
+            const original = error instanceof Error ? error.message : String(error);
+            throw new Error(`${original} Generated artifacts were stashed for the failed pull and could not be restored automatically: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+          }
+        }
+        throw error;
+      }
       const after = await git(repoPath, ["rev-parse", "HEAD"]);
       const updated = before !== after;
       const collection = await readCollectionManifest(repoPath);

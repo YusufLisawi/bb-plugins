@@ -9,20 +9,23 @@ Make the Sync plugin make BB on each machine match the owned plugin collection i
 
 On every manual or automatic sync:
 
-1. Verify the configured checkout is clean, pull it with `git pull --ff-only`, and
-   read the collection manifest.
-2. For each collection entry, skip the Sync plugin itself because its current
+1. Verify the configured checkout has no source or configuration edits. Generated
+   `plugins/*/dist/**` artifacts are temporarily stashed as a recoverable local
+   stash so they cannot block a fast-forward pull; source edits still stop the
+   sync.
+2. Pull it with `git pull --ff-only`, and read the collection manifest.
+3. For each collection entry, skip the Sync plugin itself because its current
    process is handling the reconciliation.
-3. If the entry is missing from BB, install that entry from the private GitHub
+4. If the entry is missing from BB, install that entry from the private GitHub
    collection. This lets BB resolve the correct plugin directory, dependencies,
    app bundle, and server factory automatically. The first missing entry this
    fixes is Sidebar Plus on the Mac.
-4. If an entry is already installed from the private collection, apply an
+5. If an entry is already installed from the private collection, apply an
    available update and reload it when necessary.
-5. If the same plugin id is installed from another source, leave it untouched and
+6. If the same plugin id is installed from another source, leave it untouched and
    report the source conflict. Sync must not replace an existing plugin or remove
    its settings without an explicit user action.
-6. Never uninstall plugins that are absent from the collection, and never change
+7. Never uninstall plugins that are absent from the collection, and never change
    built-in, third-party, settings, tokens, or plugin data.
 
 ## Failure handling
