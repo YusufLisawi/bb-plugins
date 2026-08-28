@@ -29,6 +29,8 @@ const providerUsageSchema = z.discriminatedUnion("status", [
   }),
 ]);
 
+type ProviderUsage = z.infer<typeof providerUsageSchema>;
+
 const usageResponseSchema = z.object({
   claudeCode: providerUsageSchema,
   codex: providerUsageSchema,
@@ -49,7 +51,21 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     async getUsage() {
       const usage = await bb.sdk.system.usageLimits();
-      return { ...usage, fetchedAt: new Date().toISOString() };
+      // `usageLimits()` is keyed by the provider's registered id in current
+      // BB releases (for example, `claude-code` and `acp-cursor`). The first
+      // SDK version this plugin targeted exposed the same data with the
+      // display-oriented keys below, so normalize both shapes at this RPC
+      // boundary and keep the frontend contract stable.
+      const providers = usage as unknown as Record<string, ProviderUsage>;
+      const notInstalled: ProviderUsage = { status: "not_installed" };
+
+      return {
+        claudeCode:
+          providers["claude-code"] ?? providers.claudeCode ?? notInstalled,
+        codex: providers.codex ?? notInstalled,
+        cursor: providers["acp-cursor"] ?? providers.cursor ?? notInstalled,
+        fetchedAt: new Date().toISOString(),
+      };
     },
   });
 }
