@@ -17,7 +17,7 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
     >
       <StatusDot status={task.status} />
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-[13px] ${task.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}>
+        <span title={task.title} className={`block truncate text-[13px] ${task.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}>
           {task.title}
         </span>
         <span className="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">

@@ -1,9 +1,19 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { useBbContext, useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  experimental_useAppPanel,
+  useBbContext,
+  useBbNavigate,
+  useRpc,
+} from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract } from "../../../server.js";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../components/ui/label.js";
+import { SelectItem } from "../../components/ui/select.js";
+import { Skeleton } from "../../components/ui/skeleton.js";
+import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.js";
 import type {
   ConnectionStatus,
   CreateTaskInput,
@@ -13,9 +23,10 @@ import type {
   TaskStatus,
 } from "../../types.js";
 import { NewTaskDialog } from "../components/NewTaskDialog.js";
+import { SelectField } from "../components/SelectField.js";
 import { TaskRow } from "../components/TaskRow.js";
 import { parseTaskId, STATUS_OPTIONS, taskMatchesProject } from "../lib/helpers.js";
-import { TaskDetail } from "../panels/TaskDetail.js";
+import { TASK_DETAIL_TAB } from "../panels/task-detail-tab.js";
 
 type Tab = "mine" | "unclaimed";
 type StatusFilter = "open" | "all" | TaskStatus;
@@ -23,6 +34,7 @@ type StatusFilter = "open" | "all" | TaskStatus;
 export function DispatchPage({ subPath }: { subPath: string }) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
+  const appPanel = experimental_useAppPanel();
   const { projectId: currentBbProjectId } = useBbContext();
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [data, setData] = useState<MineTasksResponse | null>(null);
@@ -37,6 +49,7 @@ export function DispatchPage({ subPath }: { subPath: string }) {
   const [quickTitle, setQuickTitle] = useState("");
   const [quickProject, setQuickProject] = useState("");
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const openedTaskId = useRef<string | null>(null);
   const taskId = parseTaskId(subPath);
 
   const refresh = useCallback(async () => {
@@ -74,6 +87,23 @@ export function DispatchPage({ subPath }: { subPath: string }) {
     setQuickProject(mapped ?? remoteProjects[0]?.slug ?? "");
   }, [currentBbProjectId, mappedProjects, quickProject, remoteProjects]);
 
+  // Preserve direct task URLs while delegating the actual detail surface to
+  // BB's host-owned right panel. The target itself remains session-scoped.
+  useEffect(() => {
+    if (!taskId) {
+      openedTaskId.current = null;
+      return;
+    }
+    if (openedTaskId.current === taskId) return;
+    if (appPanel.openFixedTab({
+      surface: { kind: "current" },
+      tab: TASK_DETAIL_TAB,
+      target: { taskId },
+    })) {
+      openedTaskId.current = taskId;
+    }
+  }, [appPanel, taskId]);
+
   const projectOptions = remoteProjects.length > 0
     ? remoteProjects
     : data
@@ -81,13 +111,15 @@ export function DispatchPage({ subPath }: { subPath: string }) {
       : [];
 
   const projectById = data?.projects ?? {};
-  const sourceTasks = data ? (tab === "mine" ? data.mine : data.open) : [];
-  const filteredTasks = sourceTasks.filter((task) => {
-    if (statusFilter === "open" && task.status === "done") return false;
-    if (statusFilter !== "open" && statusFilter !== "all" && task.status !== statusFilter) return false;
-    if (projectFilter !== "all" && !taskMatchesProject(task, projectFilter)) return false;
-    return true;
-  });
+  const filteredTasks = useMemo(() => {
+    const sourceTasks = data ? (tab === "mine" ? data.mine : data.open) : [];
+    return sourceTasks.filter((task) => {
+      if (statusFilter === "open" && task.status === "done") return false;
+      if (statusFilter !== "open" && statusFilter !== "all" && task.status !== statusFilter) return false;
+      if (projectFilter !== "all" && !taskMatchesProject(task, projectFilter)) return false;
+      return true;
+    });
+  }, [data, projectFilter, statusFilter, tab]);
 
   const activeFilterCount = Number(statusFilter !== "open") + Number(projectFilter !== "all");
 
@@ -127,6 +159,15 @@ export function DispatchPage({ subPath }: { subPath: string }) {
 
   function openTask(task: DispatchTask) {
     setFiltersOpen(false);
+    if (!appPanel.openFixedTab({
+      surface: { kind: "current" },
+      tab: TASK_DETAIL_TAB,
+      target: { taskId: task.id },
+    })) {
+      toast.error("Could not open the BB task panel.");
+      return;
+    }
+    openedTaskId.current = task.id;
     navigate.toPluginPanel("tasks", { subPath: `task/${encodeURIComponent(task.id)}` });
   }
 
@@ -134,72 +175,84 @@ export function DispatchPage({ subPath }: { subPath: string }) {
   if (!status?.connected) return <ConnectionCard error={status?.error ?? error} />;
 
   return (
-    <div className="flex h-full min-h-0 bg-background text-foreground">
-      <div className={`flex min-w-0 flex-1 flex-col ${taskId ? "hidden md:flex" : ""}`}>
-        <div className="border-b border-border px-4 py-4 md:px-5">
-          <div className="mx-auto w-full max-w-4xl space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h1 className="text-balance text-lg font-semibold">My work</h1>
-                <p className="mt-1 text-pretty text-xs text-muted-foreground">Assigned to {status.user?.name ?? "you"}.</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button type="button" size="sm" variant="ghost" onClick={() => void refresh()} disabled={loading}>Refresh</Button>
-                <Button type="button" size="sm" onClick={() => setNewTaskOpen(true)}>New task</Button>
-              </div>
+    <div className="h-full min-h-0 overflow-y-auto bg-background text-foreground">
+      <main className="mx-auto w-full max-w-4xl px-4 py-4 md:px-5">
+        <header className="space-y-4 border-b border-border pb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-balance text-lg font-semibold">My work</h1>
+              <p className="mt-1 text-pretty text-xs text-muted-foreground">Assigned to {status.user?.name ?? "you"}.</p>
             </div>
-
-            <form className="flex flex-wrap gap-2" onSubmit={createQuickTask} aria-label="Quick add task">
-              <label className="sr-only" htmlFor="quick-add-title">Quick add task</label>
-              <input id="quick-add-title" value={quickTitle} onChange={(event) => setQuickTitle(event.target.value)} placeholder="Add a task…" className="h-9 min-w-48 flex-1 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-1 focus:ring-ring" />
-              <label className="sr-only" htmlFor="quick-add-project">Project for quick add</label>
-              <select id="quick-add-project" value={quickProject} onChange={(event) => setQuickProject(event.target.value)} className="h-9 max-w-52 rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus:ring-1 focus:ring-ring">
-                {projectOptions.map((project) => <option key={project.id} value={project.slug}>{project.name}</option>)}
-              </select>
-              <Button type="submit" size="sm" variant="outline" disabled={!quickTitle.trim() || !quickProject}>Add</Button>
-            </form>
-
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex rounded-md border border-border p-0.5" role="tablist" aria-label="Task view">
-                <Button type="button" size="sm" variant="ghost" role="tab" aria-selected={tab === "mine"} onClick={() => setTab("mine")} className={tab === "mine" ? "bg-state-active text-foreground" : "text-muted-foreground"}>Mine</Button>
-                <Button type="button" size="sm" variant="ghost" role="tab" aria-selected={tab === "unclaimed"} onClick={() => setTab("unclaimed")} className={tab === "unclaimed" ? "bg-state-active text-foreground" : "text-muted-foreground"}>Unclaimed</Button>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                aria-expanded={filtersOpen}
-                aria-controls="task-filters"
-                onClick={() => setFiltersOpen((open) => !open)}
-              >
-                Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}
-              </Button>
+            <div className="flex items-center gap-1">
+              <Button type="button" size="sm" variant="ghost" onClick={() => void refresh()} disabled={loading}>Refresh</Button>
+              <Button type="button" size="sm" onClick={() => setNewTaskOpen(true)}>New task</Button>
             </div>
-
-            {filtersOpen ? (
-              <div id="task-filters" className="grid gap-3 rounded-md border border-border bg-card p-3 sm:grid-cols-2">
-                <div className="grid gap-1.5">
-                  <label className="text-xs font-medium" htmlFor="task-status-filter">Status</label>
-                  <select id="task-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus:ring-1 focus:ring-ring">
-                    <option value="open">Open tasks</option>
-                    <option value="all">All tasks</option>
-                    {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
-                </div>
-                <div className="grid gap-1.5">
-                  <label className="text-xs font-medium" htmlFor="task-project-filter">Project</label>
-                  <select id="task-project-filter" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus:ring-1 focus:ring-ring">
-                    <option value="all">All projects</option>
-                    {projectOptions.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-                  </select>
-                </div>
-              </div>
-            ) : null}
           </div>
-        </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-5">
-        <div className="mx-auto w-full max-w-4xl space-y-3">
+          <form className="flex flex-col gap-2 sm:flex-row" onSubmit={createQuickTask} aria-label="Quick add task">
+            <div className="min-w-0 flex-1">
+              <Label className="sr-only" htmlFor="quick-add-title">Quick add task</Label>
+              <Input
+                id="quick-add-title"
+                value={quickTitle}
+                onChange={(event) => setQuickTitle(event.target.value)}
+                placeholder="Add a task…"
+              />
+            </div>
+            <SelectField
+              id="quick-add-project"
+              label="Project for quick add"
+              labelClassName="sr-only"
+              value={quickProject}
+              onValueChange={setQuickProject}
+              placeholder="Project"
+              className="w-full sm:w-52"
+            >
+              {projectOptions.map((project) => <SelectItem key={project.id} value={project.slug}>{project.name}</SelectItem>)}
+            </SelectField>
+            <Button type="submit" size="sm" variant="outline" disabled={!quickTitle.trim() || !quickProject}>Add</Button>
+          </form>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+              <TabsList aria-label="Task view" className="h-8 rounded-md">
+                <TabsTrigger value="mine" className="px-2.5 text-xs">Mine</TabsTrigger>
+                <TabsTrigger value="unclaimed" className="px-2.5 text-xs">Unclaimed</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-expanded={filtersOpen}
+              aria-controls="task-filters"
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}
+            </Button>
+          </div>
+
+          {filtersOpen ? (
+            <div id="task-filters" className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
+              <SelectField
+                id="task-status-filter"
+                label="Status"
+                value={statusFilter}
+                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+              >
+                <SelectItem value="open">Open tasks</SelectItem>
+                <SelectItem value="all">All tasks</SelectItem>
+                {STATUS_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+              </SelectField>
+              <SelectField id="task-project-filter" label="Project" value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectItem value="all">All projects</SelectItem>
+                {projectOptions.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}
+              </SelectField>
+            </div>
+          ) : null}
+        </header>
+
+        <section className="space-y-3 py-4" aria-label="Dispatch tasks">
           {error ? <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{error}</p> : null}
           {grouped.length === 0 ? (
             <EmptyState tab={tab} onCreate={() => setNewTaskOpen(true)} />
@@ -211,50 +264,37 @@ export function DispatchPage({ subPath }: { subPath: string }) {
                   <span className="text-xs font-normal text-muted-foreground">{tasks.length} task{tasks.length === 1 ? "" : "s"}</span>
                 </summary>
                 <div className="border-t border-border">
-                  {tasks.map((task) => (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      onOpen={() => openTask(task)}
-                    />
-                  ))}
+                  {tasks.map((task) => <TaskRow key={task.id} task={task} onOpen={() => openTask(task)} />)}
                 </div>
               </details>
             </Card>
           ))}
-        </div>
-        </div>
+        </section>
+      </main>
 
-        <NewTaskDialog
-          open={newTaskOpen}
-          onOpenChange={setNewTaskOpen}
-          projects={projectOptions}
-          defaultProjectSlug={quickProject}
-          parentOptions={data?.mine.filter((task) => !task.parentTaskId) ?? []}
-          onCreate={createTask}
-        />
-      </div>
-
-      {taskId ? (
-        <aside className="min-w-0 flex-1 shrink-0 border-l border-border bg-background md:flex-none md:w-[30rem] lg:w-[34rem]" aria-label="Task details">
-          <TaskDetail subPath={subPath} onClose={() => navigate.toPluginPanel("tasks", { subPath: "" })} />
-        </aside>
-      ) : null}
+      <NewTaskDialog
+        open={newTaskOpen}
+        onOpenChange={setNewTaskOpen}
+        projects={projectOptions}
+        defaultProjectSlug={quickProject}
+        parentOptions={data?.mine.filter((task) => !task.parentTaskId) ?? []}
+        onCreate={createTask}
+      />
     </div>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-5">
+    <div className="h-full overflow-y-auto p-4 md:p-5" role="status" aria-label="Loading Dispatch tasks">
       <div className="mx-auto w-full max-w-4xl space-y-3">
         <div className="flex items-center justify-between">
-          <div className="space-y-2"><div className="h-5 w-28 rounded bg-muted" /><div className="h-3 w-36 rounded bg-muted" /></div>
-          <div className="h-8 w-24 rounded bg-muted" />
+          <div className="space-y-2"><Skeleton className="h-5 w-28" /><Skeleton className="h-3 w-36" /></div>
+          <Skeleton className="h-8 w-24" />
         </div>
-        <div className="h-9 w-full rounded-md bg-muted" />
+        <Skeleton className="h-9 w-full" />
         <div className="overflow-hidden rounded-lg border border-border bg-card">
-          {[1, 2, 3, 4].map((row) => <div key={row} className="h-14 border-b border-border/70 last:border-b-0" />)}
+          {[1, 2, 3, 4].map((row) => <Skeleton key={row} className="h-14 rounded-none border-b border-border/70 last:border-b-0" />)}
         </div>
       </div>
     </div>

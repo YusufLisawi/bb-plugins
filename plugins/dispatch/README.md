@@ -1,11 +1,13 @@
 # BB Dispatch plugin
 
 Dispatch task management inside BB. The plugin gives you a full-width,
-BB-native work queue for assigned and unclaimed work, quick add, and a task
-detail drawer that opens only when you select a task. Filters and advanced
-creation fields stay out of the way until needed. The drawer includes task
-editing, comments, subtasks, deletion, claiming, and a pre-filled BB thread
-composer for starting work.
+BB-native work queue for assigned and unclaimed work, quick add, and a
+host-owned Task tab in BB's right panel. Selecting a task opens its details in
+that native panel instead of splitting the Dispatch page. Filters and advanced
+creation fields stay out of the way until needed, while the list header and
+rows share one normal scrolling surface. The Task tab includes editing,
+comments, subtasks, deletion, claiming, and a pre-filled BB thread composer
+for starting work.
 
 The backend talks directly to the Dispatch REST API at `/api/v1`. It does not
 require the Dispatch CLI to be installed in the BB host.
@@ -69,7 +71,7 @@ npx tsc --noEmit
 bb plugin build
 ```
 
-The UI uses vendored components in `components/ui/` and the BB-shimmed
-`sonner` package for toast notifications. The generated `dist/` artifacts are
-committed so managed Git installs can load the plugin without a local npm
-toolchain; rebuild them whenever source changes.
+The UI uses vendored BB components in `components/ui/` and `src/components/ui/`
+and the BB-shimmed `sonner` package for toast notifications. The generated
+`dist/` artifacts are committed so managed Git installs can load the plugin
+without a local npm toolchain; rebuild them whenever source changes.

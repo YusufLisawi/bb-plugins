@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "../../../server.js";
 import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
 import {
   Dialog,
   DialogClose,
@@ -11,8 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../components/ui/dialog";
+import { Label } from "../../components/ui/label.js";
+import { SelectItem } from "../../components/ui/select.js";
+import { Textarea } from "../../components/ui/textarea.js";
 import type { CreateTaskInput, DispatchProject, DispatchTask, Member, TaskPriority, TaskVisibility } from "../../types.js";
 import { PRIORITY_OPTIONS } from "../lib/helpers.js";
+import { SelectField } from "./SelectField.js";
 
 interface NewTaskDialogProps {
   open: boolean;
@@ -23,7 +28,8 @@ interface NewTaskDialogProps {
   onCreate: (input: CreateTaskInput) => Promise<void>;
 }
 
-const selectClass = "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring";
+const UNASSIGNED_VALUE = "__dispatch_unassigned__";
+const TOP_LEVEL_VALUE = "__dispatch_top_level__";
 
 export function NewTaskDialog({
   open,
@@ -114,37 +120,48 @@ export function NewTaskDialog({
         </DialogHeader>
         <form className="grid gap-4" onSubmit={submit}>
           <div className="grid gap-1.5">
-            <label className="text-xs font-medium" htmlFor="new-task-title">Title</label>
-            <input id="new-task-title" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} className={selectClass} placeholder="What needs doing?" />
+            <Label className="text-xs" htmlFor="new-task-title">Title</Label>
+            <Input id="new-task-title" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What needs doing?" />
           </div>
           <div className="grid gap-1.5">
-            <label className="text-xs font-medium" htmlFor="new-task-description">Description</label>
-            <textarea id="new-task-description" value={description} onChange={(event) => setDescription(event.target.value)} className="min-h-24 resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus:ring-1 focus:ring-ring" placeholder="Context, acceptance criteria, links…" />
+            <Label className="text-xs" htmlFor="new-task-description">Description</Label>
+            <Textarea id="new-task-description" value={description} onChange={(event) => setDescription(event.target.value)} className="min-h-24" placeholder="Context, acceptance criteria, links…" />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <FieldSelect label="Project" id="new-task-project" value={projectSlug} onChange={setProjectSlug}>
-              {projects.map((project) => <option key={project.id} value={project.slug}>{project.name}</option>)}
-            </FieldSelect>
-            <FieldSelect label="Priority" id="new-task-priority" value={priority} onChange={(value) => setPriority(value as TaskPriority)}>
-              {PRIORITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </FieldSelect>
+            <SelectField id="new-task-project" label="Project" value={projectSlug} onValueChange={setProjectSlug}>
+              {projects.map((project) => <SelectItem key={project.id} value={project.slug}>{project.name}</SelectItem>)}
+            </SelectField>
+            <SelectField id="new-task-priority" label="Priority" value={priority} onValueChange={(value) => setPriority(value as TaskPriority)}>
+              {PRIORITY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+            </SelectField>
           </div>
           <details open={advancedOpen} onToggle={(event) => setAdvancedOpen(event.currentTarget.open)} className="rounded-md border border-border px-3">
             <summary className="cursor-pointer py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">More options</summary>
             <div className="grid gap-3 border-t border-border py-3 sm:grid-cols-2">
-              <FieldSelect label="Visibility" id="new-task-visibility" value={visibility} onChange={(value) => setVisibility(value as TaskVisibility)}>
-                <option value="public">Public to project</option>
-                <option value="assigned">Private</option>
-                <option value="personal">Personal</option>
-              </FieldSelect>
-              <FieldSelect label="Assignee" id="new-task-assignee" value={assigneeId} onChange={setAssigneeId}>
-                <option value="">Unassigned</option>
-                {members.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-              </FieldSelect>
-              <FieldSelect label="Parent task (optional)" id="new-task-parent" value={parent} onChange={setParent}>
-                <option value="">Top-level task</option>
-                {parentOptions.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
-              </FieldSelect>
+              <SelectField id="new-task-visibility" label="Visibility" value={visibility} onValueChange={(value) => setVisibility(value as TaskVisibility)}>
+                <SelectItem value="public">Public to project</SelectItem>
+                <SelectItem value="assigned">Private</SelectItem>
+                <SelectItem value="personal">Personal</SelectItem>
+              </SelectField>
+              <SelectField
+                id="new-task-assignee"
+                label="Assignee"
+                value={assigneeId || UNASSIGNED_VALUE}
+                onValueChange={(value) => setAssigneeId(value === UNASSIGNED_VALUE ? "" : value)}
+              >
+                <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
+                {members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}
+              </SelectField>
+              <SelectField
+                id="new-task-parent"
+                label="Parent task (optional)"
+                value={parent || TOP_LEVEL_VALUE}
+                onValueChange={(value) => setParent(value === TOP_LEVEL_VALUE ? "" : value)}
+                className="sm:col-span-2"
+              >
+                <SelectItem value={TOP_LEVEL_VALUE}>Top-level task</SelectItem>
+                {parentOptions.map((task) => <SelectItem key={task.id} value={task.id}>{task.title}</SelectItem>)}
+              </SelectField>
             </div>
           </details>
           {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
@@ -155,26 +172,5 @@ export function NewTaskDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function FieldSelect({
-  label,
-  id,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="grid gap-1.5">
-      <label className="text-xs font-medium" htmlFor={id}>{label}</label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className={selectClass}>{children}</select>
-    </div>
   );
 }

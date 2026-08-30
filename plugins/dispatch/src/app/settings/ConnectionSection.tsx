@@ -4,9 +4,9 @@ import { toast } from "sonner";
 import type { rpcContract } from "../../../server.js";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../components/ui/label.js";
 import type { ConnectionStatus } from "../../types.js";
-
-const inputClass = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus:ring-1 focus:ring-ring";
 
 export function ConnectionSection() {
   const rpc = useRpc<typeof rpcContract>();
@@ -88,28 +88,37 @@ export function ConnectionSection() {
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-1.5">
-          <label className="text-xs font-medium" htmlFor="dispatch-base-url">Dispatch URL</label>
-          <input id="dispatch-base-url" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} className={inputClass} disabled={settingsLoading || busy !== null} />
+          <Label className="text-xs" htmlFor="dispatch-base-url">Dispatch URL</Label>
+          <Input id="dispatch-base-url" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} disabled={settingsLoading || busy !== null} />
         </div>
 
-        <div className="space-y-3 rounded-md border border-border p-3">
-          <div><h3 className="text-sm font-medium">Use an API key</h3><p className="mt-1 text-xs text-muted-foreground">Paste a personal key from Dispatch. It is never sent to the browser page after saving.</p></div>
-          <div className="flex flex-wrap gap-2"><label className="sr-only" htmlFor="dispatch-api-key">Dispatch API key</label><input id="dispatch-api-key" type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} className={`${inputClass} min-w-56 flex-1`} placeholder="dsp_…" autoComplete="off" /><Button type="button" size="sm" onClick={() => void saveKey()} disabled={busy !== null}>{busy === "key" ? "Saving…" : "Save key"}</Button></div>
-        </div>
+        <section className="space-y-3 rounded-md border border-border p-3" aria-labelledby="api-key-heading">
+          <div><h3 id="api-key-heading" className="text-sm font-medium">Use an API key</h3><p className="mt-1 text-xs text-muted-foreground">Paste a personal key from Dispatch. It is never sent to the browser page after saving.</p></div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-56 flex-1 space-y-1.5">
+              <Label className="text-xs" htmlFor="dispatch-api-key">Dispatch API key</Label>
+              <Input id="dispatch-api-key" type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="dsp_…" autoComplete="off" />
+            </div>
+            <Button type="button" size="sm" onClick={() => void saveKey()} disabled={busy !== null}>{busy === "key" ? "Saving…" : "Save key"}</Button>
+          </div>
+        </section>
 
-        <div className="space-y-2 rounded-md border border-border p-3">
-          <div><h3 className="text-sm font-medium">Use the CLI key</h3><p className="mt-1 text-xs text-muted-foreground">Read <code className="rounded bg-muted px-1">~/.dispatch/config.json</code> from the connected BB host.</p></div>
+        <section className="space-y-2 rounded-md border border-border p-3" aria-labelledby="cli-key-heading">
+          <div><h3 id="cli-key-heading" className="text-sm font-medium">Use the CLI key</h3><p className="mt-1 text-xs text-muted-foreground">Read <code className="rounded bg-muted px-1">~/.dispatch/config.json</code> from the connected BB host.</p></div>
           <Button type="button" size="sm" variant="outline" onClick={() => void importCliKey()} disabled={busy !== null}>{busy === "cli" ? "Importing…" : "Use CLI key"}</Button>
-        </div>
+        </section>
 
-        <div className="space-y-3 rounded-md border border-border p-3">
-          <div><h3 className="text-sm font-medium">Sign in with Dispatch</h3><p className="mt-1 text-xs text-muted-foreground">This issues a separate API key labelled for the BB plugin.</p></div>
-          <div className="grid gap-2 sm:grid-cols-2"><div><label className="sr-only" htmlFor="dispatch-email">Email</label><input id="dispatch-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} className={inputClass} placeholder="you@example.com" autoComplete="email" /></div><div><label className="sr-only" htmlFor="dispatch-password">Password</label><input id="dispatch-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} className={inputClass} placeholder="Password" autoComplete="current-password" /></div></div>
+        <section className="space-y-3 rounded-md border border-border p-3" aria-labelledby="sign-in-heading">
+          <div><h3 id="sign-in-heading" className="text-sm font-medium">Sign in with Dispatch</h3><p className="mt-1 text-xs text-muted-foreground">This issues a separate API key labelled for the BB plugin.</p></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5"><Label className="text-xs" htmlFor="dispatch-email">Email</Label><Input id="dispatch-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" /></div>
+            <div className="grid gap-1.5"><Label className="text-xs" htmlFor="dispatch-password">Password</Label><Input id="dispatch-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" autoComplete="current-password" /></div>
+          </div>
           <Button type="button" size="sm" variant="outline" onClick={() => void signIn()} disabled={busy !== null}>{busy === "login" ? "Signing in…" : "Sign in"}</Button>
-        </div>
+        </section>
 
         {error ? <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{error}</p> : null}
-        {status?.connected ? <p className="text-xs text-muted-foreground">Connected as <span className="font-medium text-foreground">{status.user?.name}</span> · {status.baseUrl}</p> : status?.error ? <p className="text-xs text-muted-foreground">Not connected: {status.error}</p> : null}
+        {status?.connected ? <p className="text-xs text-muted-foreground" aria-live="polite">Connected as <span className="font-medium text-foreground">{status.user?.name}</span> · {status.baseUrl}</p> : status?.error ? <p className="text-xs text-muted-foreground">Not connected: {status.error}</p> : null}
       </CardContent>
     </Card>
   );

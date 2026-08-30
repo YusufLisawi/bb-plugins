@@ -1,6 +1,8 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { OpenCount } from "./src/app/components/OpenCount.js";
 import { DispatchPage } from "./src/app/pages/DispatchPage.js";
+import { TaskDetailPanel } from "./src/app/panels/TaskDetail.js";
+import { TASK_DETAIL_TAB } from "./src/app/panels/task-detail-tab.js";
 import { ConnectionSection } from "./src/app/settings/ConnectionSection.js";
 
 export default definePluginApp((app) => {
@@ -10,6 +12,15 @@ export default definePluginApp((app) => {
     icon: "ListChecks",
     path: "tasks",
     component: DispatchPage,
+    fixedTabs: [
+      {
+        ...TASK_DETAIL_TAB,
+        title: "Task",
+        icon: "ListChecks",
+        component: TaskDetailPanel,
+        layout: "flush",
+      },
+    ],
     experimental_sidebarAccessory: OpenCount,
   });
 

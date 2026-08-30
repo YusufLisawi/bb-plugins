@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Markdown,
   experimental_NewThreadComposer as NewThreadComposer,
+  experimental_useFixedTabTarget,
   useBbNavigate,
   useRpc,
   type NewThreadRequest,
+  type PluginNavPanelProps,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract } from "../../../server.js";
 import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,24 +23,44 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Label } from "../../components/ui/label.js";
+import { SelectItem } from "../../components/ui/select.js";
+import { Skeleton } from "../../components/ui/skeleton.js";
+import { Textarea } from "../../components/ui/textarea.js";
 import type { DispatchComment, DispatchTask, Member, TaskPriority, TaskStatus, TaskVisibility, TaskDetailResponse } from "../../types.js";
 import { buildTaskPrompt } from "../../thread-prompt.js";
-import { formatRelativeDate, PRIORITY_LABELS, PRIORITY_OPTIONS, STATUS_LABELS, STATUS_OPTIONS, parseTaskId } from "../lib/helpers.js";
+import { SelectField } from "../components/SelectField.js";
 import { StatusPill } from "../components/StatusPill.js";
+import { formatRelativeDate, PRIORITY_LABELS, PRIORITY_OPTIONS, STATUS_LABELS, STATUS_OPTIONS, parseTaskId } from "../lib/helpers.js";
+import { TASK_DETAIL_TAB, type TaskDetailTabTarget } from "./task-detail-tab.js";
 
-interface TaskDetailProps {
-  subPath: string;
-  onClose?: () => void;
+const UNASSIGNED_VALUE = "__dispatch_unassigned__";
+
+/**
+ * A host-owned Dispatch task tab. BB supplies the panel chrome and tab strip;
+ * this component only renders the selected task content inside that surface.
+ */
+export function TaskDetailPanel({ subPath }: PluginNavPanelProps) {
+  const navigate = useBbNavigate();
+  const targetState = experimental_useFixedTabTarget<TaskDetailTabTarget>(TASK_DETAIL_TAB);
+  const routeTaskId = parseTaskId(subPath);
+
+  if (!routeTaskId) return <NoTaskSelected />;
+  if (!targetState || targetState.target.taskId !== routeTaskId) return <DetailLoading />;
+
+  return (
+    <TaskDetailContent
+      key={`${targetState.sequence}-${routeTaskId}`}
+      taskId={routeTaskId}
+      onTaskDeleted={() => {
+        targetState.clear();
+        navigate.toPluginPanel("tasks", { subPath: "", replace: true });
+      }}
+    />
+  );
 }
 
-export function TaskDetail({ subPath, onClose }: TaskDetailProps) {
-  const taskId = parseTaskId(subPath);
-  if (!taskId) return <NoTaskSelected />;
-  return <TaskDetailContent key={taskId} taskId={taskId} onClose={onClose} />;
-}
-
-function TaskDetailContent({ taskId, onClose }: { taskId: string; onClose?: () => void }) {
+function TaskDetailContent({ taskId, onTaskDeleted }: { taskId: string; onTaskDeleted: () => void }) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const [detail, setDetail] = useState<TaskDetailResponse | null>(null);
@@ -165,7 +189,7 @@ function TaskDetailContent({ taskId, onClose }: { taskId: string; onClose?: () =
       await rpc.call("deleteTask", { id: taskId });
       toast.success("Task deleted");
       setDeleteOpen(false);
-      navigate.toPluginPanel("tasks", { subPath: "", replace: true });
+      onTaskDeleted();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Could not delete the task.");
     }
@@ -188,19 +212,27 @@ function TaskDetailContent({ taskId, onClose }: { taskId: string; onClose?: () =
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto bg-background text-foreground">
-      <div className="border-b border-border px-4 py-3">
+      <header className="border-b border-border px-4 py-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[11px] text-muted-foreground">{detail.project?.name ?? "Dispatch task"} · {task.id}</p>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} onBlur={() => { if (title.trim() && title.trim() !== task.title) void patch({ title: title.trim() }); }} className="mt-1 w-full min-w-0 border-0 bg-transparent p-0 text-balance text-base font-semibold outline-none focus:ring-0" aria-label="Task title" />
+            <Input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              onBlur={() => {
+                const nextTitle = title.trim();
+                if (nextTitle && nextTitle !== task.title) void patch({ title: nextTitle }).catch(() => undefined);
+              }}
+              className="mt-1 h-auto border-0 px-0 py-0 text-base font-semibold shadow-none focus-visible:ring-0"
+              aria-label="Task title"
+            />
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {task.assigneeIds.length === 0 ? <Button type="button" size="sm" variant="outline" onClick={() => void claimTask()} disabled={claimSaving}>{claimSaving ? "Claiming…" : "Claim task"}</Button> : null}
-            {onClose ? <Button type="button" size="sm" variant="ghost" onClick={onClose}>Close</Button> : null}
             <Button type="button" size="sm" variant="ghost" onClick={() => setDeleteOpen(true)} aria-label="Delete task">Delete</Button>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="min-h-0 flex-1 p-4">
         <div className="mx-auto w-full max-w-3xl space-y-4">
@@ -209,8 +241,17 @@ function TaskDetailContent({ taskId, onClose }: { taskId: string; onClose?: () =
           <Card>
             <CardContent className="space-y-3 p-4">
               <div className="grid gap-1.5">
-                <label className="text-xs font-medium" htmlFor="task-description">Description</label>
-                <textarea id="task-description" value={description} onChange={(event) => setDescription(event.target.value)} onBlur={() => { if (description !== task.description) void patch({ description }); }} className="min-h-28 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-6 outline-none focus:ring-1 focus:ring-ring" placeholder="Add context or acceptance criteria…" />
+                <Label className="text-xs" htmlFor="task-description">Description</Label>
+                <Textarea
+                  id="task-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  onBlur={() => {
+                    if (description !== task.description) void patch({ description }).catch(() => undefined);
+                  }}
+                  className="min-h-28 leading-6"
+                  placeholder="Add context or acceptance criteria…"
+                />
                 {task.description ? <details className="rounded-md border border-border px-3">
                   <summary className="cursor-pointer py-2 text-xs font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">Preview</summary>
                   <Markdown content={task.description} className="border-t border-border py-3 text-sm" />
@@ -218,23 +259,28 @@ function TaskDetailContent({ taskId, onClose }: { taskId: string; onClose?: () =
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <FieldSelect label="Status" id="task-status" value={task.status} onChange={(value) => void patch({ status: value as TaskStatus })}>
-                  {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </FieldSelect>
-                <FieldSelect label="Priority" id="task-priority" value={task.priority} onChange={(value) => void patch({ priority: value as TaskPriority })}>
-                  {PRIORITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </FieldSelect>
-                <FieldSelect label="Visibility" id="task-visibility" value={task.visibility} onChange={(value) => void patch({ visibility: value as TaskVisibility })}>
-                  <option value="public">Public to project</option>
-                  <option value="assigned">Private</option>
-                  <option value="personal">Personal</option>
-                </FieldSelect>
-                <FieldSelect label="Assignee" id="task-assignee" value={currentAssignee} onChange={(value) => void patch({ assignee: value || null })}>
-                  <option value="">Unassigned</option>
-                  {assigneeOptions.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-                </FieldSelect>
+                <SelectField id="task-status" label="Status" value={task.status} onValueChange={(value) => void patch({ status: value as TaskStatus }).catch(() => undefined)}>
+                  {STATUS_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                </SelectField>
+                <SelectField id="task-priority" label="Priority" value={task.priority} onValueChange={(value) => void patch({ priority: value as TaskPriority }).catch(() => undefined)}>
+                  {PRIORITY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                </SelectField>
+                <SelectField id="task-visibility" label="Visibility" value={task.visibility} onValueChange={(value) => void patch({ visibility: value as TaskVisibility }).catch(() => undefined)}>
+                  <SelectItem value="public">Public to project</SelectItem>
+                  <SelectItem value="assigned">Private</SelectItem>
+                  <SelectItem value="personal">Personal</SelectItem>
+                </SelectField>
+                <SelectField
+                  id="task-assignee"
+                  label="Assignee"
+                  value={currentAssignee || UNASSIGNED_VALUE}
+                  onValueChange={(value) => void patch({ assignee: value === UNASSIGNED_VALUE ? null : value }).catch(() => undefined)}
+                >
+                  <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
+                  {assigneeOptions.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}
+                </SelectField>
               </div>
-              {saving ? <p className="text-xs text-muted-foreground">Saving…</p> : null}
+              {saving ? <p className="text-xs text-muted-foreground" aria-live="polite">Saving…</p> : null}
             </CardContent>
           </Card>
 
@@ -245,7 +291,7 @@ function TaskDetailContent({ taskId, onClose }: { taskId: string; onClose?: () =
             <Card>
               <CardContent className="p-0">
                 {detail.subtasks.length === 0 ? <p className="px-3 py-4 text-sm text-muted-foreground">No subtasks yet.</p> : detail.subtasks.map((subtask) => <SubtaskRow key={subtask.id} task={subtask} onOpen={() => navigate.toPluginPanel("tasks", { subPath: `task/${encodeURIComponent(subtask.id)}` })} />)}
-                {detail.project ? <form className="flex gap-2 border-t border-border p-3" onSubmit={addSubtask}><label className="sr-only" htmlFor="new-subtask-title">New subtask</label><input id="new-subtask-title" value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus:ring-1 focus:ring-ring" placeholder="Add a subtask…" /><Button type="submit" size="sm" variant="outline" disabled={subtaskSaving || !subtaskTitle.trim()}>{subtaskSaving ? "Adding…" : "Add"}</Button></form> : null}
+                {detail.project ? <form className="flex gap-2 border-t border-border p-3" onSubmit={addSubtask}><Label className="sr-only" htmlFor="new-subtask-title">New subtask</Label><Input id="new-subtask-title" value={subtaskTitle} onChange={(event) => setSubtaskTitle(event.target.value)} className="h-8 min-w-0 flex-1 px-2.5 text-sm" placeholder="Add a subtask…" /><Button type="submit" size="sm" variant="outline" disabled={subtaskSaving || !subtaskTitle.trim()}>{subtaskSaving ? "Adding…" : "Add"}</Button></form> : null}
               </CardContent>
             </Card>
           </section>
@@ -256,8 +302,8 @@ function TaskDetailContent({ taskId, onClose }: { taskId: string; onClose?: () =
               <CardContent className="space-y-3 p-3">
                 {comments.length === 0 ? <p className="text-sm text-muted-foreground">No comments yet.</p> : comments.map((item) => <CommentRow key={item.id} comment={item} />)}
                 <form className="flex items-end gap-2 border-t border-border pt-3" onSubmit={addComment}>
-                  <label className="sr-only" htmlFor="task-comment">Add a comment</label>
-                  <textarea id="task-comment" value={comment} onChange={(event) => setComment(event.target.value)} className="min-h-9 flex-1 resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus:ring-1 focus:ring-ring" placeholder="Write a progress note…" />
+                  <Label className="sr-only" htmlFor="task-comment">Add a comment</Label>
+                  <Textarea id="task-comment" value={comment} onChange={(event) => setComment(event.target.value)} className="min-h-9 flex-1 py-2" placeholder="Write a progress note…" />
                   <Button type="submit" size="sm" disabled={commentSaving || !comment.trim()}>{commentSaving ? "Sending…" : "Comment"}</Button>
                 </form>
               </CardContent>
@@ -287,10 +333,6 @@ function TaskDetailContent({ taskId, onClose }: { taskId: string; onClose?: () =
   );
 }
 
-function FieldSelect({ label, id, value, onChange, children }: { label: string; id: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
-  return <div className="grid gap-1.5"><label className="text-xs font-medium" htmlFor={id}>{label}</label><select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus:ring-1 focus:ring-ring">{children}</select></div>;
-}
-
 function SubtaskRow({ task, onOpen }: { task: DispatchTask; onOpen: () => void }) {
   return <button type="button" onClick={onOpen} className="flex w-full items-center gap-2 border-b border-border/70 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"><StatusPill status={task.status} /><span className="min-w-0 flex-1 truncate">{task.title}</span><span className="text-[11px] text-muted-foreground">{PRIORITY_LABELS[task.priority]}</span></button>;
 }
@@ -300,11 +342,11 @@ function CommentRow({ comment }: { comment: DispatchComment }) {
 }
 
 function NoTaskSelected() {
-  return <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">Select a task to open its details.</div>;
+  return <div className="flex h-full items-center justify-center p-6 text-center"><div className="max-w-56 space-y-1"><p className="text-sm font-medium text-foreground">Select a task</p><p className="text-xs leading-5 text-muted-foreground">Choose a task from Dispatch to view its details and start work in BB.</p></div></div>;
 }
 
 function DetailLoading() {
-  return <div className="space-y-4 p-4"><div className="h-6 w-40 rounded bg-muted" /><div className="h-48 rounded-lg border border-border bg-card" /><div className="h-32 rounded-lg border border-border bg-card" /></div>;
+  return <div className="space-y-4 p-4" role="status" aria-label="Loading task"><Skeleton className="h-6 w-40" /><Skeleton className="h-48" /><Skeleton className="h-32" /></div>;
 }
 
 function DetailError({ message, onRetry }: { message: string; onRetry: () => void }) {
