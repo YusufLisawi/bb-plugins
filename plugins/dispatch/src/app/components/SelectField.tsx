@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
-import { Label } from "../../components/ui/label.js";
+import { Field, FieldError, FieldLabel } from "../../../components/ui/field.js";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select.js";
 import { cn } from "../../lib/utils.js";
+import { FORM_CONTROL_CLASS, PROPERTY_CONTROL_CLASS } from "./controlStyles.js";
 
 interface SelectFieldProps {
   id: string;
@@ -17,7 +19,10 @@ interface SelectFieldProps {
   children: ReactNode;
   className?: string;
   labelClassName?: string;
+  triggerClassName?: string;
   disabled?: boolean;
+  variant?: "default" | "property";
+  error?: string;
 }
 
 /**
@@ -34,21 +39,42 @@ export function SelectField({
   children,
   className,
   labelClassName,
+  triggerClassName,
   disabled = false,
+  variant = "default",
+  error,
 }: SelectFieldProps) {
   const labelId = `${id}-label`;
+  const errorId = `${id}-error`;
 
   return (
-    <div className={cn("grid gap-1.5", className)}>
-      <Label id={labelId} htmlFor={id} className={cn("text-xs", labelClassName)}>
+    <Field className={className} invalid={Boolean(error)}>
+      <FieldLabel
+        id={labelId}
+        htmlFor={id}
+        className={cn(
+          variant === "property" && "text-[11px] font-medium text-muted-foreground",
+          labelClassName,
+        )}
+      >
         {label}
-      </Label>
+      </FieldLabel>
       <Select value={value || undefined} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger id={id} aria-labelledby={labelId}>
+        <SelectTrigger
+          id={id}
+          aria-labelledby={labelId}
+          aria-invalid={Boolean(error) || undefined}
+          aria-describedby={error ? errorId : undefined}
+          className={cn(
+            variant === "property" ? PROPERTY_CONTROL_CLASS : FORM_CONTROL_CLASS,
+            triggerClassName,
+          )}
+        >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent>{children}</SelectContent>
+        <SelectContent><SelectGroup>{children}</SelectGroup></SelectContent>
       </Select>
-    </div>
+      {error ? <FieldError id={errorId}>{error}</FieldError> : null}
+    </Field>
   );
 }

@@ -8,9 +8,9 @@ import {
 import { toast } from "sonner";
 import type { rpcContract } from "../../../server.js";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Icon } from "../../../components/ui/icon.js";
 import { Input } from "../../../components/ui/input";
-import { Label } from "../../components/ui/label.js";
+import { Label } from "../../../components/ui/label.js";
 import { SelectItem } from "../../components/ui/select.js";
 import { Skeleton } from "../../components/ui/skeleton.js";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs.js";
@@ -23,6 +23,7 @@ import type {
   TaskStatus,
 } from "../../types.js";
 import { NewTaskDialog } from "../components/NewTaskDialog.js";
+import { FORM_CONTROL_CLASS } from "../components/controlStyles.js";
 import { SelectField } from "../components/SelectField.js";
 import { TaskRow } from "../components/TaskRow.js";
 import { parseTaskId, STATUS_OPTIONS, taskMatchesProject } from "../lib/helpers.js";
@@ -41,6 +42,7 @@ export function DispatchPage({ subPath }: { subPath: string }) {
   const [remoteProjects, setRemoteProjects] = useState<DispatchProject[]>([]);
   const [mappedProjects, setMappedProjects] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("mine");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
@@ -48,11 +50,13 @@ export function DispatchPage({ subPath }: { subPath: string }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [quickTitle, setQuickTitle] = useState("");
   const [quickProject, setQuickProject] = useState("");
+  const [quickSaving, setQuickSaving] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const openedTaskId = useRef<string | null>(null);
   const taskId = parseTaskId(subPath);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showActivity = false) => {
+    if (showActivity) setRefreshing(true);
     setError(null);
     try {
       const connection = await rpc.call("status");
@@ -72,6 +76,7 @@ export function DispatchPage({ subPath }: { subPath: string }) {
       setError(cause instanceof Error ? cause.message : "Could not load Dispatch tasks.");
     } finally {
       setLoading(false);
+      if (showActivity) setRefreshing(false);
     }
   }, [rpc]);
 
@@ -141,6 +146,7 @@ export function DispatchPage({ subPath }: { subPath: string }) {
     event.preventDefault();
     const title = quickTitle.trim();
     if (!title || !quickProject) return;
+    setQuickSaving(true);
     try {
       await rpc.call("createTask", { project: quickProject, title });
       setQuickTitle("");
@@ -148,6 +154,8 @@ export function DispatchPage({ subPath }: { subPath: string }) {
       await refresh();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Could not create the task.");
+    } finally {
+      setQuickSaving(false);
     }
   }
 
@@ -176,20 +184,26 @@ export function DispatchPage({ subPath }: { subPath: string }) {
 
   return (
     <div className="h-full min-h-0 overflow-y-auto bg-background text-foreground">
-      <main className="mx-auto w-full max-w-4xl px-4 py-4 md:px-5">
-        <header className="space-y-4 border-b border-border pb-4">
+      <main className="mx-auto w-full max-w-4xl px-3 py-3 sm:px-4 sm:py-4">
+        <header className="grid gap-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-balance text-lg font-semibold">My work</h1>
-              <p className="mt-1 text-pretty text-xs text-muted-foreground">Assigned to {status.user?.name ?? "you"}.</p>
+              <h1 className="text-base font-semibold tracking-tight">My work</h1>
+              <p className="mt-0.5 text-xs text-muted-foreground">Assigned to {status.user?.name ?? "you"}</p>
             </div>
             <div className="flex items-center gap-1">
-              <Button type="button" size="sm" variant="ghost" onClick={() => void refresh()} disabled={loading}>Refresh</Button>
-              <Button type="button" size="sm" onClick={() => setNewTaskOpen(true)}>New task</Button>
+              <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => void refresh(true)} disabled={refreshing}>
+                <Icon name="RotateCcw" className={refreshing ? "animate-spin" : undefined} aria-hidden="true" />
+                Refresh
+              </Button>
+              <Button type="button" size="sm" className="h-8 px-2.5" onClick={() => setNewTaskOpen(true)}>
+                <Icon name="Plus" aria-hidden="true" />
+                New task
+              </Button>
             </div>
           </div>
 
-          <form className="flex flex-col gap-2 sm:flex-row" onSubmit={createQuickTask} aria-label="Quick add task">
+          <form className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_12rem_auto]" onSubmit={createQuickTask} aria-label="Quick add task">
             <div className="min-w-0 flex-1">
               <Label className="sr-only" htmlFor="quick-add-title">Quick add task</Label>
               <Input
@@ -197,6 +211,7 @@ export function DispatchPage({ subPath }: { subPath: string }) {
                 value={quickTitle}
                 onChange={(event) => setQuickTitle(event.target.value)}
                 placeholder="Add a task…"
+                className={FORM_CONTROL_CLASS}
               />
             </div>
             <SelectField
@@ -206,34 +221,36 @@ export function DispatchPage({ subPath }: { subPath: string }) {
               value={quickProject}
               onValueChange={setQuickProject}
               placeholder="Project"
-              className="w-full sm:w-52"
+              className="w-full"
             >
               {projectOptions.map((project) => <SelectItem key={project.id} value={project.slug}>{project.name}</SelectItem>)}
             </SelectField>
-            <Button type="submit" size="sm" variant="outline" disabled={!quickTitle.trim() || !quickProject}>Add</Button>
+            <Button type="submit" size="sm" variant="outline" className="h-8" disabled={quickSaving || !quickTitle.trim() || !quickProject}>{quickSaving ? "Adding…" : "Add"}</Button>
           </form>
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border/70">
             <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
-              <TabsList aria-label="Task view" className="h-8 rounded-md">
-                <TabsTrigger value="mine" className="px-2.5 text-xs">Mine</TabsTrigger>
-                <TabsTrigger value="unclaimed" className="px-2.5 text-xs">Unclaimed</TabsTrigger>
+              <TabsList aria-label="Task view" className="h-8 justify-start gap-4 rounded-none bg-transparent p-0">
+                <TabsTrigger value="mine" className="h-8 rounded-none border-b-2 border-transparent px-0 py-0 text-xs data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none">Mine</TabsTrigger>
+                <TabsTrigger value="unclaimed" className="h-8 rounded-none border-b-2 border-transparent px-0 py-0 text-xs data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none">Unclaimed</TabsTrigger>
               </TabsList>
             </Tabs>
             <Button
               type="button"
               size="sm"
               variant="ghost"
+              className="mb-0.5 h-7 px-2 text-xs"
               aria-expanded={filtersOpen}
               aria-controls="task-filters"
               onClick={() => setFiltersOpen((open) => !open)}
             >
+              <Icon name="SlidersHorizontal" className="size-3.5" aria-hidden="true" />
               Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}
             </Button>
           </div>
 
           {filtersOpen ? (
-            <div id="task-filters" className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
+            <div id="task-filters" className="grid gap-3 rounded-md bg-muted/20 p-3 sm:grid-cols-2">
               <SelectField
                 id="task-status-filter"
                 label="Status"
@@ -252,23 +269,28 @@ export function DispatchPage({ subPath }: { subPath: string }) {
           ) : null}
         </header>
 
-        <section className="space-y-3 py-4" aria-label="Dispatch tasks">
-          {error ? <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{error}</p> : null}
+        <section className="grid gap-3 py-3" aria-label="Dispatch tasks">
+          {error ? <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{error}</p> : null}
           {grouped.length === 0 ? (
             <EmptyState tab={tab} onCreate={() => setNewTaskOpen(true)} />
-          ) : grouped.map(([projectId, tasks]) => (
-            <Card key={projectId} className="overflow-hidden">
-              <details open>
-                <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                  <span className="flex min-w-0 items-center gap-2"><span className="size-2 rounded-full bg-primary" aria-hidden="true" />{projectById[projectId]?.name ?? "Unknown project"}</span>
-                  <span className="text-xs font-normal text-muted-foreground">{tasks.length} task{tasks.length === 1 ? "" : "s"}</span>
-                </summary>
-                <div className="border-t border-border">
-                  {tasks.map((task) => <TaskRow key={task.id} task={task} onOpen={() => openTask(task)} />)}
-                </div>
-              </details>
-            </Card>
-          ))}
+          ) : (
+            <div className="overflow-hidden rounded-md border border-border/70 bg-background">
+              {grouped.map(([projectId, tasks]) => (
+                <details key={projectId} open className="group border-t border-border/70 first:border-t-0">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-medium transition-colors hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Icon name="ChevronRight" className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />
+                      <span className="truncate">{projectById[projectId]?.name ?? "Unknown project"}</span>
+                    </span>
+                    <span className="shrink-0 tabular-nums font-normal text-muted-foreground">{tasks.length}</span>
+                  </summary>
+                  <div className="border-t border-border/60">
+                    {tasks.map((task) => <TaskRow key={task.id} task={task} onOpen={() => openTask(task)} />)}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
         </section>
       </main>
 
@@ -286,15 +308,15 @@ export function DispatchPage({ subPath }: { subPath: string }) {
 
 function LoadingState() {
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-5" role="status" aria-label="Loading Dispatch tasks">
-      <div className="mx-auto w-full max-w-4xl space-y-3">
+    <div className="h-full overflow-y-auto p-3 sm:p-4" role="status" aria-label="Loading Dispatch tasks">
+      <div className="mx-auto grid w-full max-w-4xl gap-3">
         <div className="flex items-center justify-between">
           <div className="space-y-2"><Skeleton className="h-5 w-28" /><Skeleton className="h-3 w-36" /></div>
           <Skeleton className="h-8 w-24" />
         </div>
-        <Skeleton className="h-9 w-full" />
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          {[1, 2, 3, 4].map((row) => <Skeleton key={row} className="h-14 rounded-none border-b border-border/70 last:border-b-0" />)}
+        <Skeleton className="h-8 w-full" />
+        <div className="overflow-hidden rounded-md border border-border/70">
+          {[1, 2, 3, 4].map((row) => <Skeleton key={row} className="h-12 rounded-none border-b border-border/60 last:border-b-0" />)}
         </div>
       </div>
     </div>
@@ -303,19 +325,17 @@ function LoadingState() {
 
 function ConnectionCard({ error }: { error: string | null | undefined }) {
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-5">
-      <div className="mx-auto w-full max-w-xl pt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-balance">Connect Dispatch</CardTitle>
-            <CardDescription className="text-pretty">Add a Dispatch API key in the plugin settings to see your tasks here.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            {error ? <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive" role="alert">{error}</p> : null}
-            <p>Open Settings → Extensions → Dispatch. You can paste a key, import the key used by the CLI, or sign in with your email and password.</p>
-            <p className="text-xs">The API key stays on BB’s server and is never exposed to this page.</p>
-          </CardContent>
-        </Card>
+    <div className="h-full overflow-y-auto p-5">
+      <div className="mx-auto grid w-full max-w-md gap-3 pt-10">
+        <div className="flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <Icon name="Lock" className="size-4" aria-hidden="true" />
+        </div>
+        <div>
+          <h1 className="text-base font-semibold">Connect Dispatch</h1>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">Add a connection in Settings → Extensions → Dispatch to see your work here.</p>
+        </div>
+        {error ? <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{error}</p> : null}
+        <p className="text-xs leading-5 text-muted-foreground">Your API key stays on the BB server and is never exposed to this panel.</p>
       </div>
     </div>
   );
@@ -323,14 +343,10 @@ function ConnectionCard({ error }: { error: string | null | undefined }) {
 
 function EmptyState({ tab, onCreate }: { tab: Tab; onCreate: () => void }) {
   return (
-    <Card>
-      <CardContent className="flex flex-col items-start gap-3 py-10">
-        <div>
-          <h2 className="text-balance font-medium">{tab === "mine" ? "No open tasks" : "No unclaimed tasks"}</h2>
-          <p className="mt-1 text-pretty text-sm text-muted-foreground">{tab === "mine" ? "Create a task or open Filters to see completed work." : "Everything visible to you is already claimed."}</p>
-        </div>
-        <Button type="button" size="sm" onClick={onCreate}>Create a task</Button>
-      </CardContent>
-    </Card>
+    <div className="flex min-h-48 flex-col items-center justify-center border-y border-border/70 px-4 py-10 text-center">
+      <h2 className="text-sm font-medium">{tab === "mine" ? "No open tasks" : "No unclaimed tasks"}</h2>
+      <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{tab === "mine" ? "Create a task or change the filters to see completed work." : "Everything visible to you is already claimed."}</p>
+      {tab === "mine" ? <Button type="button" size="sm" variant="outline" className="mt-3 h-8" onClick={onCreate}>Create a task</Button> : null}
+    </div>
   );
 }
