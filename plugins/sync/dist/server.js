@@ -14759,6 +14759,7 @@ var syncRunSchema = external_exports.object({
   lastRunAt: external_exports.number().int().nullable(),
   lastRunStatus: external_exports.string().nullable(),
   updated: external_exports.boolean(),
+  selfRefreshScheduled: external_exports.boolean(),
   installedPluginIds: external_exports.array(external_exports.string()),
   updatedPluginIds: external_exports.array(external_exports.string()),
   reloadedPluginIds: external_exports.array(external_exports.string()),
@@ -14890,6 +14891,7 @@ async function plugin(bb) {
       lastRunAt: last?.finishedAt ?? null,
       lastRunStatus: last?.status ?? null,
       updated: options.updated ?? false,
+      selfRefreshScheduled: options.selfRefreshScheduled ?? false,
       installedPluginIds: options.installedPluginIds ?? [],
       updatedPluginIds: options.updatedPluginIds ?? [],
       reloadedPluginIds: options.reloadedPluginIds ?? [],
@@ -14903,6 +14905,29 @@ async function plugin(bb) {
     };
   }
   let activeSync = null;
+  let selfRefreshQueued = false;
+  function scheduleSelfRefresh(mode) {
+    if (selfRefreshQueued) return;
+    selfRefreshQueued = true;
+    setImmediate(() => {
+      void (async () => {
+        try {
+          if (mode === "reload") {
+            await bb.sdk.plugins.reload({ pluginId: bb.pluginId });
+          } else {
+            await bb.sdk.plugins.applyUpdate({ pluginId: bb.pluginId });
+          }
+        } catch (error51) {
+          try {
+            bb.log.warn(`automatic sync: could not refresh the sync plugin: ${error51 instanceof Error ? error51.message : String(error51)}`);
+          } catch {
+          }
+        } finally {
+          selfRefreshQueued = false;
+        }
+      })();
+    });
+  }
   async function performSyncNow() {
     const startedAt = Date.now();
     const current = await settings.get();
@@ -14962,10 +14987,14 @@ async function plugin(bb) {
       const reloadedPluginIds = [];
       const skippedPluginIds = [];
       const failures = [];
+      let selfRefreshMode = null;
       for (const entry of collection.plugins) {
-        if (entry.name === bb.pluginId) continue;
         const currentPlugin = installedById.get(entry.name);
         if (!currentPlugin) {
+          if (entry.name === bb.pluginId) {
+            failures.push("Could not find the running sync plugin in BB's installed plugin list.");
+            continue;
+          }
           try {
             const installedPlugin = await bb.sdk.plugins.install({
               source: privateCollectionSource,
@@ -14979,6 +15008,24 @@ async function plugin(bb) {
           continue;
         }
         const managedId = pathPluginId(currentPlugin.source, repoPath) ?? rootPluginId(currentPlugin.rootDir, repoPath);
+        if (entry.name === bb.pluginId) {
+          if (managedId === entry.name) {
+            if (updated) selfRefreshMode = "reload";
+            continue;
+          }
+          if (isPrivateCollectionSource(currentPlugin.source)) {
+            try {
+              const updateResults = await bb.sdk.plugins.checkUpdates({ pluginId: currentPlugin.id });
+              const update = updateResults.find((item) => item.id === currentPlugin.id);
+              if (update?.outcome === "update-available") selfRefreshMode = "update";
+            } catch (error51) {
+              failures.push(`Could not check for updates to ${currentPlugin.id}: ${error51 instanceof Error ? error51.message : String(error51)}`);
+            }
+            continue;
+          }
+          skippedPluginIds.push(entry.name);
+          continue;
+        }
         if (managedId === entry.name) {
           if (!updated) continue;
           try {
@@ -15014,13 +15061,17 @@ async function plugin(bb) {
       await bb.storage.kv.set("managed-skills", skillSync.managedSkills);
       failures.push(...skillSync.failures);
       const skillChanges = skillSync.installedSkillIds.length + skillSync.updatedSkillIds.length + skillSync.removedSkillIds.length;
-      const madeChanges = installedPluginIds.length > 0 || updatedPluginIds.length > 0 || reloadedPluginIds.length > 0 || skillChanges > 0;
+      const madeChanges = installedPluginIds.length > 0 || updatedPluginIds.length > 0 || reloadedPluginIds.length > 0 || skillChanges > 0 || selfRefreshMode !== null;
+      const selfRefreshScheduled = selfRefreshMode !== null;
+      const selfRefreshNote = selfRefreshMode === "reload" ? " The sync plugin will reload itself after this run." : selfRefreshMode === "update" ? " The sync plugin update is queued and will restart itself after this run." : "";
+      const selfRefreshDetail = selfRefreshMode === null ? "" : ` Sync-plugin ${selfRefreshMode} queued.`;
       const status = failures.length === 0 ? "ok" : "error";
-      recordRun(status, updated ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).` : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).`, startedAt);
-      return statusResult(
-        failures.length === 0 ? updated ? "Updated from GitHub and reconciled plugins and skills." : madeChanges ? "Plugins and skills reconciled." : "Already up to date." : "The collection was pulled, but one or more plugin actions failed.",
+      recordRun(status, updated ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).${selfRefreshDetail}` : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).${selfRefreshDetail}`, startedAt);
+      const result = await statusResult(
+        failures.length === 0 ? updated ? `Updated from GitHub and reconciled plugins and skills.${selfRefreshNote}` : madeChanges ? `Plugins and skills reconciled.${selfRefreshNote}` : "Already up to date." : `The collection was pulled, but one or more plugin actions failed.${selfRefreshNote}`,
         {
           updated,
+          selfRefreshScheduled,
           installedPluginIds,
           updatedPluginIds,
           reloadedPluginIds,
@@ -15032,6 +15083,8 @@ async function plugin(bb) {
           failures
         }
       );
+      if (selfRefreshMode !== null) scheduleSelfRefresh(selfRefreshMode);
+      return result;
     } catch (error51) {
       const message = error51 instanceof Error ? error51.message : String(error51);
       recordRun("error", message, startedAt);

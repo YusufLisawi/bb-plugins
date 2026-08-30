@@ -22,6 +22,7 @@ const collectionManifestSchema = z.object({
 });
 
 type CollectionManifest = z.infer<typeof collectionManifestSchema>;
+type SelfRefreshMode = "reload" | "update";
 
 const syncRunSchema = z.object({
   configured: z.boolean(),
@@ -31,6 +32,7 @@ const syncRunSchema = z.object({
   lastRunAt: z.number().int().nullable(),
   lastRunStatus: z.string().nullable(),
   updated: z.boolean(),
+  selfRefreshScheduled: z.boolean(),
   installedPluginIds: z.array(z.string()),
   updatedPluginIds: z.array(z.string()),
   reloadedPluginIds: z.array(z.string()),
@@ -167,7 +169,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function statusResult(
     message: string,
-    options: Partial<Pick<SyncRun, "updated" | "installedPluginIds" | "updatedPluginIds" | "reloadedPluginIds" | "skippedPluginIds" | "installedSkillIds" | "updatedSkillIds" | "removedSkillIds" | "skippedSkillIds" | "failures">> = {},
+    options: Partial<Pick<SyncRun, "updated" | "selfRefreshScheduled" | "installedPluginIds" | "updatedPluginIds" | "reloadedPluginIds" | "skippedPluginIds" | "installedSkillIds" | "updatedSkillIds" | "removedSkillIds" | "skippedSkillIds" | "failures">> = {},
   ): Promise<SyncRun> {
     const current = await settings.get();
     const repoPath = checkoutPath(current.repoPath);
@@ -188,6 +190,7 @@ export default async function plugin(bb: BbPluginApi) {
       lastRunAt: last?.finishedAt ?? null,
       lastRunStatus: last?.status ?? null,
       updated: options.updated ?? false,
+      selfRefreshScheduled: options.selfRefreshScheduled ?? false,
       installedPluginIds: options.installedPluginIds ?? [],
       updatedPluginIds: options.updatedPluginIds ?? [],
       reloadedPluginIds: options.reloadedPluginIds ?? [],
@@ -202,6 +205,37 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   let activeSync: Promise<SyncRun> | null = null;
+  let selfRefreshQueued = false;
+
+  // BB disposes the old plugin before activating an updated one. Queue this
+  // operation for the next macrotask so the current RPC/CLI request or
+  // background service can settle before the sync plugin asks BB to replace
+  // it. The replacement starts a fresh auto-sync service and immediately
+  // reconciles the repository's skills with the new code loaded.
+  function scheduleSelfRefresh(mode: SelfRefreshMode): void {
+    if (selfRefreshQueued) return;
+    selfRefreshQueued = true;
+    setImmediate(() => {
+      void (async () => {
+        try {
+          if (mode === "reload") {
+            await bb.sdk.plugins.reload({ pluginId: bb.pluginId });
+          } else {
+            await bb.sdk.plugins.applyUpdate({ pluginId: bb.pluginId });
+          }
+        } catch (error) {
+          try {
+            bb.log.warn(`automatic sync: could not refresh the sync plugin: ${error instanceof Error ? error.message : String(error)}`);
+          } catch {
+            // A successful replacement invalidates this old API handle. There
+            // is nothing else this generation can safely do after that point.
+          }
+        } finally {
+          selfRefreshQueued = false;
+        }
+      })();
+    });
+  }
 
   async function performSyncNow(): Promise<SyncRun> {
     const startedAt = Date.now();
@@ -265,12 +299,15 @@ export default async function plugin(bb: BbPluginApi) {
       const reloadedPluginIds: string[] = [];
       const skippedPluginIds: string[] = [];
       const failures: string[] = [];
+      let selfRefreshMode: SelfRefreshMode | null = null;
 
       for (const entry of collection.plugins) {
-        if (entry.name === bb.pluginId) continue;
-
         const currentPlugin = installedById.get(entry.name);
         if (!currentPlugin) {
+          if (entry.name === bb.pluginId) {
+            failures.push("Could not find the running sync plugin in BB's installed plugin list.");
+            continue;
+          }
           try {
             const installedPlugin = await bb.sdk.plugins.install({
               source: privateCollectionSource,
@@ -285,6 +322,27 @@ export default async function plugin(bb: BbPluginApi) {
         }
 
         const managedId = pathPluginId(currentPlugin.source, repoPath) ?? rootPluginId(currentPlugin.rootDir, repoPath);
+        if (entry.name === bb.pluginId) {
+          if (managedId === entry.name) {
+            if (updated) selfRefreshMode = "reload";
+            continue;
+          }
+
+          if (isPrivateCollectionSource(currentPlugin.source)) {
+            try {
+              const updateResults = await bb.sdk.plugins.checkUpdates({ pluginId: currentPlugin.id });
+              const update = updateResults.find((item) => item.id === currentPlugin.id);
+              if (update?.outcome === "update-available") selfRefreshMode = "update";
+            } catch (error) {
+              failures.push(`Could not check for updates to ${currentPlugin.id}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+            continue;
+          }
+
+          skippedPluginIds.push(entry.name);
+          continue;
+        }
+
         if (managedId === entry.name) {
           if (!updated) continue;
           try {
@@ -329,22 +387,33 @@ export default async function plugin(bb: BbPluginApi) {
       const madeChanges = installedPluginIds.length > 0
         || updatedPluginIds.length > 0
         || reloadedPluginIds.length > 0
-        || skillChanges > 0;
+        || skillChanges > 0
+        || selfRefreshMode !== null;
+      const selfRefreshScheduled = selfRefreshMode !== null;
+      const selfRefreshNote = selfRefreshMode === "reload"
+        ? " The sync plugin will reload itself after this run."
+        : selfRefreshMode === "update"
+          ? " The sync plugin update is queued and will restart itself after this run."
+          : "";
+      const selfRefreshDetail = selfRefreshMode === null
+        ? ""
+        : ` Sync-plugin ${selfRefreshMode} queued.`;
 
       const status = failures.length === 0 ? "ok" : "error";
       recordRun(status, updated
-        ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).`
-        : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).`, startedAt);
-      return statusResult(
+        ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).${selfRefreshDetail}`
+        : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).${selfRefreshDetail}`, startedAt);
+      const result = await statusResult(
         failures.length === 0
           ? updated
-            ? "Updated from GitHub and reconciled plugins and skills."
+            ? `Updated from GitHub and reconciled plugins and skills.${selfRefreshNote}`
             : madeChanges
-              ? "Plugins and skills reconciled."
+              ? `Plugins and skills reconciled.${selfRefreshNote}`
               : "Already up to date."
-          : "The collection was pulled, but one or more plugin actions failed.",
+          : `The collection was pulled, but one or more plugin actions failed.${selfRefreshNote}`,
         {
           updated,
+          selfRefreshScheduled,
           installedPluginIds,
           updatedPluginIds,
           reloadedPluginIds,
@@ -356,6 +425,8 @@ export default async function plugin(bb: BbPluginApi) {
           failures,
         },
       );
+      if (selfRefreshMode !== null) scheduleSelfRefresh(selfRefreshMode);
+      return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       recordRun("error", message, startedAt);

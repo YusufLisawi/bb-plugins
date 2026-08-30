@@ -27,6 +27,18 @@ Repository skills are installed into `<dataDir>/skills`, the standard BB user
 skill location. BB discovers those skills for all providers running on that
 server.
 
+Plugin Sync also manages its own update handoff. When a repository pull
+changes this plugin, it waits until the current sync request/service has
+finished, then asks BB to reload a path-managed copy or apply the Git-managed
+copy's update. The replacement starts the 15-minute service again and runs the
+skill reconciliation from the new code, so later pushes do not require a
+manual plugin reload.
+
+An older installation that predates this self-refresh behavior needs one
+bootstrap update (`bb plugin update sync`, or a manual reload for a local path
+source). After that, pushing the repository and letting the scheduled sync
+run is enough.
+
 ## Safety rules
 
 - Git pulls are fast-forward only. Source edits block the pull; generated

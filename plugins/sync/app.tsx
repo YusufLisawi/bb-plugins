@@ -41,6 +41,7 @@ function SyncControl() {
             <p>{result.message}</p>
             <p className="text-muted-foreground">Repository: <code>{result.repoPath}</code>{result.lastRunAt ? ` · Last check: ${new Date(result.lastRunAt).toLocaleString()}.` : ""}</p>
             <p className="text-muted-foreground">BB skill directory: <code>{result.skillRoot}</code></p>
+            {result.selfRefreshScheduled && <p className="text-muted-foreground">Plugin Sync will refresh itself after this run, then run the skill reconciliation again from the new code.</p>}
             {result.installedPluginIds.length > 0 && <p>Installed: {result.installedPluginIds.join(", ")}.</p>}
             {result.updatedPluginIds.length > 0 && <p>Updated: {result.updatedPluginIds.join(", ")}.</p>}
             {result.reloadedPluginIds.length > 0 && <p>Reloaded: {result.reloadedPluginIds.join(", ")}.</p>}
