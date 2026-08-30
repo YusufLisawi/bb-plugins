@@ -1,57 +1,41 @@
-# BB Plugin Sync
+# BB Sync
 
-Safely compare and synchronize BB plugin setup between two independently
-running BB servers.
+This extension makes one private Git repository the source of truth for BB
+plugins and BB user skills on each server that has the extension installed.
+It is a local Git refresh, not a peer-to-peer machine transfer.
 
-The plugin is deliberately conflict-first. It applies a plugin installation,
-enabled-state, or non-secret setting change only after it has a previous
-baseline showing that exactly one server changed it. Differences present at
-the first comparison are shown as conflicts rather than silently overwritten.
+## Repository layout
 
-## Install and pair
-
-Install this plugin on both BB servers. For a local checkout:
-
-```sh
-bb plugin install /absolute/path/to/bb-plugin-sync --yes
+```text
+.bb/plugins.json             # BB plugin collection manifest
+plugins/<plugin>/             # one BB plugin per folder
+skills/<skill>/SKILL.md       # one BB user skill per folder, with any support files
 ```
-
-On each server, choose **Reveal local token** in the plugin Settings page (or
-run `bb sync token`) and copy that token into the other server's **Peer sync
-token** setting. Set the other server's public BB Connect URL as **Peer BB
-URL**. For this setup those URLs are:
-
-- Mac: `https://yusuf-mac.getbb.app`
-- PC: `https://yusuf.getbb.app`
-
-The token is a secret plugin setting and is never rendered in the plugin UI.
-Pairing only works over the authenticated BB plugin route.
 
 ## Use
 
 ```sh
-bb sync status       # local pairing status
-bb sync plan         # compare servers; writes nothing
-bb sync now          # apply only unambiguous changes
-bb sync token        # print this server's one-time pairing token
+bb sync status  # local repository and sync status
+bb sync now     # pull, reconcile plugins, then reconcile BB skills
 ```
 
-The Settings → Plugins → Plugin Sync page has the same status, preview, and
-sync-now controls. Set Automatic sync to check every 15, 60, or 240 minutes.
+The Settings → Plugins → BB updates page has the same controls. Set Automatic
+update checks to 15, 60, or 240 minutes; every automatic run performs both the
+plugin and skill reconciliation.
 
-## What the first version syncs
+Repository skills are installed into `<dataDir>/skills`, the standard BB user
+skill location. BB discovers those skills for all providers running on that
+server.
 
-- Managed Git, npm, and builtin plugins that are missing on the other server.
-- A one-sided compatible update to a managed plugin, when both servers still
-  use the same source. This works for both **Sync now** and Automatic sync.
-- Enabled/disabled state.
-- Non-secret plugin settings.
+## Safety rules
 
-It intentionally does not uninstall existing plugins, replace an existing
-different source, transfer path-based plugin folders, downgrade a plugin, or
-transfer secret values. Those cases remain visible as conflicts or
-confirmation-required items. This prevents a sync run from destroying a local
-plugin setup or silently copying credentials.
+- Git pulls are fast-forward only. Source edits block the pull; generated
+  plugin `dist/` output is temporarily stashed and restored when needed.
+- A local BB skill not already managed by this extension is never overwritten.
+- Once a repository skill is managed, a direct local edit is preserved and
+  reported as skipped instead of being overwritten or removed.
+- Removing a skill from `skills/` removes its installed copy only when that
+  copy still matches the last repository-synced version.
 
 ## Development
 

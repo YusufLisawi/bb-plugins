@@ -12,9 +12,9 @@ var __export = (target, all) => {
 
 // server.ts
 import { execFile } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomUUID as randomUUID2 } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile as readFile2 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -14534,6 +14534,212 @@ function date4(params) {
 // node_modules/zod/v4/classic/external.js
 config(en_default());
 
+// skill-sync.ts
+import { createHash, randomUUID } from "node:crypto";
+import { cp, lstat, mkdir, readdir, readFile, rename, rm } from "node:fs/promises";
+import { join } from "node:path";
+var skillIdPattern = /^[a-z0-9][a-z0-9._-]*$/i;
+function isMissing(error51) {
+  return typeof error51 === "object" && error51 !== null && "code" in error51 && error51.code === "ENOENT";
+}
+async function lstatOrNull(path) {
+  try {
+    return await lstat(path);
+  } catch (error51) {
+    if (isMissing(error51)) return null;
+    throw error51;
+  }
+}
+async function directoryDigest(path) {
+  const root = await lstatOrNull(path);
+  if (!root) return null;
+  if (root.isSymbolicLink() || !root.isDirectory()) {
+    throw new Error(`${path} must be a real directory.`);
+  }
+  const hash2 = createHash("sha256");
+  hash2.update("bb-skill-directory-v1\0");
+  async function visit(directory, relativePath) {
+    const entries = await readdir(directory, { withFileTypes: true });
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+    for (const entry of entries) {
+      const childPath = join(directory, entry.name);
+      const childRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      const stats = await lstat(childPath);
+      if (stats.isSymbolicLink()) {
+        throw new Error(`${childPath} is a symbolic link; repository skills may not contain symbolic links.`);
+      }
+      if (stats.isDirectory()) {
+        hash2.update(`directory\0${childRelativePath}\0`);
+        await visit(childPath, childRelativePath);
+        continue;
+      }
+      if (stats.isFile()) {
+        hash2.update(`file\0${childRelativePath}\0`);
+        hash2.update(await readFile(childPath));
+        continue;
+      }
+      throw new Error(`${childPath} is not a regular file or directory.`);
+    }
+  }
+  await visit(path, "");
+  return hash2.digest("hex");
+}
+async function discoverRepositorySkills(sourceRoot) {
+  const root = await lstatOrNull(sourceRoot);
+  if (!root) return { sourceAvailable: false, skills: [], presentIds: /* @__PURE__ */ new Set() };
+  if (root.isSymbolicLink() || !root.isDirectory()) {
+    throw new Error(`${sourceRoot} must be a real directory when it exists.`);
+  }
+  const skills = [];
+  const presentIds = /* @__PURE__ */ new Set();
+  const entries = await readdir(sourceRoot, { withFileTypes: true });
+  entries.sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !skillIdPattern.test(entry.name)) continue;
+    const skillPath = join(sourceRoot, entry.name);
+    presentIds.add(entry.name);
+    const skillFile = await lstatOrNull(join(skillPath, "SKILL.md"));
+    if (skillFile?.isFile() && !skillFile.isSymbolicLink()) {
+      skills.push({ id: entry.name, path: skillPath });
+    }
+  }
+  return { sourceAvailable: true, skills, presentIds };
+}
+async function replaceDirectory(source, destination, stagingRoot, expectedDestinationDigest) {
+  await mkdir(stagingRoot, { recursive: true });
+  const stagingPath = join(stagingRoot, `${randomUUID()}-next`);
+  const backupPath = join(stagingRoot, `${randomUUID()}-previous`);
+  try {
+    await cp(source, stagingPath, {
+      recursive: true,
+      force: false,
+      errorOnExist: true,
+      preserveTimestamps: true,
+      verbatimSymlinks: true
+    });
+    const actualDestinationDigest = await directoryDigest(destination);
+    if (actualDestinationDigest !== expectedDestinationDigest) {
+      throw new Error("Local skill changed while it was being synchronized.");
+    }
+    const previous = await lstatOrNull(destination);
+    if (previous) await rename(destination, backupPath);
+    try {
+      await rename(stagingPath, destination);
+    } catch (error51) {
+      if (previous) await rename(backupPath, destination);
+      throw error51;
+    }
+    if (previous) await rm(backupPath, { recursive: true, force: true });
+  } finally {
+    await rm(stagingPath, { recursive: true, force: true });
+  }
+}
+async function removeDirectory(destination, stagingRoot, expectedDestinationDigest) {
+  const actualDestinationDigest = await directoryDigest(destination);
+  if (actualDestinationDigest !== expectedDestinationDigest) {
+    throw new Error("Local skill changed while its removal was being synchronized.");
+  }
+  await mkdir(stagingRoot, { recursive: true });
+  const backupPath = join(stagingRoot, `${randomUUID()}-removed`);
+  await rename(destination, backupPath);
+  try {
+    await rm(backupPath, { recursive: true, force: true });
+  } catch (error51) {
+    await rename(backupPath, destination);
+    throw error51;
+  }
+}
+function normalizeManagedSkillState(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const normalized = {};
+  for (const [id, entry] of Object.entries(value)) {
+    if (!skillIdPattern.test(id) || !entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const digest = entry.digest;
+    if (typeof digest === "string" && digest.length > 0) normalized[id] = { digest };
+  }
+  return normalized;
+}
+async function synchronizeRepositorySkills({
+  sourceRoot,
+  destinationRoot,
+  stagingRoot,
+  previous
+}) {
+  const discovery = await discoverRepositorySkills(sourceRoot);
+  const managedSkills = { ...previous };
+  const installedSkillIds = [];
+  const updatedSkillIds = [];
+  const removedSkillIds = [];
+  const skippedSkillIds = [];
+  const failures = [];
+  if (!discovery.sourceAvailable) {
+    return {
+      sourceAvailable: false,
+      repositorySkillIds: [],
+      installedSkillIds,
+      updatedSkillIds,
+      removedSkillIds,
+      skippedSkillIds,
+      failures,
+      managedSkills
+    };
+  }
+  await mkdir(destinationRoot, { recursive: true });
+  for (const skill of discovery.skills) {
+    try {
+      const sourceDigest = await directoryDigest(skill.path);
+      if (!sourceDigest) throw new Error("Repository skill directory disappeared.");
+      const destinationPath = join(destinationRoot, skill.id);
+      const destinationDigest = await directoryDigest(destinationPath);
+      const previousDigest = previous[skill.id]?.digest ?? null;
+      if (destinationDigest === sourceDigest) {
+        managedSkills[skill.id] = { digest: sourceDigest };
+        continue;
+      }
+      if (destinationDigest !== null && (!previousDigest || destinationDigest !== previousDigest)) {
+        skippedSkillIds.push(skill.id);
+        continue;
+      }
+      await replaceDirectory(skill.path, destinationPath, stagingRoot, destinationDigest);
+      managedSkills[skill.id] = { digest: sourceDigest };
+      if (previousDigest) updatedSkillIds.push(skill.id);
+      else installedSkillIds.push(skill.id);
+    } catch (error51) {
+      failures.push(`Could not synchronize ${skill.id}: ${error51 instanceof Error ? error51.message : String(error51)}`);
+    }
+  }
+  for (const [id, state] of Object.entries(previous)) {
+    if (discovery.presentIds.has(id)) continue;
+    try {
+      const destinationPath = join(destinationRoot, id);
+      const destinationDigest = await directoryDigest(destinationPath);
+      if (destinationDigest === null) {
+        delete managedSkills[id];
+        continue;
+      }
+      if (destinationDigest !== state.digest) {
+        skippedSkillIds.push(id);
+        continue;
+      }
+      await removeDirectory(destinationPath, stagingRoot, state.digest);
+      delete managedSkills[id];
+      removedSkillIds.push(id);
+    } catch (error51) {
+      failures.push(`Could not remove ${id}: ${error51 instanceof Error ? error51.message : String(error51)}`);
+    }
+  }
+  return {
+    sourceAvailable: true,
+    repositorySkillIds: discovery.skills.map((skill) => skill.id),
+    installedSkillIds,
+    updatedSkillIds,
+    removedSkillIds,
+    skippedSkillIds,
+    failures,
+    managedSkills
+  };
+}
+
 // server.ts
 var execFileAsync = promisify(execFile);
 var defaultCheckoutPath = `${homedir()}/Developer/bb-plugins`;
@@ -14548,6 +14754,7 @@ var collectionManifestSchema = external_exports.object({
 var syncRunSchema = external_exports.object({
   configured: external_exports.boolean(),
   repoPath: external_exports.string(),
+  skillRoot: external_exports.string(),
   localServerId: external_exports.string(),
   lastRunAt: external_exports.number().int().nullable(),
   lastRunStatus: external_exports.string().nullable(),
@@ -14556,6 +14763,10 @@ var syncRunSchema = external_exports.object({
   updatedPluginIds: external_exports.array(external_exports.string()),
   reloadedPluginIds: external_exports.array(external_exports.string()),
   skippedPluginIds: external_exports.array(external_exports.string()),
+  installedSkillIds: external_exports.array(external_exports.string()),
+  updatedSkillIds: external_exports.array(external_exports.string()),
+  removedSkillIds: external_exports.array(external_exports.string()),
+  skippedSkillIds: external_exports.array(external_exports.string()),
   failures: external_exports.array(external_exports.string()),
   message: external_exports.string()
 });
@@ -14594,7 +14805,7 @@ function isPrivateCollectionSource(source) {
   return source === privateCollectionSource || source.startsWith(`${privateCollectionSource}@`);
 }
 async function readCollectionManifest(repoPath) {
-  const raw = await readFile(resolve(repoPath, ".bb", "plugins.json"), "utf8");
+  const raw = await readFile2(resolve(repoPath, ".bb", "plugins.json"), "utf8");
   return collectionManifestSchema.parse(JSON.parse(raw));
 }
 function statusPaths(status) {
@@ -14625,14 +14836,14 @@ async function plugin(bb) {
   const settings = bb.settings.define({
     repoPath: {
       type: "string",
-      label: "Plugin repository folder",
-      description: "Local clone of your private bb-plugins repository on this machine.",
+      label: "BB repository folder",
+      description: "Local clone of your private bb-plugins repository on this machine, including repository-managed skills.",
       default: defaultCheckoutPath
     },
     autoSyncMinutes: {
       type: "select",
       label: "Automatic update checks",
-      description: "Pull and reload plugin code from GitHub on this machine.",
+      description: "Pull and reconcile plugin code and BB skills from GitHub on this machine.",
       options: ["off", "15", "60", "240"],
       default: "15"
     }
@@ -14650,7 +14861,7 @@ async function plugin(bb) {
   async function serverId() {
     const existing = await bb.storage.kv.get("server-id");
     if (existing) return existing;
-    const created = randomUUID();
+    const created = randomUUID2();
     await bb.storage.kv.set("server-id", created);
     return created;
   }
@@ -14663,6 +14874,7 @@ async function plugin(bb) {
   async function statusResult(message, options = {}) {
     const current = await settings.get();
     const repoPath = checkoutPath(current.repoPath);
+    const systemConfig = await bb.sdk.system.config();
     const last = lastRun();
     let configured = false;
     try {
@@ -14673,6 +14885,7 @@ async function plugin(bb) {
     return {
       configured,
       repoPath,
+      skillRoot: resolve(systemConfig.dataDir, "skills"),
       localServerId: await serverId(),
       lastRunAt: last?.finishedAt ?? null,
       lastRunStatus: last?.status ?? null,
@@ -14681,6 +14894,10 @@ async function plugin(bb) {
       updatedPluginIds: options.updatedPluginIds ?? [],
       reloadedPluginIds: options.reloadedPluginIds ?? [],
       skippedPluginIds: options.skippedPluginIds ?? [],
+      installedSkillIds: options.installedSkillIds ?? [],
+      updatedSkillIds: options.updatedSkillIds ?? [],
+      removedSkillIds: options.removedSkillIds ?? [],
+      skippedSkillIds: options.skippedSkillIds ?? [],
       failures: options.failures ?? [],
       message
     };
@@ -14727,6 +14944,13 @@ async function plugin(bb) {
           }
         }
         throw error51;
+      }
+      if (generatedArtifactsStashed) {
+        try {
+          await git(repoPath, ["stash", "pop"]);
+        } catch (restoreError) {
+          throw new Error(`Git pull succeeded, but generated artifacts could not be restored automatically: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+        }
       }
       const after = await git(repoPath, ["rev-parse", "HEAD"]);
       const updated = before !== after;
@@ -14779,11 +15003,34 @@ async function plugin(bb) {
         }
         skippedPluginIds.push(entry.name);
       }
+      const systemConfig = await bb.sdk.system.config();
+      const skillRoot = resolve(systemConfig.dataDir, "skills");
+      const skillSync = await synchronizeRepositorySkills({
+        sourceRoot: resolve(repoPath, "skills"),
+        destinationRoot: skillRoot,
+        stagingRoot: resolve(systemConfig.dataDir, "plugins", bb.pluginId, "skill-sync-staging"),
+        previous: normalizeManagedSkillState(await bb.storage.kv.get("managed-skills"))
+      });
+      await bb.storage.kv.set("managed-skills", skillSync.managedSkills);
+      failures.push(...skillSync.failures);
+      const skillChanges = skillSync.installedSkillIds.length + skillSync.updatedSkillIds.length + skillSync.removedSkillIds.length;
+      const madeChanges = installedPluginIds.length > 0 || updatedPluginIds.length > 0 || reloadedPluginIds.length > 0 || skillChanges > 0;
       const status = failures.length === 0 ? "ok" : "error";
-      recordRun(status, updated ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s).` : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s).`, startedAt);
+      recordRun(status, updated ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).` : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).`, startedAt);
       return statusResult(
-        failures.length === 0 ? updated ? `Updated from GitHub and reconciled the plugin collection.` : installedPluginIds.length > 0 || updatedPluginIds.length > 0 ? "Plugin collection reconciled." : "Already up to date." : "The collection was pulled, but one or more plugin actions failed.",
-        { updated, installedPluginIds, updatedPluginIds, reloadedPluginIds, skippedPluginIds, failures }
+        failures.length === 0 ? updated ? "Updated from GitHub and reconciled plugins and skills." : madeChanges ? "Plugins and skills reconciled." : "Already up to date." : "The collection was pulled, but one or more plugin actions failed.",
+        {
+          updated,
+          installedPluginIds,
+          updatedPluginIds,
+          reloadedPluginIds,
+          skippedPluginIds,
+          installedSkillIds: skillSync.installedSkillIds,
+          updatedSkillIds: skillSync.updatedSkillIds,
+          removedSkillIds: skillSync.removedSkillIds,
+          skippedSkillIds: skillSync.skippedSkillIds,
+          failures
+        }
       );
     } catch (error51) {
       const message = error51 instanceof Error ? error51.message : String(error51);
@@ -14802,19 +15049,19 @@ async function plugin(bb) {
     }
   }
   bb.rpc.register(rpcContract, {
-    status: () => statusResult("Ready to pull plugin updates from GitHub."),
+    status: () => statusResult("Ready to pull plugin and BB skill updates from GitHub."),
     syncNow
   });
   bb.cli.register({
     name: "sync",
-    summary: "Pull and reload BB plugins from the private GitHub repository",
+    summary: "Pull and reconcile BB plugins and skills from the private GitHub repository",
     commands: [
       { name: "status", summary: "Show local repository and recent sync status", usage: "bb sync status [--json]" },
-      { name: "now", summary: "Pull and apply available plugin code updates", usage: "bb sync now [--json]" }
+      { name: "now", summary: "Pull and apply available plugin and skill updates", usage: "bb sync now [--json]" }
     ],
     async run(argv) {
       const [command = "status"] = argv;
-      const result = command === "now" ? await syncNow() : command === "status" ? await statusResult("Ready to pull plugin updates from GitHub.") : null;
+      const result = command === "now" ? await syncNow() : command === "status" ? await statusResult("Ready to pull plugin and BB skill updates from GitHub.") : null;
       if (!result) return { exitCode: 2, stderr: "Usage: bb sync <status|now>\n" };
       return { exitCode: result.failures.length > 0 ? 1 : 0, stdout: `${JSON.stringify(result, null, 2)}
 ` };

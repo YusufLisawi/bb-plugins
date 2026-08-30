@@ -7,6 +7,7 @@ import { resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import { normalizeManagedSkillState, synchronizeRepositorySkills } from "./skill-sync.js";
 
 const execFileAsync = promisify(execFile);
 const defaultCheckoutPath = `${homedir()}/Developer/bb-plugins`;
@@ -25,6 +26,7 @@ type CollectionManifest = z.infer<typeof collectionManifestSchema>;
 const syncRunSchema = z.object({
   configured: z.boolean(),
   repoPath: z.string(),
+  skillRoot: z.string(),
   localServerId: z.string(),
   lastRunAt: z.number().int().nullable(),
   lastRunStatus: z.string().nullable(),
@@ -33,6 +35,10 @@ const syncRunSchema = z.object({
   updatedPluginIds: z.array(z.string()),
   reloadedPluginIds: z.array(z.string()),
   skippedPluginIds: z.array(z.string()),
+  installedSkillIds: z.array(z.string()),
+  updatedSkillIds: z.array(z.string()),
+  removedSkillIds: z.array(z.string()),
+  skippedSkillIds: z.array(z.string()),
   failures: z.array(z.string()),
   message: z.string(),
 });
@@ -117,14 +123,14 @@ export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
     repoPath: {
       type: "string",
-      label: "Plugin repository folder",
-      description: "Local clone of your private bb-plugins repository on this machine.",
+      label: "BB repository folder",
+      description: "Local clone of your private bb-plugins repository on this machine, including repository-managed skills.",
       default: defaultCheckoutPath,
     },
     autoSyncMinutes: {
       type: "select",
       label: "Automatic update checks",
-      description: "Pull and reload plugin code from GitHub on this machine.",
+      description: "Pull and reconcile plugin code and BB skills from GitHub on this machine.",
       options: ["off", "15", "60", "240"],
       default: "15",
     },
@@ -161,10 +167,11 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function statusResult(
     message: string,
-    options: Partial<Pick<SyncRun, "updated" | "installedPluginIds" | "updatedPluginIds" | "reloadedPluginIds" | "skippedPluginIds" | "failures">> = {},
+    options: Partial<Pick<SyncRun, "updated" | "installedPluginIds" | "updatedPluginIds" | "reloadedPluginIds" | "skippedPluginIds" | "installedSkillIds" | "updatedSkillIds" | "removedSkillIds" | "skippedSkillIds" | "failures">> = {},
   ): Promise<SyncRun> {
     const current = await settings.get();
     const repoPath = checkoutPath(current.repoPath);
+    const systemConfig = await bb.sdk.system.config();
     const last = lastRun();
     let configured = false;
     try {
@@ -176,6 +183,7 @@ export default async function plugin(bb: BbPluginApi) {
     return {
       configured,
       repoPath,
+      skillRoot: resolve(systemConfig.dataDir, "skills"),
       localServerId: await serverId(),
       lastRunAt: last?.finishedAt ?? null,
       lastRunStatus: last?.status ?? null,
@@ -184,6 +192,10 @@ export default async function plugin(bb: BbPluginApi) {
       updatedPluginIds: options.updatedPluginIds ?? [],
       reloadedPluginIds: options.reloadedPluginIds ?? [],
       skippedPluginIds: options.skippedPluginIds ?? [],
+      installedSkillIds: options.installedSkillIds ?? [],
+      updatedSkillIds: options.updatedSkillIds ?? [],
+      removedSkillIds: options.removedSkillIds ?? [],
+      skippedSkillIds: options.skippedSkillIds ?? [],
       failures: options.failures ?? [],
       message,
     };
@@ -235,6 +247,13 @@ export default async function plugin(bb: BbPluginApi) {
           }
         }
         throw error;
+      }
+      if (generatedArtifactsStashed) {
+        try {
+          await git(repoPath, ["stash", "pop"]);
+        } catch (restoreError) {
+          throw new Error(`Git pull succeeded, but generated artifacts could not be restored automatically: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+        }
       }
       const after = await git(repoPath, ["rev-parse", "HEAD"]);
       const updated = before !== after;
@@ -293,19 +312,49 @@ export default async function plugin(bb: BbPluginApi) {
         skippedPluginIds.push(entry.name);
       }
 
+      const systemConfig = await bb.sdk.system.config();
+      const skillRoot = resolve(systemConfig.dataDir, "skills");
+      const skillSync = await synchronizeRepositorySkills({
+        sourceRoot: resolve(repoPath, "skills"),
+        destinationRoot: skillRoot,
+        stagingRoot: resolve(systemConfig.dataDir, "plugins", bb.pluginId, "skill-sync-staging"),
+        previous: normalizeManagedSkillState(await bb.storage.kv.get<unknown>("managed-skills")),
+      });
+      await bb.storage.kv.set("managed-skills", skillSync.managedSkills);
+      failures.push(...skillSync.failures);
+
+      const skillChanges = skillSync.installedSkillIds.length
+        + skillSync.updatedSkillIds.length
+        + skillSync.removedSkillIds.length;
+      const madeChanges = installedPluginIds.length > 0
+        || updatedPluginIds.length > 0
+        || reloadedPluginIds.length > 0
+        || skillChanges > 0;
+
       const status = failures.length === 0 ? "ok" : "error";
       recordRun(status, updated
-        ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s).`
-        : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s).`, startedAt);
+        ? `Pulled new commit; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length}, reloaded ${reloadedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).`
+        : `Reconciled collection; installed ${installedPluginIds.length}, updated ${updatedPluginIds.length} plugin(s), and synchronized ${skillChanges} skill(s).`, startedAt);
       return statusResult(
         failures.length === 0
           ? updated
-            ? `Updated from GitHub and reconciled the plugin collection.`
-            : installedPluginIds.length > 0 || updatedPluginIds.length > 0
-              ? "Plugin collection reconciled."
+            ? "Updated from GitHub and reconciled plugins and skills."
+            : madeChanges
+              ? "Plugins and skills reconciled."
               : "Already up to date."
           : "The collection was pulled, but one or more plugin actions failed.",
-        { updated, installedPluginIds, updatedPluginIds, reloadedPluginIds, skippedPluginIds, failures },
+        {
+          updated,
+          installedPluginIds,
+          updatedPluginIds,
+          reloadedPluginIds,
+          skippedPluginIds,
+          installedSkillIds: skillSync.installedSkillIds,
+          updatedSkillIds: skillSync.updatedSkillIds,
+          removedSkillIds: skillSync.removedSkillIds,
+          skippedSkillIds: skillSync.skippedSkillIds,
+          failures,
+        },
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -326,21 +375,21 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.rpc.register(rpcContract, {
-    status: () => statusResult("Ready to pull plugin updates from GitHub."),
+    status: () => statusResult("Ready to pull plugin and BB skill updates from GitHub."),
     syncNow,
   });
 
   bb.cli.register({
     name: "sync",
-    summary: "Pull and reload BB plugins from the private GitHub repository",
+    summary: "Pull and reconcile BB plugins and skills from the private GitHub repository",
     commands: [
       { name: "status", summary: "Show local repository and recent sync status", usage: "bb sync status [--json]" },
-      { name: "now", summary: "Pull and apply available plugin code updates", usage: "bb sync now [--json]" },
+      { name: "now", summary: "Pull and apply available plugin and skill updates", usage: "bb sync now [--json]" },
     ],
     async run(argv) {
       const [command = "status"] = argv;
       const result = command === "now" ? await syncNow()
-        : command === "status" ? await statusResult("Ready to pull plugin updates from GitHub.")
+        : command === "status" ? await statusResult("Ready to pull plugin and BB skill updates from GitHub.")
         : null;
       if (!result) return { exitCode: 2, stderr: "Usage: bb sync <status|now>\n" };
       return { exitCode: result.failures.length > 0 ? 1 : 0, stdout: `${JSON.stringify(result, null, 2)}\n` };
