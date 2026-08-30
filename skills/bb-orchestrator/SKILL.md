@@ -1,6 +1,6 @@
 ---
 name: bb-orchestrator
-description: Delegate substantial implementation work to a BB subagent and manage it to a verified finish. When the user does not explicitly mention a provider or model, always spawn the child with Codex GPT-5.6-Luna at maximum reasoning effort; only an explicit user override may select another provider, model, reasoning level, or service tier. Use when the user says they are away or AFK, asks you to be the boss, requests another BB agent or subagent, or wants a review-and-iterate coding workflow. Do not use for read-only questions, reviews, or trivial one-step edits.
+description: Delegate substantial implementation work to a BB subagent and manage it to a verified finish. When the user does not explicitly mention a provider or model, always spawn the child with Codex GPT-5.6-Luna at maximum reasoning effort; only an explicit user override may select another provider, model, reasoning level, or service tier. Use when the user asks you to be the boss, requests another BB agent or subagent, or wants a review-and-iterate coding workflow, and when the afk skill routes a large or parallelizable build here. For a bare "I am away/AFK, do X", prefer the afk skill, which owns the ownership frame and decides whether to delegate. Do not use for read-only questions, reviews, or trivial one-step edits.
 ---
 
 # BB orchestrated implementation
