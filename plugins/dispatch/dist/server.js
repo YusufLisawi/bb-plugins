@@ -14533,6 +14533,7 @@ config(en_default());
 var DEFAULT_DISPATCH_URL = "https://dispatch-kappa-lac.vercel.app";
 
 // src/server/dispatch-client.ts
+var REQUEST_TIMEOUT_MS = 15e3;
 var DispatchApiError = class extends Error {
   status;
   code;
@@ -14650,6 +14651,9 @@ var DispatchClient = class {
       );
     }
     let response;
+    let text;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       response = await fetch(`${this.baseUrl}/api/v1${path}`, {
         method: options.method ?? "GET",
@@ -14657,16 +14661,20 @@ var DispatchClient = class {
           ...options.skipAuth ? {} : { Authorization: `Bearer ${this.apiKey}` },
           ...options.body === void 0 ? {} : { "Content-Type": "application/json" }
         },
-        body: options.body === void 0 ? void 0 : JSON.stringify(options.body)
+        body: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+        signal: controller.signal
       });
+      text = await response.text();
     } catch (error51) {
+      const message = controller.signal.aborted ? `Dispatch did not respond within ${REQUEST_TIMEOUT_MS / 1e3} seconds.` : `Could not reach Dispatch at ${this.baseUrl}: ${error51 instanceof Error ? error51.message : "network error"}`;
       throw new DispatchApiError(
-        `Could not reach Dispatch at ${this.baseUrl}: ${error51 instanceof Error ? error51.message : "network error"}`,
+        message,
         0,
-        "network_error"
+        controller.signal.aborted ? "timeout" : "network_error"
       );
+    } finally {
+      clearTimeout(timeout);
     }
-    const text = await response.text();
     let payload = null;
     if (text) {
       try {
@@ -14700,40 +14708,94 @@ function isRecord(value) {
 
 // src/server/project-map.ts
 var OVERRIDES_KEY = "project-map-overrides";
+var PROJECT_MAP_CACHE_TTL_MS = 5 * 6e4;
+var cachedProjectMap = null;
+var projectMapRequest = null;
+var projectMapGeneration = 0;
 async function discoverProjectMap(bb) {
-  const discovered = {};
-  const projects = await bb.sdk.projects.list();
-  for (const project of projects) {
-    for (const source of project.sources ?? []) {
-      try {
-        const rootPath = source.path.replace(/[\\/]$/, "");
-        const file2 = await bb.sdk.files.read({
-          hostId: source.hostId,
-          path: `${rootPath}/.dispatch.json`,
-          rootPath
-        });
-        if (file2.contentEncoding !== "utf8") continue;
-        const config2 = JSON.parse(file2.content);
-        if (isRecord2(config2) && typeof config2.project === "string" && config2.project.trim()) {
-          discovered[project.id] = config2.project.trim();
-          break;
-        }
-      } catch {
-      }
+  if (cachedProjectMap && cachedProjectMap.expiresAt > Date.now()) {
+    return cachedProjectMap.value;
+  }
+  if (projectMapRequest) return projectMapRequest;
+  const generation = projectMapGeneration;
+  const request = loadProjectMap(bb);
+  projectMapRequest = request;
+  try {
+    const map2 = await request;
+    if (generation === projectMapGeneration) {
+      cachedProjectMap = {
+        value: map2,
+        expiresAt: Date.now() + PROJECT_MAP_CACHE_TTL_MS
+      };
     }
+    return map2;
+  } finally {
+    if (projectMapRequest === request) projectMapRequest = null;
+  }
+}
+async function findDispatchSlugForBbProject(bb, bbProjectId) {
+  if (cachedProjectMap && cachedProjectMap.expiresAt > Date.now()) {
+    return cachedProjectMap.value[bbProjectId] ?? null;
   }
   const overrides = await bb.storage.kv.get(OVERRIDES_KEY);
-  return { ...discovered, ...isRecord2(overrides) ? overrides : {} };
+  if (isRecord2(overrides) && typeof overrides[bbProjectId] === "string") {
+    return overrides[bbProjectId];
+  }
+  try {
+    const project = await bb.sdk.projects.get({ projectId: bbProjectId });
+    return discoverProjectSlug(bb, project.sources ?? []);
+  } catch {
+    return null;
+  }
 }
 async function rememberProjectMapping(bb, bbProjectId, dispatchSlug) {
   const current = await bb.storage.kv.get(OVERRIDES_KEY);
   const next = isRecord2(current) ? { ...current } : {};
   next[bbProjectId] = dispatchSlug;
   await bb.storage.kv.set(OVERRIDES_KEY, next);
+  invalidateProjectMapCache();
 }
 async function findBbProjectForDispatchSlug(bb, dispatchSlug) {
   const map2 = await discoverProjectMap(bb);
   return Object.entries(map2).find(([, slug]) => slug === dispatchSlug)?.[0] ?? null;
+}
+function invalidateProjectMapCache() {
+  projectMapGeneration += 1;
+  cachedProjectMap = null;
+  projectMapRequest = null;
+}
+async function loadProjectMap(bb) {
+  const [projects, overrides] = await Promise.all([
+    bb.sdk.projects.list(),
+    bb.storage.kv.get(OVERRIDES_KEY)
+  ]);
+  const entries = await Promise.all(
+    projects.map(async (project) => {
+      const slug = await discoverProjectSlug(bb, project.sources ?? []);
+      return slug ? [project.id, slug] : null;
+    })
+  );
+  const discovered = Object.fromEntries(entries.filter((entry) => entry !== null));
+  return { ...discovered, ...isRecord2(overrides) ? overrides : {} };
+}
+async function discoverProjectSlug(bb, sources) {
+  for (const source of sources) {
+    try {
+      const rootPath = source.path.replace(/[\\/]$/, "");
+      const file2 = await bb.sdk.files.read({
+        hostId: source.hostId,
+        path: `${rootPath}/.dispatch.json`,
+        rootPath
+      });
+      if (file2.contentEncoding !== "utf8") continue;
+      const config2 = JSON.parse(file2.content);
+      if (isRecord2(config2) && typeof config2.project === "string" && config2.project.trim()) {
+        return config2.project.trim();
+      }
+    } catch {
+    }
+  }
+  return null;
 }
 function isRecord2(value) {
   return typeof value === "object" && value !== null;
@@ -14787,6 +14849,23 @@ var commentSchema = external_exports.object({
 var memberSchema = userSchema.extend({
   membershipRole: external_exports.enum(["owner", "member"]).optional()
 });
+var connectionStatusSchema = external_exports.object({
+  connected: external_exports.boolean(),
+  baseUrl: external_exports.string(),
+  user: userSchema.nullable(),
+  error: external_exports.string().nullable()
+});
+var mineTasksSchema = external_exports.object({
+  projects: external_exports.record(external_exports.string(), projectSchema),
+  mine: external_exports.array(taskSchema),
+  open: external_exports.array(taskSchema)
+});
+var taskDetailSchema = external_exports.object({
+  task: taskSchema,
+  project: projectSchema.nullable(),
+  subtasks: external_exports.array(taskSchema),
+  linkedThreadId: external_exports.string().nullable()
+});
 var taskPatchSchema = external_exports.object({
   title: external_exports.string().optional(),
   description: external_exports.string().optional(),
@@ -14820,50 +14899,33 @@ var threadRequestSchema = external_exports.object({
 var rpcContract = defineRpcContract({
   status: {
     input: external_exports.null(),
-    output: external_exports.object({
-      connected: external_exports.boolean(),
-      baseUrl: external_exports.string(),
-      user: userSchema.nullable(),
-      error: external_exports.string().nullable()
-    })
+    output: connectionStatusSchema
   },
   saveConnection: {
     input: external_exports.object({
       apiKey: external_exports.string().optional(),
       baseUrl: external_exports.string().optional()
     }),
-    output: external_exports.object({
-      connected: external_exports.boolean(),
-      baseUrl: external_exports.string(),
-      user: userSchema.nullable(),
-      error: external_exports.string().nullable()
-    })
+    output: connectionStatusSchema
   },
   loginWithPassword: {
     input: external_exports.object({ email: external_exports.string().email(), password: external_exports.string().min(1) }),
-    output: external_exports.object({
-      connected: external_exports.boolean(),
-      baseUrl: external_exports.string(),
-      user: userSchema.nullable(),
-      error: external_exports.string().nullable()
-    })
+    output: connectionStatusSchema
   },
   importCliKey: {
     input: external_exports.null(),
+    output: connectionStatusSchema
+  },
+  loadDashboard: {
+    input: external_exports.null(),
     output: external_exports.object({
-      connected: external_exports.boolean(),
-      baseUrl: external_exports.string(),
-      user: userSchema.nullable(),
-      error: external_exports.string().nullable()
+      status: connectionStatusSchema,
+      data: mineTasksSchema.nullable()
     })
   },
   listMine: {
     input: external_exports.null(),
-    output: external_exports.object({
-      projects: external_exports.record(external_exports.string(), projectSchema),
-      mine: external_exports.array(taskSchema),
-      open: external_exports.array(taskSchema)
-    })
+    output: mineTasksSchema
   },
   listProject: {
     input: external_exports.object({
@@ -14879,11 +14941,15 @@ var rpcContract = defineRpcContract({
   },
   getTask: {
     input: external_exports.object({ id: external_exports.string().min(1) }),
+    output: taskDetailSchema
+  },
+  loadTaskDetail: {
+    input: external_exports.object({ id: external_exports.string().min(1) }),
     output: external_exports.object({
-      task: taskSchema,
-      project: projectSchema.nullable(),
-      subtasks: external_exports.array(taskSchema),
-      linkedThreadId: external_exports.string().nullable()
+      detail: taskDetailSchema,
+      comments: external_exports.array(commentSchema),
+      members: external_exports.array(memberSchema),
+      baseUrl: external_exports.string()
     })
   },
   listProjects: {
@@ -14896,6 +14962,10 @@ var rpcContract = defineRpcContract({
   resolveBbProject: {
     input: external_exports.object({ dispatchSlug: external_exports.string().min(1) }),
     output: external_exports.object({ bbProjectId: external_exports.string().nullable() })
+  },
+  resolveDispatchProject: {
+    input: external_exports.object({ bbProjectId: external_exports.string().min(1) }),
+    output: external_exports.object({ dispatchSlug: external_exports.string().nullable() })
   },
   rememberProjectMap: {
     input: external_exports.object({ bbProjectId: external_exports.string().min(1), dispatchSlug: external_exports.string().min(1) }),
@@ -14938,6 +15008,49 @@ var rpcContract = defineRpcContract({
     output: external_exports.object({ count: external_exports.number().int().nonnegative() })
   }
 });
+var CONNECTION_STATUS_TTL_MS = 2e4;
+var MINE_TASKS_TTL_MS = 3e4;
+var PROJECTS_TTL_MS = 6e4;
+var TASK_TTL_MS = 1e4;
+var PROJECT_TASKS_TTL_MS = 1e4;
+var COMMENTS_TTL_MS = 1e4;
+var MEMBERS_TTL_MS = 5 * 6e4;
+var ReadThroughCache = class {
+  values = /* @__PURE__ */ new Map();
+  inFlight = /* @__PURE__ */ new Map();
+  generation = 0;
+  get(key, ttlMs, loader) {
+    const cached2 = this.values.get(key);
+    if (cached2 && cached2.expiresAt > Date.now()) return Promise.resolve(cached2.value);
+    const pending = this.inFlight.get(key);
+    if (pending) return pending;
+    const generation = this.generation;
+    const request = loader().then((value) => {
+      if (generation === this.generation) {
+        this.values.set(key, { value, expiresAt: Date.now() + ttlMs });
+      }
+      return value;
+    });
+    this.inFlight.set(key, request);
+    request.then(
+      () => this.clearInFlight(key, request),
+      () => this.clearInFlight(key, request)
+    );
+    return request;
+  }
+  peek(key) {
+    const cached2 = this.values.get(key);
+    return cached2 && cached2.expiresAt > Date.now() ? cached2.value : null;
+  }
+  clear() {
+    this.generation += 1;
+    this.values.clear();
+    this.inFlight.clear();
+  }
+  clearInFlight(key, request) {
+    if (this.inFlight.get(key) === request) this.inFlight.delete(key);
+  }
+};
 async function plugin(bb) {
   const settings = bb.settings.define({
     apiKey: {
@@ -14953,9 +15066,27 @@ async function plugin(bb) {
       default: DEFAULT_DISPATCH_URL
     }
   });
+  const reads = new ReadThroughCache();
+  let cachedClient = null;
+  let clientIdentity = null;
+  const resetConnection = () => {
+    cachedClient = null;
+    clientIdentity = null;
+    reads.clear();
+  };
+  const invalidateReads = () => reads.clear();
+  settings.onChange(resetConnection);
   const clientForSettings = async () => {
     const current = await settings.get();
-    return new DispatchClient({ baseUrl: current.baseUrl, apiKey: current.apiKey });
+    const baseUrl = normalizeBaseUrl(current.baseUrl);
+    const apiKey = current.apiKey?.trim() ?? "";
+    const identity = `${baseUrl}\0${apiKey}`;
+    if (!cachedClient || clientIdentity !== identity) {
+      cachedClient = new DispatchClient({ baseUrl, apiKey });
+      clientIdentity = identity;
+      reads.clear();
+    }
+    return cachedClient;
   };
   const saveSettings = async (values) => {
     const next = {};
@@ -14963,42 +15094,132 @@ async function plugin(bb) {
     if (values.baseUrl !== void 0) next.baseUrl = normalizeBaseUrl(values.baseUrl);
     if (Object.keys(next).length > 0) {
       await bb.sdk.plugins.updateSettings({ pluginId: bb.pluginId, values: next });
+      resetConnection();
     }
   };
-  const connectionStatus = async () => {
-    const client = await clientForSettings();
-    return client.connectionStatus();
+  const getConnectionStatus = (client) => {
+    return reads.get("connection-status", CONNECTION_STATUS_TTL_MS, () => client.connectionStatus());
+  };
+  const getMine = (client) => {
+    return reads.get("mine", MINE_TASKS_TTL_MS, () => client.listMine());
+  };
+  const getProjects = (client) => {
+    return reads.get("projects", PROJECTS_TTL_MS, () => client.listProjects());
+  };
+  const getTask = (client, taskId) => {
+    return reads.get(`task:${taskId}`, TASK_TTL_MS, () => client.getTask(taskId));
+  };
+  const getProjectTasks = (client, slug, options = {}) => {
+    const key = [
+      "project-tasks",
+      slug,
+      options.status ?? "",
+      options.mine ? "mine" : "",
+      options.unclaimed ? "unclaimed" : ""
+    ].join(":");
+    return reads.get(key, PROJECT_TASKS_TTL_MS, () => client.listTasks(slug, options));
+  };
+  const getComments = (client, taskId) => {
+    return reads.get(`comments:${taskId}`, COMMENTS_TTL_MS, () => client.listComments(taskId));
+  };
+  const getMembers = (client, slug) => {
+    return reads.get(`members:${slug}`, MEMBERS_TTL_MS, async () => {
+      try {
+        return await client.listMembers(slug);
+      } catch (error51) {
+        if (error51 instanceof DispatchApiError && error51.status === 403) return [];
+        throw error51;
+      }
+    });
+  };
+  const loadTaskOverview = async (client, taskId, includeMembers) => {
+    const mineProjects = reads.peek("mine")?.projects ?? null;
+    const projectsPromise = mineProjects ? null : getProjects(client);
+    const task = await getTask(client, taskId);
+    const projects = projectsPromise ? await projectsPromise : null;
+    const project = mineProjects?.[task.projectId] ?? projects?.find((candidate) => candidate.id === task.projectId) ?? (mineProjects ? (await getProjects(client)).find((candidate) => candidate.id === task.projectId) : null) ?? null;
+    const boardPromise = project && task.subtasks === void 0 ? getProjectTasks(client, project.slug) : Promise.resolve(null);
+    const membersPromise = project && includeMembers ? getMembers(client, project.slug) : Promise.resolve([]);
+    const [board, members, linkedThreadId] = await Promise.all([
+      boardPromise,
+      membersPromise,
+      getLinkedThreadId(bb, task.id)
+    ]);
+    const rawSubtasks = task.subtasks ?? board?.tasks.filter((candidate) => candidate.parentTaskId === task.id) ?? [];
+    const [decoratedTask, subtasks] = await Promise.all([
+      decorateTask(bb, task, linkedThreadId),
+      decorateTasks(bb, rawSubtasks)
+    ]);
+    return {
+      detail: {
+        task: decoratedTask,
+        project,
+        subtasks,
+        linkedThreadId
+      },
+      members
+    };
   };
   bb.rpc.register(rpcContract, {
-    status: () => connectionStatus(),
+    async status() {
+      return getConnectionStatus(await clientForSettings());
+    },
     async saveConnection(input) {
       await saveSettings(input);
-      return connectionStatus();
+      return getConnectionStatus(await clientForSettings());
     },
     async loginWithPassword(input) {
       const current = await settings.get();
       const client = new DispatchClient({ baseUrl: current.baseUrl });
       const result = await client.loginWithPassword(input.email, input.password);
       await saveSettings({ apiKey: result.token });
-      return connectionStatus();
+      return getConnectionStatus(await clientForSettings());
     },
     async importCliKey() {
       const imported = await importCliCredentials(bb);
       await saveSettings(imported);
-      return connectionStatus();
+      return getConnectionStatus(await clientForSettings());
+    },
+    async loadDashboard() {
+      const client = await clientForSettings();
+      if (!client.isConfigured) {
+        return { status: await getConnectionStatus(client), data: null };
+      }
+      const statusPromise = getConnectionStatus(client);
+      const minePromise = getMine(client);
+      let response;
+      try {
+        response = await minePromise;
+      } catch (error51) {
+        const status = await statusPromise;
+        if (!status.connected) return { status, data: null };
+        throw error51;
+      }
+      const [mine, open] = await Promise.all([
+        decorateTasks(bb, response.mine),
+        decorateTasks(bb, response.open)
+      ]);
+      return {
+        status: { connected: true, baseUrl: client.baseUrl, user: null, error: null },
+        data: { projects: response.projects, mine, open }
+      };
     },
     async listMine() {
       const client = await requireClient(clientForSettings);
-      const response = await client.listMine();
+      const response = await getMine(client);
+      const [mine, open] = await Promise.all([
+        decorateTasks(bb, response.mine),
+        decorateTasks(bb, response.open)
+      ]);
       return {
         projects: response.projects,
-        mine: await decorateTasks(bb, response.mine),
-        open: await decorateTasks(bb, response.open)
+        mine,
+        open
       };
     },
     async listProject(input) {
       const client = await requireClient(clientForSettings);
-      const response = await client.listTasks(input.slug, input);
+      const response = await getProjectTasks(client, input.slug, input);
       return {
         nextCursor: response.nextCursor,
         tasks: await decorateTasks(bb, response.tasks)
@@ -15006,28 +15227,29 @@ async function plugin(bb) {
     },
     async getTask(input) {
       const client = await requireClient(clientForSettings);
-      const task = await client.getTask(input.id);
-      const projects = await client.listProjects();
-      const project = projects.find((candidate) => candidate.id === task.projectId) ?? null;
-      const board = project ? await client.listTasks(project.slug) : { tasks: [], nextCursor: null };
-      const subtasks = await decorateTasks(
-        bb,
-        board.tasks.filter((candidate) => candidate.parentTaskId === task.id)
-      );
-      const linkedThreadId = await getLinkedThreadId(bb, task.id);
+      return (await loadTaskOverview(client, input.id, false)).detail;
+    },
+    async loadTaskDetail(input) {
+      const client = await requireClient(clientForSettings);
+      const [overview, comments] = await Promise.all([
+        loadTaskOverview(client, input.id, true),
+        getComments(client, input.id)
+      ]);
       return {
-        task: await decorateTask(bb, task, linkedThreadId),
-        project,
-        subtasks,
-        linkedThreadId
+        ...overview,
+        comments,
+        baseUrl: client.baseUrl
       };
     },
     async listProjects() {
       const client = await requireClient(clientForSettings);
-      return { projects: await client.listProjects(), mapped: await discoverProjectMap(bb) };
+      return { projects: await getProjects(client), mapped: {} };
     },
     async resolveBbProject(input) {
       return { bbProjectId: await findBbProjectForDispatchSlug(bb, input.dispatchSlug) };
+    },
+    async resolveDispatchProject(input) {
+      return { dispatchSlug: await findDispatchSlugForBbProject(bb, input.bbProjectId) };
     },
     async rememberProjectMap(input) {
       await rememberProjectMapping(bb, input.bbProjectId, input.dispatchSlug);
@@ -15035,39 +15257,40 @@ async function plugin(bb) {
     },
     async createTask(input) {
       const client = await requireClient(clientForSettings);
-      return decorateTask(bb, await client.createTask(input));
+      const task = await client.createTask(input);
+      invalidateReads();
+      return decorateTask(bb, task);
     },
     async patchTask(input) {
       const client = await requireClient(clientForSettings);
-      return decorateTask(bb, await client.patchTask(input.id, input.patch));
+      const task = await client.patchTask(input.id, input.patch);
+      invalidateReads();
+      return decorateTask(bb, task);
     },
     async deleteTask(input) {
       const client = await requireClient(clientForSettings);
       await client.deleteTask(input.id);
       await bb.storage.kv.delete(`task:${input.id}`);
+      invalidateReads();
       return { ok: true };
     },
     async listComments(input) {
       const client = await requireClient(clientForSettings);
-      return { comments: await client.listComments(input.taskId) };
+      return { comments: await getComments(client, input.taskId) };
     },
     async addComment(input) {
       const client = await requireClient(clientForSettings);
-      return client.addComment(input.taskId, { body: input.body, as: input.as });
+      const comment = await client.addComment(input.taskId, { body: input.body, as: input.as });
+      invalidateReads();
+      return comment;
     },
     async listMembers(input) {
       const client = await requireClient(clientForSettings);
-      try {
-        return { members: await client.listMembers(input.slug) };
-      } catch (error51) {
-        if (error51 instanceof DispatchApiError && error51.status === 403) return { members: [] };
-        throw error51;
-      }
+      return { members: await getMembers(client, input.slug) };
     },
     async createThread(input) {
       const client = await requireClient(clientForSettings);
-      const task = await client.getTask(input.taskId);
-      const user = await client.me();
+      const [task, user] = await Promise.all([client.getTask(input.taskId), client.me()]);
       if (task.assigneeIds.length > 0 && !task.assigneeIds.includes(user.id)) {
         throw new Error("This task is assigned to another Dispatch user.");
       }
@@ -15090,15 +15313,16 @@ async function plugin(bb) {
         createdAt: (/* @__PURE__ */ new Date()).toISOString()
       });
       if (request.projectId) {
-        const projects = await client.listProjects();
+        const projects = await getProjects(client);
         const project = projects.find((candidate) => candidate.id === task.projectId);
         if (project) await rememberProjectMapping(bb, request.projectId, project.slug);
       }
+      invalidateReads();
       return { threadId: thread.id, task: await decorateTask(bb, updated, thread.id) };
     },
     async openCount() {
       const client = await requireClient(clientForSettings);
-      const response = await client.listMine();
+      const response = await getMine(client);
       return { count: response.mine.filter((task) => task.status !== "done").length };
     }
   });

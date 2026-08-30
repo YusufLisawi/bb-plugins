@@ -8,8 +8,12 @@ import { z } from "zod";
 import {
   DEFAULT_DISPATCH_URL,
   type ConnectionStatus,
+  type DispatchComment,
+  type DispatchProject,
   type DispatchTask,
   type Member,
+  type MineTasksResponse,
+  type ProjectTasksResponse,
 } from "./src/types.js";
 import {
   DispatchApiError,
@@ -17,7 +21,7 @@ import {
   normalizeBaseUrl,
 } from "./src/server/dispatch-client.js";
 import {
-  discoverProjectMap,
+  findDispatchSlugForBbProject,
   findBbProjectForDispatchSlug,
   rememberProjectMapping,
 } from "./src/server/project-map.js";
@@ -77,6 +81,26 @@ const memberSchema = userSchema.extend({
   membershipRole: z.enum(["owner", "member"]).optional(),
 });
 
+const connectionStatusSchema = z.object({
+  connected: z.boolean(),
+  baseUrl: z.string(),
+  user: userSchema.nullable(),
+  error: z.string().nullable(),
+});
+
+const mineTasksSchema = z.object({
+  projects: z.record(z.string(), projectSchema),
+  mine: z.array(taskSchema),
+  open: z.array(taskSchema),
+});
+
+const taskDetailSchema = z.object({
+  task: taskSchema,
+  project: projectSchema.nullable(),
+  subtasks: z.array(taskSchema),
+  linkedThreadId: z.string().nullable(),
+});
+
 const taskPatchSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
@@ -113,50 +137,33 @@ const threadRequestSchema = z.object({
 export const rpcContract = defineRpcContract({
   status: {
     input: z.null(),
-    output: z.object({
-      connected: z.boolean(),
-      baseUrl: z.string(),
-      user: userSchema.nullable(),
-      error: z.string().nullable(),
-    }),
+    output: connectionStatusSchema,
   },
   saveConnection: {
     input: z.object({
       apiKey: z.string().optional(),
       baseUrl: z.string().optional(),
     }),
-    output: z.object({
-      connected: z.boolean(),
-      baseUrl: z.string(),
-      user: userSchema.nullable(),
-      error: z.string().nullable(),
-    }),
+    output: connectionStatusSchema,
   },
   loginWithPassword: {
     input: z.object({ email: z.string().email(), password: z.string().min(1) }),
-    output: z.object({
-      connected: z.boolean(),
-      baseUrl: z.string(),
-      user: userSchema.nullable(),
-      error: z.string().nullable(),
-    }),
+    output: connectionStatusSchema,
   },
   importCliKey: {
     input: z.null(),
+    output: connectionStatusSchema,
+  },
+  loadDashboard: {
+    input: z.null(),
     output: z.object({
-      connected: z.boolean(),
-      baseUrl: z.string(),
-      user: userSchema.nullable(),
-      error: z.string().nullable(),
+      status: connectionStatusSchema,
+      data: mineTasksSchema.nullable(),
     }),
   },
   listMine: {
     input: z.null(),
-    output: z.object({
-      projects: z.record(z.string(), projectSchema),
-      mine: z.array(taskSchema),
-      open: z.array(taskSchema),
-    }),
+    output: mineTasksSchema,
   },
   listProject: {
     input: z.object({
@@ -172,11 +179,15 @@ export const rpcContract = defineRpcContract({
   },
   getTask: {
     input: z.object({ id: z.string().min(1) }),
+    output: taskDetailSchema,
+  },
+  loadTaskDetail: {
+    input: z.object({ id: z.string().min(1) }),
     output: z.object({
-      task: taskSchema,
-      project: projectSchema.nullable(),
-      subtasks: z.array(taskSchema),
-      linkedThreadId: z.string().nullable(),
+      detail: taskDetailSchema,
+      comments: z.array(commentSchema),
+      members: z.array(memberSchema),
+      baseUrl: z.string(),
     }),
   },
   listProjects: {
@@ -189,6 +200,10 @@ export const rpcContract = defineRpcContract({
   resolveBbProject: {
     input: z.object({ dispatchSlug: z.string().min(1) }),
     output: z.object({ bbProjectId: z.string().nullable() }),
+  },
+  resolveDispatchProject: {
+    input: z.object({ bbProjectId: z.string().min(1) }),
+    output: z.object({ dispatchSlug: z.string().nullable() }),
   },
   rememberProjectMap: {
     input: z.object({ bbProjectId: z.string().min(1), dispatchSlug: z.string().min(1) }),
@@ -232,6 +247,61 @@ export const rpcContract = defineRpcContract({
   },
 });
 
+const CONNECTION_STATUS_TTL_MS = 20_000;
+const MINE_TASKS_TTL_MS = 30_000;
+const PROJECTS_TTL_MS = 60_000;
+const TASK_TTL_MS = 10_000;
+const PROJECT_TASKS_TTL_MS = 10_000;
+const COMMENTS_TTL_MS = 10_000;
+const MEMBERS_TTL_MS = 5 * 60_000;
+
+/**
+ * Shares in-flight reads between the task page, sidebar count, and detail
+ * panel, while keeping short-lived responses fresh after mutations.
+ */
+class ReadThroughCache {
+  private readonly values = new Map<string, { value: unknown; expiresAt: number }>();
+  private readonly inFlight = new Map<string, Promise<unknown>>();
+  private generation = 0;
+
+  get<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
+    const cached = this.values.get(key);
+    if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.value as T);
+
+    const pending = this.inFlight.get(key);
+    if (pending) return pending as Promise<T>;
+
+    const generation = this.generation;
+    const request = loader().then((value) => {
+      if (generation === this.generation) {
+        this.values.set(key, { value, expiresAt: Date.now() + ttlMs });
+      }
+      return value;
+    });
+    this.inFlight.set(key, request);
+    request.then(
+      () => this.clearInFlight(key, request),
+      () => this.clearInFlight(key, request),
+    );
+    return request;
+  }
+
+  peek<T>(key: string): T | null {
+    const cached = this.values.get(key);
+    return cached && cached.expiresAt > Date.now() ? cached.value as T : null;
+  }
+
+  clear(): void {
+    this.generation += 1;
+    this.values.clear();
+    this.inFlight.clear();
+  }
+
+  private clearInFlight(key: string, request: Promise<unknown>): void {
+    if (this.inFlight.get(key) === request) this.inFlight.delete(key);
+  }
+}
+
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
     apiKey: {
@@ -248,9 +318,30 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  const clientForSettings = async () => {
+  const reads = new ReadThroughCache();
+  let cachedClient: DispatchClient | null = null;
+  let clientIdentity: string | null = null;
+
+  const resetConnection = () => {
+    cachedClient = null;
+    clientIdentity = null;
+    reads.clear();
+  };
+  const invalidateReads = () => reads.clear();
+
+  settings.onChange(resetConnection);
+
+  const clientForSettings = async (): Promise<DispatchClient> => {
     const current = await settings.get();
-    return new DispatchClient({ baseUrl: current.baseUrl, apiKey: current.apiKey });
+    const baseUrl = normalizeBaseUrl(current.baseUrl);
+    const apiKey = current.apiKey?.trim() ?? "";
+    const identity = `${baseUrl}\u0000${apiKey}`;
+    if (!cachedClient || clientIdentity !== identity) {
+      cachedClient = new DispatchClient({ baseUrl, apiKey });
+      clientIdentity = identity;
+      reads.clear();
+    }
+    return cachedClient;
   };
 
   const saveSettings = async (values: { apiKey?: string; baseUrl?: string }) => {
@@ -259,20 +350,111 @@ export default async function plugin(bb: BbPluginApi) {
     if (values.baseUrl !== undefined) next.baseUrl = normalizeBaseUrl(values.baseUrl);
     if (Object.keys(next).length > 0) {
       await bb.sdk.plugins.updateSettings({ pluginId: bb.pluginId, values: next });
+      resetConnection();
     }
   };
 
-  const connectionStatus = async (): Promise<ConnectionStatus> => {
-    const client = await clientForSettings();
-    return client.connectionStatus();
+  const getConnectionStatus = (client: DispatchClient): Promise<ConnectionStatus> => {
+    return reads.get("connection-status", CONNECTION_STATUS_TTL_MS, () => client.connectionStatus());
+  };
+
+  const getMine = (client: DispatchClient): Promise<MineTasksResponse> => {
+    return reads.get("mine", MINE_TASKS_TTL_MS, () => client.listMine());
+  };
+
+  const getProjects = (client: DispatchClient): Promise<DispatchProject[]> => {
+    return reads.get("projects", PROJECTS_TTL_MS, () => client.listProjects());
+  };
+
+  const getTask = (client: DispatchClient, taskId: string): Promise<DispatchTask> => {
+    return reads.get(`task:${taskId}`, TASK_TTL_MS, () => client.getTask(taskId));
+  };
+
+  const getProjectTasks = (
+    client: DispatchClient,
+    slug: string,
+    options: { status?: string; mine?: boolean; unclaimed?: boolean } = {},
+  ): Promise<ProjectTasksResponse> => {
+    const key = [
+      "project-tasks",
+      slug,
+      options.status ?? "",
+      options.mine ? "mine" : "",
+      options.unclaimed ? "unclaimed" : "",
+    ].join(":");
+    return reads.get(key, PROJECT_TASKS_TTL_MS, () => client.listTasks(slug, options));
+  };
+
+  const getComments = (client: DispatchClient, taskId: string): Promise<DispatchComment[]> => {
+    return reads.get(`comments:${taskId}`, COMMENTS_TTL_MS, () => client.listComments(taskId));
+  };
+
+  const getMembers = (client: DispatchClient, slug: string): Promise<Member[]> => {
+    return reads.get(`members:${slug}`, MEMBERS_TTL_MS, async () => {
+      try {
+        return await client.listMembers(slug);
+      } catch (error) {
+        // Membership enumeration is currently admin-only in the Dispatch API.
+        // Members can still use the rest of the plugin and see their existing
+        // assignee id in the detail view.
+        if (error instanceof DispatchApiError && error.status === 403) return [] as Member[];
+        throw error;
+      }
+    });
+  };
+
+  const loadTaskOverview = async (
+    client: DispatchClient,
+    taskId: string,
+    includeMembers: boolean,
+  ) => {
+    // A dashboard load already includes the relevant project records. Reuse
+    // that warm data when possible; otherwise start the catalog request in
+    // parallel with the task request.
+    const mineProjects = reads.peek<MineTasksResponse>("mine")?.projects ?? null;
+    const projectsPromise = mineProjects ? null : getProjects(client);
+    const task = await getTask(client, taskId);
+    const projects = projectsPromise ? await projectsPromise : null;
+    const project = mineProjects?.[task.projectId]
+      ?? projects?.find((candidate) => candidate.id === task.projectId)
+      ?? (mineProjects ? (await getProjects(client)).find((candidate) => candidate.id === task.projectId) : null)
+      ?? null;
+    const boardPromise = project && task.subtasks === undefined
+      ? getProjectTasks(client, project.slug)
+      : Promise.resolve<ProjectTasksResponse | null>(null);
+    const membersPromise = project && includeMembers
+      ? getMembers(client, project.slug)
+      : Promise.resolve<Member[]>([]);
+    const [board, members, linkedThreadId] = await Promise.all([
+      boardPromise,
+      membersPromise,
+      getLinkedThreadId(bb, task.id),
+    ]);
+    const rawSubtasks = task.subtasks ?? board?.tasks.filter((candidate) => candidate.parentTaskId === task.id) ?? [];
+    const [decoratedTask, subtasks] = await Promise.all([
+      decorateTask(bb, task, linkedThreadId),
+      decorateTasks(bb, rawSubtasks),
+    ]);
+
+    return {
+      detail: {
+        task: decoratedTask,
+        project,
+        subtasks,
+        linkedThreadId,
+      },
+      members,
+    };
   };
 
   bb.rpc.register(rpcContract, {
-    status: () => connectionStatus(),
+    async status() {
+      return getConnectionStatus(await clientForSettings());
+    },
 
     async saveConnection(input) {
       await saveSettings(input);
-      return connectionStatus();
+      return getConnectionStatus(await clientForSettings());
     },
 
     async loginWithPassword(input) {
@@ -280,28 +462,61 @@ export default async function plugin(bb: BbPluginApi) {
       const client = new DispatchClient({ baseUrl: current.baseUrl });
       const result = await client.loginWithPassword(input.email, input.password);
       await saveSettings({ apiKey: result.token });
-      return connectionStatus();
+      return getConnectionStatus(await clientForSettings());
     },
 
     async importCliKey() {
       const imported = await importCliCredentials(bb);
       await saveSettings(imported);
-      return connectionStatus();
+      return getConnectionStatus(await clientForSettings());
+    },
+
+    async loadDashboard() {
+      const client = await clientForSettings();
+      if (!client.isConfigured) {
+        return { status: await getConnectionStatus(client), data: null };
+      }
+
+      // /me/tasks itself proves the current connection and is the only read
+      // needed to render the task list. Keep the profile check warm without
+      // putting it on this visual critical path.
+      const statusPromise = getConnectionStatus(client);
+      const minePromise = getMine(client);
+      let response: MineTasksResponse;
+      try {
+        response = await minePromise;
+      } catch (error) {
+        const status = await statusPromise;
+        if (!status.connected) return { status, data: null };
+        throw error;
+      }
+      const [mine, open] = await Promise.all([
+        decorateTasks(bb, response.mine),
+        decorateTasks(bb, response.open),
+      ]);
+      return {
+        status: { connected: true, baseUrl: client.baseUrl, user: null, error: null },
+        data: { projects: response.projects, mine, open },
+      };
     },
 
     async listMine() {
       const client = await requireClient(clientForSettings);
-      const response = await client.listMine();
+      const response = await getMine(client);
+      const [mine, open] = await Promise.all([
+        decorateTasks(bb, response.mine),
+        decorateTasks(bb, response.open),
+      ]);
       return {
         projects: response.projects,
-        mine: await decorateTasks(bb, response.mine),
-        open: await decorateTasks(bb, response.open),
+        mine,
+        open,
       };
     },
 
     async listProject(input) {
       const client = await requireClient(clientForSettings);
-      const response = await client.listTasks(input.slug, input);
+      const response = await getProjectTasks(client, input.slug, input);
       return {
         nextCursor: response.nextCursor,
         tasks: await decorateTasks(bb, response.tasks),
@@ -310,30 +525,33 @@ export default async function plugin(bb: BbPluginApi) {
 
     async getTask(input) {
       const client = await requireClient(clientForSettings);
-      const task = await client.getTask(input.id);
-      const projects = await client.listProjects();
-      const project = projects.find((candidate) => candidate.id === task.projectId) ?? null;
-      const board = project ? await client.listTasks(project.slug) : { tasks: [], nextCursor: null };
-      const subtasks = await decorateTasks(
-        bb,
-        board.tasks.filter((candidate) => candidate.parentTaskId === task.id),
-      );
-      const linkedThreadId = await getLinkedThreadId(bb, task.id);
+      return (await loadTaskOverview(client, input.id, false)).detail;
+    },
+
+    async loadTaskDetail(input) {
+      const client = await requireClient(clientForSettings);
+      const [overview, comments] = await Promise.all([
+        loadTaskOverview(client, input.id, true),
+        getComments(client, input.id),
+      ]);
       return {
-        task: await decorateTask(bb, task, linkedThreadId),
-        project,
-        subtasks,
-        linkedThreadId,
+        ...overview,
+        comments,
+        baseUrl: client.baseUrl,
       };
     },
 
     async listProjects() {
       const client = await requireClient(clientForSettings);
-      return { projects: await client.listProjects(), mapped: await discoverProjectMap(bb) };
+      return { projects: await getProjects(client), mapped: {} };
     },
 
     async resolveBbProject(input) {
       return { bbProjectId: await findBbProjectForDispatchSlug(bb, input.dispatchSlug) };
+    },
+
+    async resolveDispatchProject(input) {
+      return { dispatchSlug: await findDispatchSlugForBbProject(bb, input.bbProjectId) };
     },
 
     async rememberProjectMap(input) {
@@ -343,48 +561,46 @@ export default async function plugin(bb: BbPluginApi) {
 
     async createTask(input) {
       const client = await requireClient(clientForSettings);
-      return decorateTask(bb, await client.createTask(input));
+      const task = await client.createTask(input);
+      invalidateReads();
+      return decorateTask(bb, task);
     },
 
     async patchTask(input) {
       const client = await requireClient(clientForSettings);
-      return decorateTask(bb, await client.patchTask(input.id, input.patch));
+      const task = await client.patchTask(input.id, input.patch);
+      invalidateReads();
+      return decorateTask(bb, task);
     },
 
     async deleteTask(input) {
       const client = await requireClient(clientForSettings);
       await client.deleteTask(input.id);
       await bb.storage.kv.delete(`task:${input.id}`);
+      invalidateReads();
       return { ok: true };
     },
 
     async listComments(input) {
       const client = await requireClient(clientForSettings);
-      return { comments: await client.listComments(input.taskId) };
+      return { comments: await getComments(client, input.taskId) };
     },
 
     async addComment(input) {
       const client = await requireClient(clientForSettings);
-      return client.addComment(input.taskId, { body: input.body, as: input.as });
+      const comment = await client.addComment(input.taskId, { body: input.body, as: input.as });
+      invalidateReads();
+      return comment;
     },
 
     async listMembers(input) {
       const client = await requireClient(clientForSettings);
-      try {
-        return { members: await client.listMembers(input.slug) };
-      } catch (error) {
-        // Membership enumeration is currently admin-only in the Dispatch API.
-        // Members can still use the rest of the plugin and see their existing
-        // assignee id in the detail view.
-        if (error instanceof DispatchApiError && error.status === 403) return { members: [] as Member[] };
-        throw error;
-      }
+      return { members: await getMembers(client, input.slug) };
     },
 
     async createThread(input) {
       const client = await requireClient(clientForSettings);
-      const task = await client.getTask(input.taskId);
-      const user = await client.me();
+      const [task, user] = await Promise.all([client.getTask(input.taskId), client.me()]);
       if (task.assigneeIds.length > 0 && !task.assigneeIds.includes(user.id)) {
         throw new Error("This task is assigned to another Dispatch user.");
       }
@@ -409,17 +625,18 @@ export default async function plugin(bb: BbPluginApi) {
         createdAt: new Date().toISOString(),
       });
       if (request.projectId) {
-        const projects = await client.listProjects();
+        const projects = await getProjects(client);
         const project = projects.find((candidate) => candidate.id === task.projectId);
         if (project) await rememberProjectMapping(bb, request.projectId, project.slug);
       }
 
+      invalidateReads();
       return { threadId: thread.id, task: await decorateTask(bb, updated, thread.id) };
     },
 
     async openCount() {
       const client = await requireClient(clientForSettings);
-      const response = await client.listMine();
+      const response = await getMine(client);
       return { count: response.mine.filter((task) => task.status !== "done").length };
     },
   });

@@ -40,7 +40,7 @@ export function DispatchPage({ subPath }: { subPath: string }) {
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [data, setData] = useState<MineTasksResponse | null>(null);
   const [remoteProjects, setRemoteProjects] = useState<DispatchProject[]>([]);
-  const [mappedProjects, setMappedProjects] = useState<Record<string, string>>({});
+  const [mappedProject, setMappedProject] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,25 +53,34 @@ export function DispatchPage({ subPath }: { subPath: string }) {
   const [quickSaving, setQuickSaving] = useState(false);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const openedTaskId = useRef<string | null>(null);
+  const fullProjectsRequested = useRef(false);
   const taskId = parseTaskId(subPath);
 
   const refresh = useCallback(async (showActivity = false) => {
     if (showActivity) setRefreshing(true);
     setError(null);
     try {
-      const connection = await rpc.call("status");
-      setStatus(connection);
-      if (!connection.connected) {
+      const dashboard = await rpc.call("loadDashboard");
+      setStatus(dashboard.status);
+      if (!dashboard.data) {
         setData(null);
+        setRemoteProjects([]);
+        fullProjectsRequested.current = false;
         return;
       }
-      const [mine, projects] = await Promise.all([
-        rpc.call("listMine"),
-        rpc.call("listProjects"),
-      ]);
-      setData(mine);
-      setRemoteProjects(projects.projects);
-      setMappedProjects(projects.mapped);
+      setData(dashboard.data);
+      setRemoteProjects((current) => current.length > 0 ? current : Object.values(dashboard.data!.projects));
+
+      // The task response already carries the projects needed to render the
+      // page. Fill in the full project catalog afterward rather than holding
+      // the visible task list behind another remote request.
+      if (!fullProjectsRequested.current) {
+        fullProjectsRequested.current = true;
+        void rpc.call("listProjects").then(
+          (result) => setRemoteProjects(result.projects),
+          () => { fullProjectsRequested.current = false; },
+        );
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load Dispatch tasks.");
     } finally {
@@ -87,10 +96,28 @@ export function DispatchPage({ subPath }: { subPath: string }) {
   }, [refresh]);
 
   useEffect(() => {
+    if (!currentBbProjectId) {
+      setMappedProject(null);
+      return;
+    }
+    let cancelled = false;
+    void rpc.call("resolveDispatchProject", { bbProjectId: currentBbProjectId }).then(
+      (result) => {
+        if (!cancelled) setMappedProject(result.dispatchSlug);
+      },
+      () => {
+        if (!cancelled) setMappedProject(null);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [currentBbProjectId, rpc]);
+
+  useEffect(() => {
     if (quickProject) return;
-    const mapped = currentBbProjectId ? mappedProjects[currentBbProjectId] : undefined;
-    setQuickProject(mapped ?? remoteProjects[0]?.slug ?? "");
-  }, [currentBbProjectId, mappedProjects, quickProject, remoteProjects]);
+    setQuickProject(mappedProject ?? remoteProjects[0]?.slug ?? "");
+  }, [mappedProject, quickProject, remoteProjects]);
 
   // Preserve direct task URLs while delegating the actual detail surface to
   // BB's host-owned right panel. The target itself remains session-scoped.

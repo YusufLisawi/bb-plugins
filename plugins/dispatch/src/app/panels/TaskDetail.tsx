@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Markdown,
   experimental_NewThreadComposer as NewThreadComposer,
@@ -85,39 +85,40 @@ function TaskDetailContent({ taskId, onTaskDeleted }: { taskId: string; onTaskDe
   const [bbProjectId, setBbProjectId] = useState<string | null>(null);
   const [dispatchBaseUrl, setDispatchBaseUrl] = useState("https://dispatch-kappa-lac.vercel.app");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [nextDetail, commentResult, status] = await Promise.all([
-        rpc.call("getTask", { id: taskId }),
-        rpc.call("listComments", { taskId }),
-        rpc.call("status"),
-      ]);
-      setDetail(nextDetail);
-      setComments(commentResult.comments);
-      setTitle(nextDetail.task.title);
-      setDescription(nextDetail.task.description);
+      const result = await rpc.call("loadTaskDetail", { id: taskId });
+      setDetail(result.detail);
+      setComments(result.comments);
+      setMembers(result.members);
+      setTitle(result.detail.task.title);
+      setDescription(result.detail.task.description);
       setDescriptionEditing(false);
-      setDispatchBaseUrl(status.baseUrl);
-      if (nextDetail.project) {
-        const [memberResult, mapped] = await Promise.all([
-          rpc.call("listMembers", { slug: nextDetail.project.slug }),
-          rpc.call("resolveBbProject", { dispatchSlug: nextDetail.project.slug }),
-        ]);
-        setMembers(memberResult.members);
-        setBbProjectId(mapped.bbProjectId);
+      setDispatchBaseUrl(result.baseUrl);
+
+      // Project-to-BB lookup can require a workspace scan. Let the task tab
+      // render first and resolve the composer default in the background.
+      if (result.detail.project) {
+        setBbProjectId(null);
+        void rpc.call("resolveBbProject", { dispatchSlug: result.detail.project.slug }).then(
+          (mapped) => setBbProjectId(mapped.bbProjectId),
+          () => undefined,
+        );
+      } else {
+        setBbProjectId(null);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load this task.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [rpc, taskId]);
 
   useEffect(() => {
     void load();
-  }, [taskId, rpc]);
+  }, [load]);
 
   const task = detail?.task;
   const currentAssignee = task?.assigneeIds[0] ?? "";

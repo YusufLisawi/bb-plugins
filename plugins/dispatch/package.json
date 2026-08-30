@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "bb plugin build",
+    "test": "npm run build && node --test test/server-performance.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "bb": {

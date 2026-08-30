@@ -13,6 +13,8 @@ import {
   type ProjectTasksResponse,
 } from "../types.js";
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export class DispatchApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -165,6 +167,9 @@ export class DispatchClient {
     }
 
     let response: Response;
+    let text: string;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       response = await fetch(`${this.baseUrl}/api/v1${path}`, {
         method: options.method ?? "GET",
@@ -173,16 +178,22 @@ export class DispatchClient {
           ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: controller.signal,
       });
+      text = await response.text();
     } catch (error) {
+      const message = controller.signal.aborted
+        ? `Dispatch did not respond within ${REQUEST_TIMEOUT_MS / 1_000} seconds.`
+        : `Could not reach Dispatch at ${this.baseUrl}: ${error instanceof Error ? error.message : "network error"}`;
       throw new DispatchApiError(
-        `Could not reach Dispatch at ${this.baseUrl}: ${error instanceof Error ? error.message : "network error"}`,
+        message,
         0,
-        "network_error",
+        controller.signal.aborted ? "timeout" : "network_error",
       );
+    } finally {
+      clearTimeout(timeout);
     }
 
-    const text = await response.text();
     let payload: unknown = null;
     if (text) {
       try {
