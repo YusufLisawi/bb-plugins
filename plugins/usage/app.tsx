@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "./lib/utils";
 
 const PLUGIN_ID = "usage";
 const FOOTER_BUTTON_SELECTOR = '[aria-label="Usage & limits"]';
@@ -67,17 +68,43 @@ function MiniBar({ percent }: { percent: number }) {
   );
 }
 
+function formatResetAt(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const weekday = parts.find(({ type }) => type === "weekday")?.value;
+  const hour = parts.find(({ type }) => type === "hour")?.value;
+  const minute = parts.find(({ type }) => type === "minute")?.value;
+
+  return weekday && hour && minute ? `${weekday} ${hour}:${minute}` : null;
+}
+
 function MiniWindowRow({ window: w }: { window: OkUsage["windows"][number] }) {
+  const resetAt = formatResetAt(w.resetsAt);
+
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2 text-[11px] leading-none">
-        <span className="text-muted-foreground">{w.label}</span>
+        <span className="min-w-0 truncate text-muted-foreground">
+          {w.label}
+          {resetAt ? (
+            <span className="ml-1.5 whitespace-nowrap text-[10px] tabular-nums text-muted-foreground/70">
+              {resetAt}
+            </span>
+          ) : null}
+        </span>
         <span
-          className={
-            w.usedPercent >= 90
-              ? "font-medium text-destructive"
-              : "font-medium text-foreground"
-          }
+          className={cn(
+            "shrink-0 font-medium tabular-nums",
+            w.usedPercent >= 90 ? "text-destructive" : "text-foreground",
+          )}
         >
           {Math.round(w.usedPercent)}%
         </span>
