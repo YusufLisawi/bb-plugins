@@ -12,7 +12,9 @@ On every manual or automatic sync:
 1. Verify the configured checkout has no source or configuration edits. Generated
    `plugins/*/dist/**` artifacts are temporarily stashed as a recoverable local
    stash so they cannot block a fast-forward pull; source edits still stop the
-   sync.
+   sync. If the pull changes the same generated file, restore it as an ordinary
+   worktree change and clear the generated-only conflict so later scheduled
+   runs always start with a writable index.
 2. Pull it with `git pull --ff-only`, and read the collection manifest.
 3. For each collection entry, skip the Sync plugin itself because its current
    process is handling the reconciliation.

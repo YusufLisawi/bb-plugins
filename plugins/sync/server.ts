@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -119,6 +119,87 @@ async function git(repoPath: string, args: string[], signal?: AbortSignal): Prom
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`Git ${args.join(" ")} failed: ${detail}`);
   }
+}
+
+async function unmergedPaths(repoPath: string): Promise<string[]> {
+  const output = await git(repoPath, ["diff", "--name-only", "--diff-filter=U"]);
+  return output.split(/\r?\n/).filter(Boolean);
+}
+
+async function restoreUntrackedGeneratedArtifacts(repoPath: string, stashRef: string): Promise<boolean> {
+  let output: string;
+  try {
+    output = await git(repoPath, ["ls-tree", "-r", "--name-only", `${stashRef}^3`]);
+  } catch {
+    return false;
+  }
+
+  const paths = output.split(/\r?\n/).filter(isGeneratedArtifact);
+  if (paths.length === 0) return false;
+
+  for (const path of paths) {
+    await git(repoPath, ["checkout", `${stashRef}^3`, "--", path]);
+  }
+  await git(repoPath, ["reset", "HEAD", "--", ...paths]);
+  return true;
+}
+
+async function clearAutoMergeMarker(repoPath: string): Promise<void> {
+  const marker = resolve(repoPath, await git(repoPath, ["rev-parse", "--git-path", "AUTO_MERGE"]));
+  try {
+    await unlink(marker);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+}
+
+async function resolveGeneratedArtifactConflicts(repoPath: string): Promise<boolean> {
+  const conflicts = await unmergedPaths(repoPath);
+  if (conflicts.length === 0) return false;
+
+  const sourceConflicts = conflicts.filter((path) => !isGeneratedArtifact(path));
+  if (sourceConflicts.length > 0) {
+    throw new Error(`Your local plugin repository has unresolved source merge conflicts (${sourceConflicts.join(", ")}). Resolve them before syncing.`);
+  }
+
+  for (const path of conflicts) {
+    try {
+      // A stash apply records the stashed artifact as "theirs". Prefer it so
+      // a generated local build remains available after the pull.
+      await git(repoPath, ["checkout", "--theirs", "--", path]);
+    } catch {
+      // If the stashed side deleted the artifact, there is no "theirs" blob.
+      // Preserve that deletion; the generated output is disposable in this
+      // case. Fall back to the pulled side only if Git cannot remove it.
+      try {
+        await git(repoPath, ["rm", "--force", "--", path]);
+      } catch {
+        await git(repoPath, ["checkout", "--ours", "--", path]);
+      }
+    }
+  }
+
+  // Keep the recovered artifact in the worktree as an ordinary local change
+  // while making only the conflicted paths in the index match pulled HEAD.
+  // This is the key invariant that prevents the next scheduled run from
+  // failing to write the index.
+  await git(repoPath, ["reset", "HEAD", "--", ...conflicts]);
+  await clearAutoMergeMarker(repoPath);
+  return true;
+}
+
+async function restoreGeneratedArtifactStash(repoPath: string, stashRef: string): Promise<void> {
+  try {
+    await git(repoPath, ["stash", "apply", stashRef]);
+  } catch (error) {
+    const recoveredConflict = await resolveGeneratedArtifactConflicts(repoPath);
+    const recoveredUntracked = await restoreUntrackedGeneratedArtifacts(repoPath, stashRef);
+    if (!recoveredConflict && !recoveredUntracked) throw error;
+  }
+
+  await git(repoPath, ["stash", "drop", stashRef]);
+  await clearAutoMergeMarker(repoPath);
 }
 
 export default async function plugin(bb: BbPluginApi) {
@@ -247,6 +328,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (resolve(root) !== repoPath) {
         throw new Error(`Plugin repository folder resolves to ${root}; choose the repository root, not a subfolder.`);
       }
+      await resolveGeneratedArtifactConflicts(repoPath);
       const changes = await git(repoPath, ["status", "--porcelain", "--untracked-files=all", "--", "."]);
       const changedPaths = statusPaths(changes);
       const sourceChanges = changedPaths.filter((path) => !isGeneratedArtifact(path));
@@ -254,7 +336,7 @@ export default async function plugin(bb: BbPluginApi) {
         throw new Error(`Your local plugin repository has uncommitted changes (${sourceChanges.join(", ")}). Commit or stash them before syncing so nothing is overwritten.`);
       }
 
-      let generatedArtifactsStashed = false;
+      let generatedArtifactsStashRef: string | null = null;
       if (changedPaths.length > 0) {
         const stashResult = await git(repoPath, [
           "stash",
@@ -265,16 +347,18 @@ export default async function plugin(bb: BbPluginApi) {
           "--",
           "plugins/**/dist/**",
         ]);
-        generatedArtifactsStashed = !stashResult.includes("No local changes to save");
+        if (!stashResult.includes("No local changes to save")) {
+          generatedArtifactsStashRef = "stash@{0}";
+        }
       }
 
       const before = await git(repoPath, ["rev-parse", "HEAD"]);
       try {
         await git(repoPath, ["pull", "--ff-only"]);
       } catch (error) {
-        if (generatedArtifactsStashed) {
+        if (generatedArtifactsStashRef) {
           try {
-            await git(repoPath, ["stash", "pop"]);
+            await restoreGeneratedArtifactStash(repoPath, generatedArtifactsStashRef);
           } catch (restoreError) {
             const original = error instanceof Error ? error.message : String(error);
             throw new Error(`${original} Generated artifacts were stashed for the failed pull and could not be restored automatically: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
@@ -282,9 +366,9 @@ export default async function plugin(bb: BbPluginApi) {
         }
         throw error;
       }
-      if (generatedArtifactsStashed) {
+      if (generatedArtifactsStashRef) {
         try {
-          await git(repoPath, ["stash", "pop"]);
+          await restoreGeneratedArtifactStash(repoPath, generatedArtifactsStashRef);
         } catch (restoreError) {
           throw new Error(`Git pull succeeded, but generated artifacts could not be restored automatically: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
         }

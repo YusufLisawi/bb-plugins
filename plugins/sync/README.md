@@ -42,7 +42,10 @@ run is enough.
 ## Safety rules
 
 - Git pulls are fast-forward only. Source edits block the pull; generated
-  plugin `dist/` output is temporarily stashed and restored when needed.
+  plugin `dist/` output is temporarily stashed and restored when needed. If a
+  pull changes the same generated file, Sync keeps the local artifact as an
+  ordinary worktree edit and clears the generated-only conflict, including
+  conflicts left by an older sync run.
 - A local BB skill not already managed by this extension is never overwritten.
 - Once a repository skill is managed, a direct local edit is preserved and
   reported as skipped instead of being overwritten or removed.
