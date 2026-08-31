@@ -148,6 +148,43 @@ function MiniProviderSection({
   );
 }
 
+function AccountSection({
+  account,
+}: {
+  account: UsageData["accounts"][number];
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2 text-[11px] leading-none">
+        <span className="min-w-0 truncate font-medium text-foreground">
+          {account.displayName}
+        </span>
+        {account.planLabel ? (
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {account.planLabel}
+          </span>
+        ) : null}
+      </div>
+      {account.email ? (
+        <p className="truncate text-[10px] text-muted-foreground">
+          {account.email}
+        </p>
+      ) : null}
+      {account.status === "error" ? (
+        <p className="text-[11px] text-destructive">
+          {account.message ?? "Unavailable."}
+        </p>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          Today: {account.today?.messages ?? 0} msgs ·{" "}
+          {account.today?.sessions ?? 0} sessions ·{" "}
+          {account.today?.toolCalls ?? 0} tool calls
+        </p>
+      )}
+    </div>
+  );
+}
+
 function UsagePopoverContent({ data }: { data: UsageData | null }) {
   if (!data) {
     return <p className="text-xs text-muted-foreground">Loading usage…</p>;
@@ -155,7 +192,7 @@ function UsagePopoverContent({ data }: { data: UsageData | null }) {
   const visible = PROVIDERS.filter(
     (p) => data[p.key].status !== "not_installed",
   );
-  if (visible.length === 0) {
+  if (visible.length === 0 && data.accounts.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">
         No providers installed on this machine.
@@ -167,6 +204,23 @@ function UsagePopoverContent({ data }: { data: UsageData | null }) {
       {visible.map(({ key, name }) => (
         <MiniProviderSection key={key} name={name} usage={data[key]} />
       ))}
+      {data.accounts.length > 0 ? (
+        <div
+          className={cn(
+            "space-y-3",
+            visible.length > 0 && "border-t border-border pt-3",
+          )}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Claude accounts
+          </p>
+          <div className="space-y-3">
+            {data.accounts.map((account) => (
+              <AccountSection key={account.id} account={account} />
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -319,6 +373,73 @@ function UsageOverlays() {
   );
 }
 
+// Custom ACP Claude accounts (registered via provider-acp's customAgents,
+// display name "Claude — <Account>") only expose their account name through
+// a plain HTML `title` attribute, i.e. the browser's native hover tooltip.
+// That tooltip has an inconsistent hover delay and never appears on touch,
+// so the picker icons are otherwise indistinguishable (same generic glyph).
+// This badges each one with a persistent colored initial instead.
+const ACCOUNT_TITLE_PREFIX = "Claude — ";
+const NAMED_BADGE_COLORS: Record<string, string> = {
+  personal: "#f59e0b",
+  eva: "#a855f7",
+  goji: "#10b981",
+};
+const FALLBACK_BADGE_COLORS = [
+  "#3b82f6",
+  "#ef4444",
+  "#14b8a6",
+  "#f97316",
+  "#ec4899",
+];
+
+function colorForAccount(name: string): string {
+  const key = name.toLowerCase();
+  const named = NAMED_BADGE_COLORS[key];
+  if (named) return named;
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return FALLBACK_BADGE_COLORS[hash % FALLBACK_BADGE_COLORS.length];
+}
+
+function badgeAccountButtons(root: ParentNode) {
+  const buttons = root.querySelectorAll<HTMLButtonElement>(
+    'button[title^="Claude — "]:not([data-bb-account-badged])',
+  );
+  buttons.forEach((button) => {
+    const name = (button.getAttribute("title") ?? "")
+      .slice(ACCOUNT_TITLE_PREFIX.length)
+      .trim();
+    if (!name) return;
+    button.setAttribute("data-bb-account-badged", "true");
+    if (getComputedStyle(button).position === "static") {
+      button.style.position = "relative";
+    }
+    const badge = document.createElement("span");
+    badge.textContent = name.charAt(0).toUpperCase();
+    badge.setAttribute("aria-hidden", "true");
+    Object.assign(badge.style, {
+      position: "absolute",
+      bottom: "-3px",
+      right: "-3px",
+      width: "12px",
+      height: "12px",
+      borderRadius: "9999px",
+      background: colorForAccount(name),
+      color: "white",
+      fontSize: "8px",
+      lineHeight: "12px",
+      fontWeight: "700",
+      textAlign: "center",
+      pointerEvents: "none",
+      boxShadow: "0 0 0 1.5px var(--surface-recessed, #18181b)",
+    });
+    button.appendChild(badge);
+  });
+}
+
 export default definePluginApp((app) => {
   app.contentScripts.register({
     id: "usage-hover-popover",
@@ -333,6 +454,23 @@ export default definePluginApp((app) => {
         root.unmount();
         container.remove();
       };
+    },
+  });
+
+  app.contentScripts.register({
+    id: "usage-claude-account-badges",
+    mount() {
+      badgeAccountButtons(document.body);
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.addedNodes.length > 0) {
+            badgeAccountButtons(document.body);
+            break;
+          }
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      return () => observer.disconnect();
     },
   });
 
