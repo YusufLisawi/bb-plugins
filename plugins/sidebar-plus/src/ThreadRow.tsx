@@ -218,7 +218,7 @@ function MenuItems({
       <Item onSelect={() => actions.open(thread.id, { split: true })}>
         <Icon name="Columns2" className="size-3.5" /> Open in split
       </Item>
-      <Item onSelect={onRename}>
+      <Item onSelect={() => deferMenuAction(onRename)}>
         <Icon name="Edit" className="size-3.5" /> Rename
       </Item>
       <Sep />
@@ -234,11 +234,20 @@ function MenuItems({
       <Item onSelect={() => actions.archive(thread.id)}>
         <Icon name="Archive" className="size-3.5" /> Archive
       </Item>
-      <Item destructive onSelect={() => actions.requestDelete(thread.id)}>
+      <Item
+        destructive
+        onSelect={() => deferMenuAction(() => actions.requestDelete(thread.id))}
+      >
         <Icon name="Trash2" className="size-3.5" /> Delete
       </Item>
     </>
   );
+}
+
+// Let Radix finish dismissing the menu before opening bb's host-owned
+// confirmation or edit UI. The native sidebar uses the same deferral.
+function deferMenuAction(action: () => void): void {
+  window.setTimeout(action, 0);
 }
 
 function InlineRename({
