@@ -1,20 +1,42 @@
 ---
 name: task-planning
-description: Turn a rough idea, source document, voice dictation, or feature request into a grounded, prioritized implementation plan with a clear deliverable, reasoned subtasks, risks, ownership, and definition of done. Use when the user wants planning or breakdown only; do not create or update tasks in external tools.
+description: Turn rough ideas, dictations, source documents, or feature requests into grounded, prioritized implementation plans and, when explicitly requested, create and verify the parent tasks and subtasks in the correct Dispatch project. Use for planning, sequencing, scoping, and breaking work down across projects; do not implement the code as part of planning.
 ---
 
-# Task planning
+# Task planning and Dispatch execution
 
-Turn “we should build X” into an implementation-ready plan that a developer or
-agent can pick up without re-deriving the context. This skill plans work only:
-it does not create, edit, assign, comment on, or delete tasks, tickets, notes, or
-other records in a project-management system.
+Turn an informal request such as “we should build X” into an implementation-ready
+plan that a developer or agent can pick up without re-deriving the context. When
+the user explicitly asks to create, add, or update tasks, carry that plan through
+to Dispatch and verify the resulting hierarchy. Planning and task creation are the
+scope of this skill; implementation is a separate workflow.
+
+## Choose the operating mode and project
+
+- If the user asks only for a plan, do not mutate Dispatch. Return the plan and
+  the questions that block execution.
+- If the user asks to create tasks, create them after research and review. A
+  dictation that clearly says to add, create, track, or put the work in Dispatch
+  is an explicit creation request.
+- Use `dispatch where` when working inside a linked repository. Otherwise use
+  `dispatch projects`, project context, and the user-provided product or repo
+  name to select the existing project. Prefer an existing parent or project
+  context over creating a new board.
+- For a repository that is not linked, inspect the exact repository and use the
+  project context that actually owns the product. Do not guess when two projects
+  are equally plausible; ask before creating tasks.
+- For work genuinely shared by several projects, keep one source task and use
+  Dispatch sharing (`--also` or `share`) only when the same state should appear on
+  each board. Create separate tasks only when the deliverables or ownership differ.
 
 ## Research before drafting
 
-Ground the plan in the material and code that are actually available before
-writing the first work item:
+Ground the plan in the material that is actually available before writing the
+first work item:
 
+- Read the relevant Dispatch project context, existing tasks, comments, and
+  knowledge notes. Extend an existing task or add a child when the work already
+  exists; do not create duplicate parents because a request was rephrased.
 - Inspect the repository's structure, conventions, and nearest existing analogs
   when a codebase is available. Use concrete file paths and symbols so the
   implementer can start from precedent rather than rediscovering it.
@@ -24,9 +46,12 @@ writing the first work item:
 - If the request traces to an email, roadmap, specification, policy, or other
   source document, read the whole document before planning. Separate the
   requested work from context and from work owned by another team.
-- If the repository or source material is unavailable, state the gap and mark
-  assumptions explicitly. Never invent file paths, architecture, decisions, or
-  acceptance criteria as if they were confirmed facts.
+- If code or source material is unavailable, state the gap and mark assumptions.
+  Never invent paths, architecture, decisions, platform support, or acceptance
+  criteria as confirmed facts.
+- Treat current provider, API, model, pricing, policy, and review requirements as
+  time-sensitive. Verify them from an authoritative source or make provider/model
+  selection an explicit decision task instead of relying on memory.
 
 ## Structure: one outcome, reasoned work items
 
@@ -95,15 +120,23 @@ If related work already exists in the supplied material or workspace, reference 
 and explain whether this plan extends, replaces, or depends on it. Do not create a
 second plan for the same deliverable.
 
-## Planning-only boundary
+## Create tasks safely through Dispatch
 
-- Do not call task-management or ticketing CLIs/APIs.
-- Do not create or modify external tasks, subtasks, comments, assignments,
-  statuses, labels, milestones, or knowledge records.
-- Do not claim that anything was created, assigned, or synchronized.
-- If the user asks for execution after planning, return the plan and let the
-  normal implementation or project-management workflow handle that separate
-  request.
+Use the supported `dispatch` CLI for task creation and updates. Do not use browser
+automation to create tasks. Create the parent first, capture its ID, then create
+subtasks with `--parent <parent-id>` in the planned order. Keep titles and
+descriptions in English unless the user explicitly requests another language.
+
+For a substantial batch, prepare the complete list before executing it and use a
+small reviewed shell loop. The first line of `dispatch create` is `✓ created <id>`:
+extract the ID with `head -1 | awk '{print $3}'`, not `$2`. Verify the parent and
+the first subtasks before continuing a long batch. If a command fails halfway,
+resume from the failed item using the existing parent ID; never rerun the whole
+batch and create duplicate parents.
+
+Do not place credentials, access tokens, private URLs, or raw secrets in task
+descriptions. For external setup, record the required configuration, owner,
+approval state, and blocker without exposing secret values.
 
 ## Output
 
@@ -122,5 +155,14 @@ avoid decorative filler. A useful shape is:
 7. **Risks and rollout** — likely failure modes, observability, migration, and
    rollback considerations when relevant.
 
+After creating or updating tasks, list the relevant project with
+`dispatch tasks --project <slug>` and read the result. Inspect the parent and at
+least the first created subtasks with `dispatch task`; confirm hierarchy,
+priorities, descriptions, and ownership. Report the project, parent ID, subtask
+IDs, sequence, reused related tasks, external blockers, and only the decisions
+that still need the user.
+
 End with a `QUESTIONS FOR YOU` block containing only decisions the user or another
 named stakeholder must make. If there are no such questions, say so explicitly.
+Never claim that a task was created, assigned, synchronized, approved, or completed
+unless the CLI or the relevant source confirms it.
