@@ -8,6 +8,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { usePortalScopeProps } from "@/lib/portal-scope";
 import { StatusGlyph } from "./StatusGlyph";
 import { threadDisplayTitle } from "./status";
 
@@ -50,20 +51,13 @@ export function ThreadRow({
   const [isEditing, setIsEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const title = threadDisplayTitle(thread);
+  const portalScopeProps = usePortalScopeProps();
 
   const open = (event: React.MouseEvent) => {
     event.preventDefault();
     actions.open(thread.id, { split: event.metaKey || event.ctrlKey });
     onNavigate();
   };
-
-  const menuItems = (
-    <MenuItems
-      thread={thread}
-      onRename={() => setIsEditing(true)}
-      surface={menuOpen ? "dropdown" : "context"}
-    />
-  );
 
   return (
     <ContextMenu.Root>
@@ -156,11 +150,16 @@ export function ThreadRow({
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content
+                  {...portalScopeProps}
                   align="end"
                   sideOffset={4}
                   className={MENU_CLASS}
                 >
-                  {menuItems}
+                  <MenuItems
+                    thread={thread}
+                    onRename={() => setIsEditing(true)}
+                    surface="dropdown"
+                  />
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
@@ -168,7 +167,11 @@ export function ThreadRow({
         </li>
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <ContextMenu.Content className={MENU_CLASS} aria-label="Thread actions">
+        <ContextMenu.Content
+          {...portalScopeProps}
+          className={MENU_CLASS}
+          aria-label="Thread actions"
+        >
           <MenuItems
             thread={thread}
             onRename={() => setIsEditing(true)}
