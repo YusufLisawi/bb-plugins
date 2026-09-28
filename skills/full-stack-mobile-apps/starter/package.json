@@ -1,0 +1,15 @@
+{
+  "name": "__APP_SLUG__",
+  "private": true,
+  "engines": { "node": ">=22 <23" },
+  "workspaces": ["apps/mobile", "services/api"],
+  "scripts": {
+    "api:dev": "node --env-file=.env --watch --import tsx services/api/src/index.ts",
+    "api:build": "npm run build --workspace @__APP_SLUG__/api",
+    "api:start": "node --env-file=.env services/api/dist/index.js",
+    "mobile": "npm run start --workspace @__APP_SLUG__/mobile",
+    "mobile:check": "npm run check --workspace @__APP_SLUG__/mobile",
+    "check": "npm run api:build && npm run mobile:check",
+    "smoke": "node scripts/smoke.mjs"
+  }
+}

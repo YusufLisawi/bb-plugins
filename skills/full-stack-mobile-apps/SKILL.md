@@ -1,6 +1,6 @@
 ---
 name: full-stack-mobile-apps
-description: Use when planning or building a lean Expo mobile app with a small content API, admin console, landing site, offline use, in-app subscriptions or lifetime purchases, and EAS/Coolify deployment.
+description: Use when planning or scaffolding a lean Expo mobile app with a Hono content API, SQLite, admin console, landing site, offline use, in-app purchases, or EAS deployment.
 ---
 
 # Full-Stack Mobile Apps
@@ -9,10 +9,10 @@ Use an architecture distilled from a shipped consumer app as a starting point fo
 
 ## Start here
 
-1. Read [architecture.md](references/architecture.md) to choose the app shape and ownership boundaries. Fill [app-brief.md](templates/app-brief.md) and [decisions.md](templates/decisions.md) for the new product.
-2. For Expo screens, state, offline content, or push, read [mobile.md](references/mobile.md). For subscriptions, lifetime purchases, and paywalls, read [payments.md](references/payments.md). For Hono, SQLite, admin tools, Docker, or releases, read [backend-operations.md](references/backend-operations.md).
+1. Read `references/architecture.md` to choose the app shape and ownership boundaries. Fill `templates/app-brief.md` and `templates/decisions.md` for the new product.
+2. For Expo screens, state, offline content, or push, read `references/mobile.md`. For subscriptions, lifetime purchases, and paywalls, read `references/payments.md`. For Hono, SQLite, admin tools, Docker, or releases, read `references/backend-operations.md`.
 3. Adapt only relevant files from `templates/`. Keep product names, IDs, domains, prices, assets, and credentials project-specific. Use the installed version's official documentation before implementing library APIs.
-4. Use [quality-gates.md](references/quality-gates.md) to verify each implemented slice and launch path.
+4. Use `references/quality-gates.md` to verify each implemented slice and launch path.
 
 ## Defaults and boundaries
 
@@ -27,10 +27,18 @@ Use an architecture distilled from a shipped consumer app as a starting point fo
 
 | Need | Read |
 | --- | --- |
-| Stack decisions and data flow | [architecture.md](references/architecture.md) |
-| Expo UI, state, caching, updates, push | [mobile.md](references/mobile.md) |
-| RevenueCat, freemium, paywall, restore | [payments.md](references/payments.md) |
-| Hono, SQLite, admin, deployment, security | [backend-operations.md](references/backend-operations.md) |
-| Build and launch verification | [quality-gates.md](references/quality-gates.md) |
+| Stack decisions and data flow | `references/architecture.md` |
+| Expo UI, state, caching, updates, push | `references/mobile.md` |
+| RevenueCat, freemium, paywall, restore | `references/payments.md` |
+| Hono, SQLite, admin, deployment, security | `references/backend-operations.md` |
+| Build and launch verification | `references/quality-gates.md` |
 
-Source: `spark-cards` repository, inspected 2026-09-28. Do not assume its current package versions are future defaults.
+## Working starter
+
+For a new app using this shape, run the deterministic generator from this skill directory:
+
+```bash
+node scripts/create-app.mjs --out /path/to/new-app --slug field-notes --name "Field Notes" --bundle-id com.example.fieldnotes
+```
+
+It copies `starter/`, creates a local random admin token, and leaves an example item flow through API, admin, cache, and mobile. Read `starter/README.md` before adapting it. The starter is a versioned snapshot; check Expo compatibility and install dependencies for the new project. Add RevenueCat from the payment reference only when the product needs in-app purchases.

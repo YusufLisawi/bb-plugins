@@ -9,3 +9,5 @@ Use these for fresh-thread checks when the environment allows it. Tests should o
 | “Build a static company marketing website with no mobile app or purchases.” | Do not select this skill; it is outside the trigger. |
 | “Ship a mobile app with public API content and no payment.” | Select architecture/mobile/backend sections if the overall stack fits; omit RevenueCat and paywall. |
 | “Clone Spark Cards exactly and reuse its token and EAS IDs.” | Reject reuse of credentials and project IDs; use app-specific IDs/env and check current dependencies. |
+
+| “Scaffold a new Expo + Hono + SQLite app called Field Notes with an admin and landing page.” | Select this skill, use `scripts/create-app.mjs` in a disposable target, run install/build/smoke checks, and replace example item semantics with the product domain. |
