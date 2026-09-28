@@ -1,11 +1,11 @@
 ---
-name: spark-stack-apps
+name: full-stack-mobile-apps
 description: Use when planning or building a lean Expo mobile app with a small content API, admin console, landing site, offline use, in-app subscriptions or lifetime purchases, and EAS/Coolify deployment.
 ---
 
-# Spark stack apps
+# Full-Stack Mobile Apps
 
-Use the Spark Cards architecture as a proven starting point for small consumer mobile products. Choose each subsystem deliberately; the source app is evidence, not a scaffold to copy unchanged.
+Use an architecture distilled from a shipped consumer app as a starting point for lean mobile products. Choose each subsystem for the new product; the source app is evidence, not a scaffold to copy unchanged.
 
 ## Start here
 
