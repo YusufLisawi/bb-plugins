@@ -1,0 +1,11 @@
+{
+  "name": "replace-with-app-slug",
+  "private": true,
+  "workspaces": ["apps/*", "services/*"],
+  "scripts": {
+    "mobile": "npm run start --workspace apps/mobile",
+    "api": "npm run dev --workspace services/api",
+    "api:build": "npm run build --workspace services/api",
+    "typecheck:mobile": "tsc --noEmit --project apps/mobile/tsconfig.json"
+  }
+}
