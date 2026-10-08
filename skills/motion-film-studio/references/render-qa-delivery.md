@@ -27,14 +27,23 @@ Live check: `PORT=3151 npx vite`, then `/?film=<slug>&format=v`. Expose it with 
 ## Master render
 
 ```bash
-scripts/render_master.sh <Id>-v <slug> 5 angle
+scripts/render_master.sh <Id>-v <slug>          # GPU (angle-egl), concurrency 4
 ```
-1. **SS render.** `<Id>-v-SS` renders 8 sub-frames per frame across a 180° shutter, via `scripts/render_resume.sh`. That script restarts from the first missing sub-frame when a browser tab crashes (`Error: Page crashed!` happens on long GPU renders), up to 6 attempts.
-2. **finish.py** averages the 8 in float32 (true motion blur, brand colours exact) and adds grain per frame.
-3. **Encode:** H.264 High CRF 14, BT.709 tags, AAC 320k, faststart. It always encodes the **whole** contiguous `f0000…` sequence.
+The master **streams**: it never holds more than one chunk of sub-frames on disk.
+1. **Per chunk of 90 frames** (`CHUNK`): render its 720 sub-frames of `<Id>-v-SS` (8 per frame across a 180° shutter), then `finish.py --consume` averages them in float32 (true motion blur, brand colours exact), adds grain, and deletes each group of sub-frames as soon as its frame is safely written. Peak disk ≈ 2.3 GB of sub-frames + ~2.6 GB of finished frames, instead of ~27 GB for a 35 s film.
+2. **Encode:** H.264 High CRF 14, BT.709 tags, AAC 320k, faststart. It always encodes the **whole** contiguous `f0000…` sequence.
+
+Safety built into `render_master.sh` (all learned on 2026-10-08, when queued masters from two projects filled the disk and a retry loop leaked dozens of headless browsers):
+- **Disk guard:** a chunk never starts with less than `MIN_FREE_GB` (20) free; the script stops with exit 3 and a message. Re-running resumes.
+- **Bounded retries:** `ATTEMPTS` (4) per chunk with falling concurrency, `CHUNK_TIMEOUT` (1800 s) per attempt, then stop. Nothing loops forever.
+- **No leaked browsers:** headless Chrome detaches into its own session, so process-group kills miss it. Each master renders with its own TMPDIR (`~/.cache/remotion-tmp/<project>-master-<Comp>/`, holding `owner.pid`); `scripts/reap_browsers.py --dir` kills exactly its browsers after every chunk and on exit, and `--stale` (run at the start of every master and every stills batch) kills browsers and node renders of any master whose owner died (crash, `kill -9`). It reads `/proc/<pid>/cmdline` because `pkill -f` truncates Chrome's long command line.
+- **No lock deadlock:** renders don't inherit the GPU lock's file handle, so an orphan can't hold the queue.
+- **No stale frames:** a source hash in `<Id>-v-final/.source-hash`; a changed cut clears old frames instead of resuming over them.
+- Test on a slice: `CHUNK=8 LIMIT=40 scripts/render_master.sh …`.
 
 Notes:
-- `--gl=angle` uses the GPU (RTX 3060). It's about 2× faster than `swangle` (software) and pixel-equivalent. Fall back to `swangle` if angle fails.
+- **GPU:** `--gl=angle-egl` (the default) renders on the NVIDIA card: about half the CPU load of `--gl=angle`, same speed, pixel-equivalent. Plain `angle` in headless Chrome silently falls back to SwiftShader (`--use-angle=swiftshader-webgl`: CPU) and dropped frames in a test; `vulkan` dropped most frames. Verify with `nvidia-smi` (≈ 700 MiB used by the render).
+- Stopping a master: `kill <render_master pid>` (TERM) stops its render and browsers; check `ps -eo args | grep -c '[c]hrome-headless-shell'` is 0.
 - Speed: 3,360 sub-frames in about 3 min for a light scene; heavy 3D glass runs about 300 sub-frames a minute. A 40 s film is 9,600–10,200 sub-frames.
 - Keep concurrency ≤ 6, and at most one GPU render at a time.
 - **Patching** a range after a fix: render just those sub-frames, `--frames=<first*8>-<(last+1)*8-1>`, into a temporary folder. Move the files into the SS folder, then `finish.py <ss> <final> <first> <last>` to re-average only that range, then `--encode-only` to re-encode the whole film.
@@ -79,13 +88,11 @@ Also watch the transitions the scan lists as "largest changes": they should be y
 
 ## Mandatory cleanup after QA and packaging
 
-> [!IMPORTANT] Required completion gate
-> Temporary numbered frame sequences must be cleaned up after every completed video. The user has explicitly authorized this as routine work. Encoding an MP4 alone does not complete the task: QA, packaging **and cleanup** must finish before handover.
+Cleanup is built into the pipeline; this section is the check that it happened.
 
-1. Finish the final encode and all QA/repair checks. Generate and save the poster, keyframe/contact sheet, delivery copies and any selected review stills before removing their input frames.
-2. Confirm that no active render, encoder, QA process or packaging step needs the frames. Preserve an interrupted render only while actively resuming or diagnosing it.
-3. For that film and every completed format, delete the generated numbered supersampled PNGs (such as `s00000.png`), averaged working PNGs (such as `f0000.png`), and numbered frames from superseded patch/retry/alternative-cut directories. Use the actual directories from the render commands, including custom names; do not assume every sequence uses the default suffix.
-4. Preserve final videos, narration/music/SFX, original/source images, project source/configs, QA reports, posters, keyframe sheets and deliberately selected review images. Preserve non-frame files sharing a frame directory. Remove a frame directory itself only if it is empty afterward. Never blanket-delete `out`, `public`, a delivery folder or all PNGs in the project.
-5. Verify that no bulk numbered frames remain for the completed work and that the final video still exists and opens. Check allocated disk usage/free space and mention substantial space reclaimed in the handover.
+1. **Sub-frames** are deleted chunk by chunk by `render_master.sh` (`finish.py --consume`). A dead or interrupted master's `out/<Comp>-ss` is resumable by re-running it; `tidy.py` deletes it after 6 h.
+2. **Averaged frames** (`out/<Comp>-final`) are needed by QA's glitch scan and by `package.py` (poster, key frames). `package.py` deletes them right after packaging; `tidy.py` deletes leftovers 12 h after a passing QA, or 48 h after the last write.
+3. **Shared caches** (bundles in `~/.cache/mfs-bundles`, `~/.cache/remotion-tmp`, Remotion files in RAM-backed `/tmp`) are cleared by `tidy.py --quick` at the start of every master and stills batch, and by the `mfs-tidy.timer` sweep every 30 min.
+4. **Verify** before hand-over: no frame folder of a finished film in `out/`, the final video opens, `python3 scripts/tidy.py --apply` frees nothing large. Report a substantial recovery.
 
-The master-render command intentionally leaves `out/<Comp>-ss` and `out/<Comp>-final` for QA and patching. **The agent is responsible for cleaning them after this gate**, including any obsolete patch folders. Source and inputs are sufficient to render again; speculative future editing is not a reason to keep gigabytes of working frames.
+Never blanket-delete `out`, `public`, a delivery folder or all PNGs. Keep final videos, audio, source, configs, QA reports, posters, keyframe sheets and review contact sheets.

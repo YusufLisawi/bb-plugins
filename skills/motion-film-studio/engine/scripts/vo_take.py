@@ -3,7 +3,7 @@
 
 1. The voice engine reads the WHOLE script in one go (expression tags inline), so
    the delivery flows — lines generated one by one sound stitched and flat.
-   --provider elevenlabs (default; eleven_v3) or fish (Fish Audio, --model s2.1-pro).
+   --provider elevenlabs (default; eleven_v4, --el-model eleven_v3 for the old model) or fish (Fish Audio, --model s2.1-pro).
    Default provider: $MFS_TTS, else elevenlabs. --voice is the provider's voice id
    (ElevenLabs voice_id, or a Fish Audio model/reference id).
 2. Speech-to-text gives word timestamps (scripts/stt.py: Deepgram Nova-3 first, then
@@ -25,8 +25,8 @@ sys.path.insert(0, "scripts")
 from audio import SR, load, write_wav
 from stt import transcribe
 
-def tts(text, voice, key, stability):
-    body = {"text": text, "model_id": "eleven_v3",
+def tts(text, voice, key, stability, model="eleven_v4"):
+    body = {"text": text, "model_id": model,
             "voice_settings": {"stability": stability, "similarity_boost": 0.8, "use_speaker_boost": True}}
     req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_192",
                                  data=json.dumps(body).encode(),
@@ -79,6 +79,7 @@ def main():
     ap.add_argument("--reuse", action="store_true", help="reuse raw.mp3 if present (re-edit only)")
     ap.add_argument("--provider", choices=["elevenlabs", "fish"], default=os.environ.get("MFS_TTS", "elevenlabs"))
     ap.add_argument("--model", default="s2.1-pro", help="Fish Audio model (s2.1-pro, s2-pro, s1, …)")
+    ap.add_argument("--el-model", default=os.environ.get("MFS_EL_MODEL", "eleven_v4"), help="ElevenLabs model (eleven_v4, eleven_v3)")
     ap.add_argument("--temperature", type=float, default=0.7, help="Fish Audio expressiveness 0–1")
     a = ap.parse_args()
     if a.provider == "fish" and not os.environ.get("FISH_API_KEY"): sys.exit("FISH_API_KEY not set: source scripts/el-env.sh")
@@ -87,7 +88,7 @@ def main():
     text = open(a.script).read().strip()
     raw = os.path.join(a.out, "raw.mp3")
     if not (a.reuse and os.path.exists(raw)):
-        audio = tts(text, a.voice, os.environ["ELEVENLABS_API_KEY"], a.stability) if a.provider == "elevenlabs" \
+        audio = tts(text, a.voice, os.environ["ELEVENLABS_API_KEY"], a.stability, a.el_model) if a.provider == "elevenlabs" \
             else tts_fish(text, a.voice, os.environ["FISH_API_KEY"], a.model, a.temperature)
         open(raw, "wb").write(audio)
     said, words, eng = transcribe(raw)
@@ -111,7 +112,7 @@ def main():
               open(os.path.join(a.out, "take.words.json"), "w"), indent=1)
     span = words2[-1]["end"] - words2[0]["start"]
     print(f"raw  {span0:5.2f}s spoken, {len(words) / span0:4.2f} words/s")
-    print(f"voice: {a.provider} {a.voice}" + (f" ({a.model})" if a.provider == "fish" else " (eleven_v3)") + f" · word timings: {eng}")
+    print(f"voice: {a.provider} {a.voice}" + (f" ({a.model})" if a.provider == "fish" else f" ({a.el_model})") + f" · word timings: {eng}")
     print(f"edit {span:5.2f}s spoken, {len(words2) / span:4.2f} words/s  (tempo {a.tempo}) -> {final} ({dur:.2f}s)")
     print("tags spoken:", leaked or "none")
     print("transcript:", said2)

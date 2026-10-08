@@ -1,6 +1,6 @@
 # The films: case studies
 
-Forty-one films shipped. Read them to learn how the bar is met, and to know what is already taken. Each entry gives the angle, the beat map (seconds at 30 fps), the signature moves, the techniques worth borrowing, and what the film owns. Source code: `examples/<film>/`, copied from the reference project `~/Developer/brainfast-showreel` (full history there). Key-frame sheets: the asset pack's `lookbook/` and each delivered film's `keyframes.png`. Delivered masters: `~/Developer/brainfast/marketing/*/`.
+Fifty films shipped. Read them to learn how the bar is met, and to know what is already taken. Each entry gives the angle, the beat map (seconds at 30 fps), the signature moves, the techniques worth borrowing, and what the film owns. Source code: `examples/<film>/`, copied from the reference project `~/Developer/brainfast-showreel` (full history there). Key-frame sheets: the asset pack's `lookbook/` and each delivered film's `keyframes.png`. Delivered masters: `~/Developer/brainfast/marketing/*/`.
 
 ## What each film owns
 
@@ -46,6 +46,15 @@ Forty-one films shipped. Read them to learn how the bar is met, and to know what
 | Angle: the parents' group chat (school) | angle · group chat | a night-mode class WhatsApp group → one school assistant | "Does anyone know?" filling the screen | a red "different answers" counter climbs, returns as "1 answer ✓" over six parents' phones | marimba chatter → chiptune-pop |
 | Angle: the new hire's notebook (internal) | angle · diary | a ruled notebook page + the company Slack | Day 1 · new job 😬, questions written on the words | a draft stamped 10TH QUESTION TODAY and deleted; Day 5, every box ticked | fingerpicked guitar → stomp-clap folk |
 | Angle: graveyard → garden (reactivation) | metaphor world | a lead graveyard at night → a lawn at sunrise | three epitaphs: "Maybe next month." … | a campaign sprouts the stones a few at a time; replies bloom into flowers | harpsichord + theremin → sunny flutes |
+| Tourism: Postcards | about · desk of mail | postcards with airmail borders on a warm desk | postcards drifting in "from everywhere" | ANSWERED postmarks slam onto each card and every card flips to its reply | soft bossa nova |
+| Tourism: The guidebook | explainer (grounding) | one open guidebook with coloured tabs | "How does an AI agent know your hotel?" + bursting question marks | the book turns to the right page and a highlighter sweeps the source line; empty search → asks the team | none (paper, page flips) |
+| Tourism: Rain check | use case | a split-flap departures board at a rainy harbour | 05:45, SUNRISE BOAT → RAIN·WAIT | the board tells the story: TOMORROW, BOOKED ✓; 14 faces get checks; sunrise | soft acoustic pop + rain |
+| Education: Fill the hall | about | a lecture hall from the lectern, dark → lit | ghost students with one question each | "every question answered is a seat filled": 57 seats fill with faces | soft piano-pop |
+| Education: The maze | explainer (tutoring) | a maze as the homework | the chatbot's grey line through the walls → LEARNED NOTHING | hint lanterns light the next corridors; the student walks out alone | none |
+| Education: Step 3 of 5 | use case | the application portal, a five-step progress bar | frozen on "Upload your transcript", 9 days | the stepper comes back to life step by step until SUBMITTED | soft indie-pop |
+| Auto repair: The pegboard | about | a workshop pegboard with painted tool outlines + a car | the mechanic's legs under a car, phone piling up | each job snaps into its outline like a tool going home | soft garage funk |
+| Auto repair: The orange light | explainer (vision) | a night dashboard | a pulsing orange warning light, a photo | Looks → Recognises (symbol grid lights its match) → Checks your guide | none |
+| Auto repair: The repair order | use case | a car on a lift + a repair-order ticket | MON 08:00, routine service, worn brake pads | the ticket is the spine: every line updates, stamped READY FOR PICKUP | soft funk |
 
 A new film shouldn't repeat anything in the World, Hook or Signature move columns, and its shape and music should differ from the last film made. Borrowing a *technique* is fine: a spring value, a clip-path open, the odometer, the result-card language.
 
@@ -190,4 +199,11 @@ The user's direction after 31–33: **"our target is not a client that reads cod
 - `kit/type.tsx` → `wrapLines(text, size, weight, maxW)`: line count with the loaded font, so a chat row grows to its real height (see pitfalls: chat lists that snap).
 - Shapes that worked: a parody of a format everyone knows (dating app, horror trailer), an everyday object as the progress bar (the desk phone), a counter that comes back as its opposite (6 different answers → 1 answer), a before/after of the same place (graveyard → garden; Day 1 → Day 5 notebook).
 - Product truth per film is in each README (knowledge base, Google Calendar / Sheets tool types, escalate to staff, Slack integration, Campaigns with template variables, Working Hours, Rate Limiting and Follow-ups).
+
+## 42–50 · Three niches × (about · explained · use case) · `~/Developer/brainfast-films`
+
+Tourism, education and auto repair, each with one "about Brainfast" film, one educational explainer and one use case. Sound design first: the three explainers have **no music**; the others sit very soft under the voice (`underVoiceDb` 18). Examples: `examples/round4/`.
+
+- Shapes worth borrowing: an object that *is* the progress (the split-flap board, the application stepper, the repair-order ticket, the pegboard outlines), a counter-world that fills (57 seats), an explainer told as a 3-step machine (looks → recognises → checks your guide), a "wrong way" shown first and erased (the chatbot's line through the maze).
+- Product claims per film are in each README (knowledge base and grounding, image understanding, Google Calendar/Sheets, custom API tools, Campaigns follow-ups, escalate to staff).
 

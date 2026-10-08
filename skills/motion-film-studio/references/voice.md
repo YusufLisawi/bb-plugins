@@ -29,7 +29,7 @@ It prints the pace (words/s), pitch range (semitone standard deviation), energy 
 |---|---|---|
 | Flag | `--provider elevenlabs` (default) | `--provider fish` (or `export MFS_TTS=fish`) |
 | Voice id | ElevenLabs `voice_id` (narrator `uju3wxzG5OhpWcoi3SMy`) | a Fish Audio model id (`reference_id`), from fish.audio or `GET https://api.fish.audio/model?language=en&sort_by=score` |
-| Model | `eleven_v3` | `--model s2.1-pro` (default; `s2-pro`, `s1`…) · `--temperature` 0–1 expressiveness |
+| Model | `eleven_v4` (default since Oct 2026; `--el-model eleven_v3` / `MFS_EL_MODEL` for the old one). v4 tags: one emotion per segment, qualifiers in one bracket (`[warm, intrigued]`) | `--model s2.1-pro` (default; `s2-pro`, `s1`…) · `--temperature` 0–1 expressiveness |
 | Tags | `[excited]`-style v3 tags | bracket tags also work on S2; the "tags spoken" check catches any that get read aloud |
 | Key | `ELEVENLABS_API_KEY` | `FISH_API_KEY`, in `~/.config/motion-film-studio/fish.env` (loaded by `el-env.sh`) |
 | Timing (both) | `DEEPGRAM_API_KEY` in `~/.config/motion-film-studio/deepgram.env`: Nova-3 per-word timestamps | same |
@@ -51,7 +51,7 @@ Per-line generation sounds stitched and flat. That was the root of the "slow, bo
 . scripts/el-env.sh
 .venv/bin/python scripts/vo_take.py films/<slug>/script.txt public/films/<slug>/vo --voice uju3wxzG5OhpWcoi3SMy --tempo 1.06
 ```
-1. eleven_v3 reads the **whole** script in one request, with the expression tags inline.
+1. eleven_v4 (or v3) reads the **whole** script in one request, with the expression tags inline.
 2. Speech-to-text (scribe_v1) proves no tag was spoken and gives word timestamps.
 3. Pauses are tightened: after a sentence to 0.34 s, after a comma to 0.14 s, elsewhere ≤ 0.09 s. Cuts land mid-silence with 12 ms crossfades.
 4. `--tempo 1.06` speeds the take up with pitch preserved (atempo). **v3 ignores the `speed` voice setting**; 1.15 once produced *longer* audio.
@@ -82,6 +82,10 @@ If the user rejects a voice after the film is built (it happened with Liam):
 2. Split it with the same `--counts`, then place each line on its **original** start frame (edit `lines.json`, or split with `--start` and write the old table back). The music drop and the final hit stay locked.
 3. Check that each new line ends before the next one starts (print the speech end vs the next start). If a line is too long, shave the `--extra` elsewhere.
 4. Re-export the sound, re-mix and re-render. The word-keyed animations follow automatically.
+
+## Lines in another language (and the tightener)
+
+The take editor clamps every gap between *transcribed* words. Speech the English transcriber can't hear (a Spanish or French phrase inside an English take) counts as silence and gets cut out. Record those phrases as cast lines with their own `lang` instead (Pillow Tales *Big Words*: `es`/`fr` parent cameos).
 
 ## Checks
 

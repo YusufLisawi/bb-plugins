@@ -39,4 +39,6 @@ fi
 [ -f public/sfx/library.json ] || .venv/bin/python scripts/sfx_library.py
 npx tsc --noEmit -p . && echo "typecheck ok"
 git init -q 2>/dev/null && git add -A && git commit -qm "scaffold from motion-film-studio" 2>/dev/null || true
+# Storage janitor: one systemd --user timer for the whole machine (every 30 min, see engine/scripts/tidy.py).
+systemctl --user is-enabled mfs-tidy.timer >/dev/null 2>&1 || python3 "$SKILL/engine/scripts/tidy.py" --install-timer || echo "note: could not install the tidy timer; run scripts/tidy.py --apply by hand"
 echo "ready: $DEST   (preview: PORT=3151 npx vite  →  /?film=starter&format=v)"

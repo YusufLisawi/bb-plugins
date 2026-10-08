@@ -13,7 +13,7 @@ sys.path.insert(0, "scripts")
 from audio import SR, load, write_wav
 
 def tts(text, voice, key, stability=0.5):
-    body = {"text": text, "model_id": "eleven_v3",
+    body = {"text": text, "model_id": os.environ.get("MFS_EL_MODEL", "eleven_v4"),
             "voice_settings": {"stability": stability, "similarity_boost": 0.8, "use_speaker_boost": True}}
     req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_192",
                                  data=json.dumps(body).encode(),
