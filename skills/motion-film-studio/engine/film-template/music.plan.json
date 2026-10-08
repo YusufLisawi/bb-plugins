@@ -1,0 +1,10 @@
+{
+ "out_dir": "public/films/{{slug}}/music",
+ "base": ["upbeat modern electro-pop for a product launch", "120 BPM", "F major", "instrumental", "premium commercial mix", "clean and punchy", "plenty of space for a voice-over"],
+ "pieces": {
+  "A": [{"text": "[Intro]", "ms": 8000, "styles": ["playful plucks and finger snaps", "light and curious", "no kick drum yet", "ends with a short rising swell"], "neg": ["full drums", "big kick"]}],
+  "B": [{"text": "[Drop]", "ms": 12000, "styles": ["bright groove drops exactly on the first beat", "punchy claps", "bouncy bass", "shimmering synth hook"], "neg": ["breakdown", "quiet section"]},
+        {"text": "[Build]", "ms": 4000, "styles": ["snare roll", "rising riser into a big final hit"]}],
+  "C": [{"text": "[Finale]", "ms": 8000, "styles": ["one big final hit exactly on the first beat", "bright warm resolve with a light groove", "final chord rings out at the very end"], "neg": ["new melody", "abrupt ending"]}]
+ }
+}

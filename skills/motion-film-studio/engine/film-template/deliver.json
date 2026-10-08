@@ -1,0 +1,18 @@
+{
+ "frames": "out/{{Id}}-v-final",
+ "audio": "public/films/{{slug}}/mix.wav",
+ "master": "out/{{Id}}-v.mp4",
+ "dest": "~/Developer/brainfast/marketing/brainfast-{{slug}}",
+ "name": "brainfast-{{slug}}",
+ "poster": 60,
+ "beats": [[30, "hook"], [300, "the drop"], [600, "proof"], [900, "reassurance"], [1050, "brainfast."], [1170, "CTA"]],
+ "inline_crf": 28,
+ "inline_audio": "112k",
+ "page": {
+  "path": "$BB_THREAD_STORAGE/reports/brainfast-{{slug}}.html",
+  "title": "Brainfast · {{Id}}",
+  "heading": "{{Id}}",
+  "sub": "40 s · 9:16 · one line on the angle and the vibe.",
+  "meta": ["voice · michael c. vincent", "music · music v2.5", "NN sound cues · −14 lufs", "master · 1080×1920 · motion blur", "preview here · 720p"]
+ }
+}

@@ -1,0 +1,7 @@
+[
+ {"slug": "c1", "voice": "kdmDKE6EkgrWrrykO9Qt", "text": "[casual] Hi! Where's my order?", "lang": "eng"},
+ {"slug": "c2", "voice": "GwgxNQwmgtBTVysWUO5t", "text": "[polite] Can I move my appointment to Friday?", "lang": "eng"},
+ {"slug": "c3", "voice": "kdnRe2koJdOK4Ovxn2DI", "text": "[hopeful] Is the apartment still available?", "lang": "eng"},
+ {"slug": "c4", "voice": "lRf3yb6jZby4fn3q3Q7M", "text": "[friendly] ¿Tienen habitación para el viernes?", "lang": "spa"},
+ {"slug": "c5", "voice": "B6uUx2p7cRgxseOUyP6P", "text": "[impatient] Can I talk to someone?", "lang": "eng"}
+]

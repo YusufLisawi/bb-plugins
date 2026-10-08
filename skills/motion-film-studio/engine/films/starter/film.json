@@ -1,0 +1,22 @@
+{
+ "id": "starter",
+ "fps": 30,
+ "durationInFrames": 420,
+ "out": "public/films/starter/mix.wav",
+ "vo": {
+  "dir": "public/films/starter/vo"
+ },
+ "cast": [],
+ "music": {
+  "file": "public/films/starter/music/bed.wav",
+  "offset": 0,
+  "fadeIn": 0,
+  "underVoiceDb": 18,
+  "hit": 204
+ },
+ "sound": "public/films/starter/sound.json",
+ "fadeOut": [
+  12.8,
+  14.0
+ ]
+}

@@ -1,0 +1,509 @@
+{
+ "version": 1,
+ "about": "Media for motion-film-studio, kept OUTSIDE the skill (see scripts/assets.sh). Default location: ~/.local/share/motion-film-studio (override with MFS_ASSETS).",
+ "files": [
+  {
+   "path": "fonts/DMMono-Light.ttf",
+   "bytes": 49752,
+   "sha256": "c7b3645dc8d28237317b4d017bc47b9ff09a7660758122dacb694a5a82552c24",
+   "to": "public/fonts/DMMono-Light.ttf",
+   "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/dmmono/DMMono-Light.ttf"
+  },
+  {
+   "path": "fonts/DMMono-Medium.ttf",
+   "bytes": 50360,
+   "sha256": "fd327daf461db87b44a87def475d251bf03b997f7c07d9680592d75dbbfaad0b",
+   "to": "public/fonts/DMMono-Medium.ttf",
+   "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/dmmono/DMMono-Medium.ttf"
+  },
+  {
+   "path": "fonts/DMMono-Regular.ttf",
+   "bytes": 49744,
+   "sha256": "55b4c98f123daebb3ed27947ba47b2af00554fc6284d639a540bcef5e6258ad2",
+   "to": "public/fonts/DMMono-Regular.ttf",
+   "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/dmmono/DMMono-Regular.ttf"
+  },
+  {
+   "path": "fonts/DMSans-Italic-VF.ttf",
+   "bytes": 285040,
+   "sha256": "22259c0cc8237221b80f44c76ba8d36e6bce3cda72779f5b2773643d499720ae",
+   "to": "public/fonts/DMSans-Italic-VF.ttf",
+   "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/DMSans-Italic%5Bopsz%2Cwght%5D.ttf"
+  },
+  {
+   "path": "fonts/DMSans-VF.ttf",
+   "bytes": 240164,
+   "sha256": "8cd08d97e89c24d0aa92edd2f0f4c8ee6195eee9b7c9f154865a58b02f0c1c0d",
+   "to": "public/fonts/DMSans-VF.ttf",
+   "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/DMSans%5Bopsz%2Cwght%5D.ttf"
+  },
+  {
+   "path": "fonts/TikTokSans-VF.ttf",
+   "bytes": 761964,
+   "sha256": "0e7f0a3e924c9a86478fc6fc2946de2e4ab8fc704ed72ee40434ade94bb9b0c6",
+   "to": "public/fonts/TikTokSans-VF.ttf",
+   "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/tiktoksans/TikTokSans%5Bopsz%2Cslnt%2Cwdth%2Cwght%5D.ttf"
+  },
+  {
+   "path": "img/grain.png",
+   "bytes": 213232,
+   "sha256": "4acfa0cae6fe36b0e86fc7e9cb11313f782c8356f77a71c88c49e2fa9def5832",
+   "to": "public/img/grain.png",
+   "rebuild": "grain"
+  },
+  {
+   "path": "lookbook/00-starter-all-formats.jpg",
+   "bytes": 158090,
+   "sha256": "49ba06e04e36dc303383ac71d941790d7018877c3501b2c4af1877ac4a9f16d0",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "lookbook/01-showreel-horizontal.jpg",
+   "bytes": 62766,
+   "sha256": "27ab42b7f2025e0c5ac77799d7752f036bea9f38df4168c08ea50b078705b203",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "lookbook/03-night-shift.jpg",
+   "bytes": 143034,
+   "sha256": "8b45caf003f19b7b47ddb0ff82b1a9206f93562935ce47849bf4c1cae53ddcaf",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "lookbook/04-when-it-doesnt-know.jpg",
+   "bytes": 307220,
+   "sha256": "0d387b2d60f95774c4cbaf3a256e7a8384fb4620a0c9c1cf5f04bbcd455e9bd2",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "lookbook/05-every-business.jpg",
+   "bytes": 310352,
+   "sha256": "081bc391f89e034d3a221eac908e6dbea69dcf50e71e8946115b2f063089b80e",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "lookbook/06-glass-box.jpg",
+   "bytes": 251503,
+   "sha256": "2672b6b6835e40b8a640c19105b2e20dab20f748dc932c085f7de0530f856ad4",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "lookbook/07-no-one-waits.jpg",
+   "bytes": 197870,
+   "sha256": "a99f14f8dc2bbf4bf82aa38a2f893495358f91db2149facd1abcc199ea73599e",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "lookbook/08-the-hire.jpg",
+   "bytes": 267470,
+   "sha256": "11cabb2ac06ceb9d7a5ece714e23e3e3e433401a09d28c931fbfa9a62eb112e4",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "lookbook/ref-tiktok-reply-sticker.webp",
+   "bytes": 182318,
+   "sha256": "8202f45d7f5cd155d7a4a2714dd155c7dddab293607e940e7eadfb8f83ba6e32",
+   "to": null,
+   "optional": true
+  },
+  {
+   "path": "sfx/answer.mp3",
+   "bytes": 20733,
+   "sha256": "8372f1f75c2991ea1339502e3b53e31b219a8b99ea7364af65e69f6a1601c255",
+   "to": "public/sfx/answer.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/birds.mp3",
+   "bytes": 145493,
+   "sha256": "4c66a237b1026d26423abcc422937474e521ae89113897e3a76cecf362af9586",
+   "to": "public/sfx/birds.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/blip.mp3",
+   "bytes": 13209,
+   "sha256": "0c4b4a8bd70ccc8b18a06d0c99dbca18deb41ae95c35b2cf6a81b17a271bda6a",
+   "to": "public/sfx/blip.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/buzz.mp3",
+   "bytes": 15717,
+   "sha256": "20f1bebc6783491e0d314e1d7eca5de7f38c33c5c7be970abc42a9b0faa893a1",
+   "to": "public/sfx/buzz.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/check.mp3",
+   "bytes": 18225,
+   "sha256": "9bf43999506f98c70e7f20e5f6ad82580f50b5475e5aa876c8df07c8146ff4da",
+   "to": "public/sfx/check.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/chime.mp3",
+   "to": "public/sfx/chime.mp3",
+   "bytes": 25748,
+   "sha256": "ad5516ea92d427715a7b44a04cf41a30d79c2078ffc739100c8815f71906402c",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/click.mp3",
+   "bytes": 13209,
+   "sha256": "ae4a805d5b062aada3ef84d68d183974338bd3cbd7936ee7e717f43703f9a015",
+   "to": "public/sfx/click.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/clock.mp3",
+   "bytes": 60857,
+   "sha256": "d9f3e96bcb6fb111f81a14d6b0142e9403964cdcbc535644e780e68a25dd3e4c",
+   "to": "public/sfx/clock.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/data.mp3",
+   "bytes": 30137,
+   "sha256": "4e38f96706d536cadd12d0b72b32deec9b31013b357840150613213e146cb731",
+   "to": "public/sfx/data.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/dive.mp3",
+   "bytes": 25748,
+   "sha256": "222892bc74baf14af37f2e07472439cf6b08f2d21cd1f786b121ed8acbfef674",
+   "to": "public/sfx/dive.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/draw.mp3",
+   "bytes": 40168,
+   "sha256": "b1ade1e411caa1ec0511458b06f89dee1116c5d3f9e135565b7a2456b3225288",
+   "to": "public/sfx/draw.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/flip.mp3",
+   "bytes": 20733,
+   "sha256": "6c184f66ac263660ac827bc20e144b59d7285f045d5b158270503ba35a3032cd",
+   "to": "public/sfx/flip.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/flurry.mp3",
+   "bytes": 49572,
+   "sha256": "6f7e4bf19366f5c7c3bf8a65f135bcbb29edb4b33f052407139bbfff390ef91e",
+   "to": "public/sfx/flurry.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/focus.mp3",
+   "bytes": 15717,
+   "sha256": "adbb8964aa28a286c2a2fe5ff7c50f6ca6d23e265774ee84ef1789c7779bea04",
+   "to": "public/sfx/focus.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/glassify.mp3",
+   "bytes": 40168,
+   "sha256": "cf99f97d2e5d47c0a8008fe9dbb0ac19c8e5afe67efc12fd7386f108d0891153",
+   "to": "public/sfx/glassify.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/glitch.mp3",
+   "bytes": 15717,
+   "sha256": "b413bdadbf3d8b02fcfe89eeed8b3fb1e6b0a143db9e624ca0f4556a915067e7",
+   "to": "public/sfx/glitch.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/hum.mp3",
+   "bytes": 97846,
+   "sha256": "ce7e24333ecd86fbfd7406c099784926a02b44c39c62e5fdf941a90861d1a7d1",
+   "to": "public/sfx/hum.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/impact.mp3",
+   "bytes": 49572,
+   "sha256": "0ed5e8e97ef48166c68d8e2f32feecd9ceb149bd0a6d5a2463702e6b3e370e43",
+   "to": "public/sfx/impact.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/keys.mp3",
+   "bytes": 30137,
+   "sha256": "8529bd63e4f69151cef4f6f9c88aba44356bd3800c0e383589ce9cb01343b810",
+   "to": "public/sfx/keys.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/learn.mp3",
+   "bytes": 32017,
+   "sha256": "76de01b58ae9b91aaed8d93ae3dc95bbe23e363d5dd193b491751dbbdcfefdd4",
+   "to": "public/sfx/learn.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/library.json",
+   "bytes": 7598,
+   "sha256": "d5c565c824ff554b2d353180fcf40ccd9eda41dcbd0d1711cde5fc4f95cdbdeb",
+   "to": "public/sfx/library.json"
+  },
+  {
+   "path": "sfx/miss.mp3",
+   "bytes": 18225,
+   "sha256": "cf5b01f49cd0283362a920840eb36e115b2ed9d136dd51f5c88a094f275e2223",
+   "to": "public/sfx/miss.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/night.mp3",
+   "bytes": 241415,
+   "sha256": "fcb433280d2a6b45e7f447bf57a03ea738b26946a812fd7b84a709be703aa1b5",
+   "to": "public/sfx/night.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/notif.mp3",
+   "bytes": 15717,
+   "sha256": "f83704b4293f542fc563137cd655d38916e5bf9978be9a5649d1ed9ea06bcac2",
+   "to": "public/sfx/notif.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/paper.mp3",
+   "to": "public/sfx/paper.mp3",
+   "bytes": 20733,
+   "sha256": "204b30c12e7d9898b8f33d031a346f603bb72687bd6b0f2bff8276ab5dfd8717",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/pin.mp3",
+   "to": "public/sfx/pin.mp3",
+   "bytes": 13209,
+   "sha256": "51bd53c64b42152251894b55e4df2e943627848bbcf4f4bcbfdf069f29b1c59f",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/ping.mp3",
+   "bytes": 13209,
+   "sha256": "1c97fbba0e78fb8a2de72fb8d7e816df811f8b54375078efa9068ac108c29135",
+   "to": "public/sfx/ping.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/pop.mp3",
+   "bytes": 13209,
+   "sha256": "265f0f8527c40e7b286068f0b1fd2252504ddb36744adec5c031ed2a63bf5b84",
+   "to": "public/sfx/pop.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/poweron.mp3",
+   "bytes": 30137,
+   "sha256": "90c35d50bdf749c7b25ab926b5ac9a6f544c00e9a494614ac81b4912fe7d5b21",
+   "to": "public/sfx/poweron.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/receive.mp3",
+   "bytes": 13209,
+   "sha256": "c881b945acd9c7c775829cdc2471b59bb1e5c5b5256324247be5f0cee3f7a19b",
+   "to": "public/sfx/receive.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/ring.mp3",
+   "bytes": 25748,
+   "sha256": "855baf4337fcdfbadff71d6eed5d60886790a78bfa4d12028bb5ba0504753727",
+   "to": "public/sfx/ring.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/riser.mp3",
+   "bytes": 49572,
+   "sha256": "96776ff88b3d3dd1f8c35a3066540ed579827a55f819151c481b58bb2e91da52",
+   "to": "public/sfx/riser.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/scratch.mp3",
+   "to": "public/sfx/scratch.mp3",
+   "bytes": 18225,
+   "sha256": "fbfd9876fddef5d5d2db1201e742037653318185bb82969ef0f528baa2ce5500",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/seal.mp3",
+   "bytes": 20733,
+   "sha256": "8042079d516f1fe7d0fc785343329a38d2f53c99f385daef0bc43fbd6d40f3e2",
+   "to": "public/sfx/seal.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/send.mp3",
+   "bytes": 13209,
+   "sha256": "8975e4bc6cca07384102cc8333cf2a1ab3c39d9912f78e60c4835cdf50c76d4a",
+   "to": "public/sfx/send.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/shimmer.mp3",
+   "bytes": 30137,
+   "sha256": "f61e9a6580b13c65489742719b92dbbb20910afd1b1b374e8b6c3a59da73ffd2",
+   "to": "public/sfx/shimmer.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/sink.mp3",
+   "bytes": 34525,
+   "sha256": "1c13a764202739ba31e10e9d9049e48cf4a897a3561e1d90ae350b4996bf7b8d",
+   "to": "public/sfx/sink.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/snap.mp3",
+   "bytes": 13209,
+   "sha256": "afea3f5d9e4c9d1e1ad4910afebb91095ed8d5c2d7a44b16e0afdc94fbcc5e81",
+   "to": "public/sfx/snap.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/spark.mp3",
+   "bytes": 25748,
+   "sha256": "02b97599564075e7d792ae715d698f1e036d085cc59cbfbbb9422f662f7f6a1d",
+   "to": "public/sfx/spark.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/star.mp3",
+   "to": "public/sfx/star.mp3",
+   "bytes": 15717,
+   "sha256": "158692667d896234d44ee2feccdcb9867c44506b155ec66e5555c1a052feadce",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/suck.mp3",
+   "bytes": 25748,
+   "sha256": "ec50ea3d30438e8467ca040b37393f82611c373a9000780295acf0c7d24d20a7",
+   "to": "public/sfx/suck.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/swell.mp3",
+   "bytes": 60857,
+   "sha256": "a52e753e0bd1327fa7c69ba9c631b804248a0289c4f9158763b051da25c0741a",
+   "to": "public/sfx/swell.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/tap.mp3",
+   "bytes": 13209,
+   "sha256": "f4256b026cef820051a2ad909183103f6dba15034eeae927857a63eaf8a2df37",
+   "to": "public/sfx/tap.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/tear.mp3",
+   "to": "public/sfx/tear.mp3",
+   "bytes": 13209,
+   "sha256": "15cad8ad747aba0e58b760b0f3feb4ff3e6d58904f3696580821ffeb1949b3a3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/tick.mp3",
+   "bytes": 13209,
+   "sha256": "feb4c887ff531df6250286a4ec70bfcf6aa41067bfa6e85431c4cfcc41521fbb",
+   "to": "public/sfx/tick.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/toast.mp3",
+   "bytes": 15717,
+   "sha256": "241a73953bf6b126155aafa13cabbf6343a13f435c4a986a6306640f6b1bc0b7",
+   "to": "public/sfx/toast.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/type.mp3",
+   "bytes": 20733,
+   "sha256": "cbf11cc57873d529c36641c2b06fd29be2ca9adc29238abcccbe0da01a71da33",
+   "to": "public/sfx/type.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/whoosh.mp3",
+   "bytes": 20733,
+   "sha256": "ca69b1614b1de4dd8df17cf3ab81bdafadd1cfbad5ae4aff71ddf4c8f75c32c0",
+   "to": "public/sfx/whoosh.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "sfx/zoom.mp3",
+   "bytes": 40168,
+   "sha256": "68f91ae5bdbb85e31619fa788302b0b21cca080047b61010a858238a2ad1fcd4",
+   "to": "public/sfx/zoom.mp3",
+   "rebuild": "sfx"
+  },
+  {
+   "path": "starter/music/piece-hA.mp3",
+   "bytes": 236205,
+   "sha256": "5ebeb4902867ea4e0e038df952499959a57ef3942bfe57ed6af1df666b444c09",
+   "to": "public/films/starter/music/piece-hA.mp3",
+   "optional": true
+  },
+  {
+   "path": "starter/music/piece-hB.mp3",
+   "bytes": 524205,
+   "sha256": "7d14306317a9a38c71f12e9d00a7240cefbca8af123b6b3dafb5dc00150a1a97",
+   "to": "public/films/starter/music/piece-hB.mp3",
+   "optional": true
+  },
+  {
+   "path": "starter/music/piece-hC.mp3",
+   "bytes": 190701,
+   "sha256": "1b9b6ee200117fc993a42becb29d3374847971a1b22dc8a7e7f50405eda33cd4",
+   "to": "public/films/starter/music/piece-hC.mp3",
+   "optional": true
+  },
+  {
+   "path": "starter/vo/l01.mp3",
+   "bytes": 52460,
+   "sha256": "37670d4d3d7e72391a53de45907889d9451faadd5759fa118c326e041a8ea9e6",
+   "to": "public/films/starter/vo/l01.mp3",
+   "optional": true
+  },
+  {
+   "path": "starter/vo/l02.mp3",
+   "bytes": 63980,
+   "sha256": "52de31ce250781ce96d103ea936e5e0c34c69f61d250b14227da6407f2daf409",
+   "to": "public/films/starter/vo/l02.mp3",
+   "optional": true
+  },
+  {
+   "path": "starter/vo/l03.mp3",
+   "bytes": 61676,
+   "sha256": "f239dc5458c95e5e8460a1b80e5ce62cc17e554eb71e193289803cc6a53385c1",
+   "to": "public/films/starter/vo/l03.mp3",
+   "optional": true
+  },
+  {
+   "path": "starter/vo/l04.mp3",
+   "bytes": 85292,
+   "sha256": "765b0782806a2ebfead886b556a223c739c8ab21c5c9a15ae275f045e77f24eb",
+   "to": "public/films/starter/vo/l04.mp3",
+   "optional": true
+  }
+ ]
+}
