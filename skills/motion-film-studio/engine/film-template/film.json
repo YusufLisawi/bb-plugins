@@ -1,0 +1,10 @@
+{
+ "id": "{{slug}}",
+ "fps": 30,
+ "durationInFrames": 1200,
+ "out": "public/films/{{slug}}/mix.wav",
+ "vo": {"dir": "public/films/{{slug}}/vo"},
+ "cast": [],
+ "music": {"file": "public/films/{{slug}}/music/bed.wav", "offset": 0, "fadeIn": 0, "underVoiceDb": 18, "hit": null},
+ "sound": "public/films/{{slug}}/sound.json"
+}

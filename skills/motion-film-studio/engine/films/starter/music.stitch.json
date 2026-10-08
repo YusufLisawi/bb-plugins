@@ -1,0 +1,30 @@
+{
+ "out": "public/films/starter/music/bed.wav",
+ "dur": 14.0,
+ "parts": [
+  [
+   "public/films/starter/music/piece-hA.mp3",
+   0.0,
+   0.0,
+   2.967,
+   0,
+   0.08
+  ],
+  [
+   "public/films/starter/music/piece-hB.mp3",
+   2.967,
+   0.0,
+   3.833,
+   0,
+   0.12
+  ],
+  [
+   "public/films/starter/music/piece-hC.mp3",
+   6.8,
+   0.0,
+   0,
+   0,
+   0.5
+  ]
+ ]
+}

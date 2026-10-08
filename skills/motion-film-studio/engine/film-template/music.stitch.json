@@ -1,0 +1,9 @@
+{
+ "out": "public/films/{{slug}}/music/bed.wav",
+ "dur": 40.0,
+ "parts": [
+  ["public/films/{{slug}}/music/piece-A.mp3", 0.0,  0.0, 0,  0,   0.08],
+  ["public/films/{{slug}}/music/piece-B.mp3", 14.0, 0.0, 0,  0,   0.12],
+  ["public/films/{{slug}}/music/piece-C.mp3", 34.0, 0.0, 0,  0,   0.5]
+ ]
+}

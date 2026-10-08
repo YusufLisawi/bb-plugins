@@ -1,0 +1,89 @@
+import React from "react";
+import { AbsoluteFill, Audio, staticFile, useCurrentFrame } from "remotion";
+import { loadFonts } from "../../fonts";
+import { E, mixColor, tw } from "../../lib/ease";
+import { C, FONT } from "../../theme";
+import { useLayout } from "../../kit/format";
+import { DotField, Grain } from "../../kit/fx";
+import { Bug, Lockup } from "../../kit/lockup";
+import { Cue, moments } from "../../kit/sound";
+import { makeTiming, Words } from "../../kit/timing";
+import { Kinetic } from "../../kit/type";
+import type { FilmDef, FilmProps } from "../registry";
+// written by scripts/split_take.py — re-running it re-times the whole film
+import lines from "../../../../public/films/{{slug}}/vo/lines.json";
+import words from "../../../../public/films/{{slug}}/vo/words.json";
+
+loadFonts();
+
+/**
+ * {{Id}} — a blank canvas with the plumbing connected:
+ *   - timing from the voice (T.ws(line, i) = the frame a word is spoken)
+ *   - an ANIMATIC: every line appears as kinetic type on the frame it is spoken,
+ *     so you can check the pacing the moment the voice exists
+ *   - the brand end card (Lockup) on "Brainfast." and the CTA line
+ *   - SOUND exported for the mixer
+ *
+ * The idea, the scenes, the camera, the textures and the transitions are yours.
+ * Before designing: look at references/lookbook/, read two films in
+ * references/examples/, and write the concept in films/{{slug}}/brief.md —
+ * then replace <Animatic /> with your scenes (keep the words where they help).
+ */
+type Line = keyof typeof lines;
+const T = makeTiming(lines as Record<Line, number>, words as unknown as Record<Line, Words>);
+const KEYS = Object.keys(lines).sort() as Line[];
+const CTA_LINE = KEYS[KEYS.length - 1]; //     "Build your first agent for free, at brainfast dot A I."
+const END_LINE = KEYS[KEYS.length - 2]; //     "Brainfast. Create a new brain, fast."
+
+/* ── beats: add yours here and use them in BOTH the scenes and SOUND ── */
+const HIT = T.ws(END_LINE, 0) - 2;
+const TAG = [1, 2, 3, 4, 5].map((i) => T.ws(END_LINE, i));
+const CTA = T.ws(CTA_LINE, 0) - 2;
+const URL = T.ws(CTA_LINE, T.nwords(CTA_LINE) - 1) - 4;
+const DUR = Math.ceil(T.lineEnd(CTA_LINE) + 60); // hold ~2 s after the URL
+
+/** Placeholder: each line as kinetic type on its spoken frames. Delete when your scenes exist. */
+const Animatic: React.FC = () => {
+  const L = useLayout();
+  const body = KEYS.slice(0, -2);
+  return (
+    <>
+      {body.map((k, i) => {
+        const next = i + 1 < body.length ? T.VO[body[i + 1]] : HIT;
+        return <Kinetic key={k} from={T.VO[k]} to={next - 9} y={L.cy - L.headline.size * 1.5} align="center" color={C.cream} hi={C.coralLight} words={T.said(k)} />;
+      })}
+    </>
+  );
+};
+
+/* ── your scenes go here ── */
+
+export const {{Id}}: React.FC<FilmProps> = ({ audio = true, grain = true }) => {
+  const f = useCurrentFrame();
+  const day = tw(f, HIT - 1, HIT + 3, 0, 1, E.cubicInOut);
+  return (
+    <AbsoluteFill style={{ overflow: "hidden", fontFamily: FONT, background: mixColor("#121113", C.cream, day) }}>
+      <DotField color={day > 0.5 ? "23,23,23" : "250,249,245"} opacity={0.06} />
+      <Animatic />
+      <Lockup hit={HIT} tag={TAG} ctaAt={CTA} urlAt={URL} />
+      <Bug from={T.VO[KEYS[1]]} to={HIT - 4} dark={day < 0.5} />
+      {grain ? <Grain opacity={0.045} /> : null}
+      {audio ? <Audio src={staticFile("films/{{slug}}/mix.wav")} /> : null}
+    </AbsoluteFill>
+  );
+};
+
+/* ── sound from the same beats (bun scripts/film_sound.ts <this file>) ── */
+export const SOUND: Cue[] = [...moments.hit(HIT, "final hit"), ...moments.cta(CTA, URL)];
+export const BEATS = { HIT, TAG, CTA, URL, DUR };
+
+export const {{UP}}: FilmDef = {
+  id: "{{Id}}",
+  slug: "{{slug}}",
+  title: "{{Id}}",
+  component: {{Id}},
+  durationInFrames: DUR,
+  fps: 30,
+  formats: [{{formats}}],
+  audio: "films/{{slug}}/mix.wav",
+};

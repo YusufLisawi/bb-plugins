@@ -1,0 +1,23 @@
+# Examples: source of the finished films (read-only reference)
+
+Copied from `~/Developer/brainfast-showreel` (the working project, with full git history, assets and mixes). Study them for technique: how a beat is keyed to a word, how a scene hands over, how a card lands, how light is layered. Render the originals from that repo to see them move.
+
+They're references, not templates. A new film starts from the blank canvas `new-film.sh` gives it, with its own concept. [../films.md](../films.md) § What each film owns lists the hooks, worlds and signature moves that are taken.
+
+| Folder | Film | Look at |
+|---|---|---|
+| `every-business/` | Every business runs on questions (bright) | `Hook.tsx` (question stack → wall → vortex), `Reveal.tsx` (mark → avatar), `Flow.tsx` (morphing card, result cards, pull-back wall, lift-out feedback, counters), `Card.tsx` (result card designs) |
+| `glass-box/` | The glass box (sleek dark) | `Box.tsx` (black → glass cube, dive-through), `Inside.tsx` (live chat logs, open-from-row, feedback, clean knowledge orbit), `Grow.tsx` (team of glass agents), `GlassUi.tsx` |
+| `no-one-waits/` | No one waits (warm, human) | `Wait.tsx` (moments swiped through time, 2×2 answered grid, timer to 0:00) |
+| `the-hire/` | The hire (playful) | `Hire.tsx` (poster, stamps, confetti, badge, review clipboard, promotion, frame wall) |
+| `when-it-doesnt-know/` | When it doesn't know (escalation loop) | `World.tsx` (one continuous camera, flyers along lanes), `Chaos.tsx`, `Dashboard.tsx` |
+| `showreel/` | 15 s horizontal showreel (no VO) | `S1Spark.tsx` (spark + pen + neural web + fly-through), `S2Tagline.tsx` (typographic camera, lightning split) — the shine the user loves most |
+| `explainers/` | AI, explained #01–03 + the AI-team positioning film (brainfast-films) | `WhatIsAnAgent.tsx` + `iso.tsx` (isometric tower, a rising camera), `ChatVsClaude.tsx` (self-drawing marker strokes, sticky notes, the next-word demo), `WhichTool.tsx` (metro decision map, camera follows a token), `AiTeam.tsx` (Swiss colour bands, Slack thread, agent tiles + router). These use the current kit (`useLayout`, `kit/people`), so they compile as-is in a project made with this skill. |
+| `formats/` | Films 16–20 (brainfast-films) | `MakesThingsUp.tsx` + `chalk.tsx` (chalkboard filter, writing wipe, eraser), `HandItOff.tsx` (receipt printer, stamps, pull-out camera), `Pov1147.tsx` (phone-native lock screen + app), `ComicCake.tsx` (webtoon page + scrolling camera, speech bubbles, BOOM burst), `Visitors.tsx` (deterministic particle stream, stat tiles). Current kit; compile as-is. |
+| `tiktok-replies/` | TikTok comment replies (films 24–25) | `ReplyChatgpt.tsx`, `ReplyWrong.tsx`: the reply sticker, auto-captions, screen-recording scenes swiped like apps. Uses `kit/tiktok` + `kit/screenrec`. |
+| `reviews-series/` | 1-star reviews that are secretly 5 stars, ep. 1–2 (films 26–27) | `review.tsx` (review page, stars that re-rate, highlighter + marker, dark WhatsApp, `camAt`), `OneStar2am.tsx`, `OneStarDiscount.tsx` (multilingual chat via `kit/chat`). |
+| `case-studies/` | Case study + playbooks (films 28–30) | `CaseEyeClinic.tsx` (eye chart, lens-click transitions, SVG lens mask, phone with a scaled WhatsApp, real-data chart), `PlaybookSchool.tsx` (tall cork board, pins, yarn, swinging sign, falling notes), `PlaybookHelpdesk.tsx` (LED counter over every scene, stage slides, a ticket that flies to a window). |
+| `niches/` | Niche use cases (films 31–33) | `NicheRealEstate.tsx` (map + filter sweep, tool call, calendar/lead cards around a phone), `NicheEcommerce.tsx` (catalog wall filtering to one tile, tracking bar, follow-up timeline), `NicheMedspa.tsx` (orchestrator pearl run on bezier tracks, arches, campaign fan-out). Uses `kit/agentic`. |
+| `angles/` | New angles per niche, no code on screen (films 34–41) | `EcBlackFriday.tsx` (black → cream circle wipe, the orders bag), `MedspaQuiz.tsx` (flung quiz cards, before/after slider), `ReMatch.tsx` (dating-app parody: swipe deck, It's a match), `ClinicMonday.tsx` (a desk phone as the progress bar), `DentistHorror.tsx` (horror-trailer serif cards → bright switch), `SchoolGroupchat.tsx` (dark group chat + an answers counter, six phones), `InternalNewhire.tsx` (ruled notebook, Slack DM, stamp), `ReactivationGarden.tsx` (a field of 72 stones under a camera, sprouts → flowers). All use `kit/systems` (`SystemCard`) and chat rows that grow to their measured height (`wrapLines`). |
+
+Import mapping to the kit is in `../films.md`. These files are 9:16-specific (hard-coded 1080 × 1920 positions) except `showreel/` (1920 × 1080); new films should use `useLayout()` + `<Fit>`.
