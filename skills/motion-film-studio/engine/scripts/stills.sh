@@ -9,10 +9,13 @@
 # The first frame renders alone: on a fresh project Remotion downloads its
 # headless browser on first use, and parallel first-runs race on that download.
 set -e
+export TMPDIR=${TMPDIR_REMOTION:-$HOME/.cache/remotion-tmp}; mkdir -p "$TMPDIR"
 COMP=$1; OUT=$2; shift 2
 mkdir -p "$OUT"
-BUNDLE=${BUNDLE:-/tmp/mfs-bundle-$(basename "$PWD")}
-FPS=${FPS:-30}; GL=${GL:-angle}; JOBS=${JOBS:-6}
+BUNDLE=${BUNDLE:-$HOME/.cache/remotion-tmp/mfs-bundle-$(basename "$PWD")-$COMP}  # per composition: parallel batches never share a bundle
+FPS=${FPS:-30}; GL=${GL:-angle-egl}; JOBS=${JOBS:-6}
+python3 scripts/reap_browsers.py --stale || true
+python3 scripts/tidy.py --quick --apply >/dev/null 2>&1 || true
 LOG="$OUT/_errors.log"; : > "$LOG"
 npx remotion bundle src/remotion/index.ts --out-dir "$BUNDLE" --log=error >>"$LOG" 2>&1
 one() { npx remotion still "$BUNDLE" "$COMP" "$OUT/f-$1.png" --frame="$1" --gl="$GL" --log=error >>"$LOG" 2>&1 || echo "still $1 failed (see $LOG)"; }

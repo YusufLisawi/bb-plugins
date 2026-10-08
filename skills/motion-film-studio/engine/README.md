@@ -22,6 +22,7 @@ scripts/                      voice · music · sound · mix · stills · render
 | music | `music_pieces.py films/<slug>/music.plan.json` → `stitch_music.py films/<slug>/music.stitch.json` |
 | stills | `scripts/stills.sh <Id>-v out/review <frames…>` |
 | sound + mix | `bun scripts/film_sound.ts src/remotion/films/<slug>/<Id>.tsx > public/films/<slug>/sound.json` → `mix_film.py films/<slug>/film.json --table` |
-| master | `scripts/render_master.sh <Id>-v <slug> 5 angle` |
+| master | `scripts/render_master.sh <Id>-v <slug>` (streams: ≈ 5 GB peak; stops under 20 GB free) |
+| storage | `python3 scripts/tidy.py [--apply] [--all] [--ensure 20]` — the janitor (also runs every 30 min via `mfs-tidy.timer`) |
 | QA | `qa.py out/<Id>-v.mp4 out/<Id>-v-final films/<slug>/script.txt` |
 | deliver | `package.py films/<slug>/deliver.json` |

@@ -10,6 +10,8 @@ AAC 320k master tagged BT.709 (CRF 14, faststart).
 Usage:
   .venv/bin/python scripts/finish.py <ss_dir> <final_dir> [first last] [--encode out.mp4] [--encode-only]
   env: FPS=30  AUDIO=public/films/<id>/mix.wav  GRAIN=0.045  SS=8
+  --consume (or <ss_dir>/.consume-subframes) frees each group of inputs only
+  after its averaged output has been atomically saved and verified.
 
   [first last] limits the AVERAGING (e.g. re-finish only a patched range);
   --encode ALWAYS encodes every frame in <final_dir> from f0000 — it refuses a
@@ -46,24 +48,40 @@ _index = {}
 def frame_path(src, i):
     """Remotion pads [frame] to the width of the range, so look names up by number."""
     if src not in _index:
-        _index[src] = {int(f[1:-4]): os.path.join(src, f) for f in os.listdir(src) if f.startswith("s") and f.endswith(".png")}
+        names = (f for f in os.listdir(src) if f.startswith("s") and f.endswith(".png"))
+        # Prefer the canonical padded filename if a prior single-frame repair
+        # left an additional unpadded name for the same frame index.
+        _index[src] = {int(f[1:-4]): os.path.join(src, f) for f in sorted(names, key=len)}
     return _index[src][i]
 
 def job(args):
-    src, dst, n = args
+    src, dst, n = args[:3]
+    consume = len(args) > 3 and args[3]
     acc = None
     for j in range(SS):
         im = np.asarray(Image.open(frame_path(src, n * SS + j)).convert("RGB"), dtype=np.float32)
         acc = im if acc is None else acc + im
     base = acc / (SS * 255.0)
     out = np.clip(grain(base, n) * 255.0 + 0.5, 0, 255).astype(np.uint8)
-    Image.fromarray(out).save(f"{dst}/f{n:04d}.png", compress_level=1)
+    # A killed finishing worker must not leave a plausible but truncated PNG.
+    final = f"{dst}/f{n:04d}.png"
+    temp = f"{final}.tmp"
+    Image.fromarray(out).save(temp, format="PNG", compress_level=1)
+    os.replace(temp, final)
+    if consume:
+        with Image.open(final) as image:
+            image.verify()
+        for j in range(SS):
+            os.unlink(frame_path(src, n * SS + j))
     return n
 
 def encode(dst, out):
     frames = sorted(int(m.group(1)) for f in os.listdir(dst) if (m := re.match(r"f(\d{4})\.png$", f)))
     if not frames or frames[0] != 0 or frames[-1] != len(frames) - 1:
         sys.exit(f"refusing to encode: {dst} must hold a contiguous f0000…fNNNN sequence (found {len(frames)} frames, first {frames[:1]}, last {frames[-1:]})")
+    for n in frames:
+        with Image.open(f"{dst}/f{n:04d}.png") as image:
+            image.verify()
     if not AUDIO or not os.path.exists(AUDIO):
         sys.exit("set AUDIO=<path to the film's mix.wav>")
     cmd = FF + ["-framerate", str(FPS), "-start_number", "0", "-i", f"{dst}/f%04d.png", "-i", AUDIO,
@@ -84,16 +102,25 @@ def main():
         argv = argv[:k] + argv[k + 2:]
     args = [a for a in argv if not a.startswith("--")]
     src, dst = args[0], args[1]
+    consume = "--consume" in sys.argv or os.path.exists(os.path.join(src, ".consume-subframes"))
     os.makedirs(dst, exist_ok=True)
     if "--encode-only" not in sys.argv:
         total = len([f for f in os.listdir(src) if f.startswith("s") and f.endswith(".png")])
         first = int(args[2]) if len(args) > 2 else 0
         last = int(args[3]) if len(args) > 3 else total // SS - 1
-        with Pool(max(1, (os.cpu_count() or 4) - 2)) as pool:
-            for k, _ in enumerate(pool.imap_unordered(job, [(src, dst, n) for n in range(first, last + 1)])):
+        # Each worker holds eight full-size float frames; cap the pool so the
+        # 15 GiB render host does not swap or kill a worker near completion.
+        have = {int(f[1:-4]) for f in os.listdir(src) if f.startswith("s") and f.endswith(".png")}
+        # Resuming a streamed master: a frame already written whose sub-frames were consumed is done.
+        todo = [n for n in range(first, last + 1)
+                if not (os.path.exists(f"{dst}/f{n:04d}.png") and any(n * SS + j not in have for j in range(SS)))]
+        with Pool(min(4, max(1, (os.cpu_count() or 4) - 2))) as pool:
+            for k, _ in enumerate(pool.imap_unordered(job, [(src, dst, n, consume) for n in todo])):
                 if k % 100 == 0:
                     print(f"  {k}/{last - first + 1} frames", flush=True)
         print(f"averaged {last - first + 1} frames x {SS} samples -> {dst}")
+        if consume:
+            print("released subframes after verified averaging")
     if enc:
         encode(dst, enc)
 

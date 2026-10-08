@@ -35,7 +35,10 @@ export const Kinetic: React.FC<{
   shineAt?: number;
   shineHi?: string;
   exit?: number;
-}> = ({ words, from, to, x, y, size, width, align = "left", color, hi, weight = 700, shineAt, shineHi, exit = 8 }) => {
+  /** style for the accent (shine) words, e.g. a drop-shadow: an inherited text-shadow shows THROUGH
+   *  background-clip text and turns the accent colour muddy, so headlines with a shadow pass it here */
+  shineStyle?: React.CSSProperties;
+}> = ({ words, from, to, x, y, size, width, align = "left", color, hi, weight = 700, shineAt, shineHi, exit = 8, shineStyle }) => {
   const f = useCurrentFrame();
   const L = useLayout();
   if (f < from - 4 || f > to + exit) return null;
@@ -80,7 +83,7 @@ export const Kinetic: React.FC<{
                 }}
               >
                 {shineAt !== undefined && w.hi ? (
-                  <ShineText at={shineAt + i * 2} base={col} hi={shineHi ?? "#FFFFFF"}>
+                  <ShineText at={shineAt + i * 2} base={col} hi={shineHi ?? "#FFFFFF"} style={shineStyle}>
                     {w.t}
                   </ShineText>
                 ) : (

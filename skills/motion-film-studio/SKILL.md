@@ -5,8 +5,13 @@ description: Make premium voice-over motion-graphics films — product ads, laun
 
 # Motion film studio
 
-> [!IMPORTANT] Mandatory cleanup after every finished render
-> **A film is not finished until its temporary render frames have been removed.** After the final video passes QA and packaging has saved the poster/keyframes, automatically delete that film's numbered supersampled subframes, averaged/final working frames and obsolete patch sequences. Do this before handing over the result; the user has already authorized this routine cleanup, so no extra confirmation is needed. Keep the final videos, source/input media, audio, source code, configs, QA reports and selected review stills. Keep frames only while an active render, encoder, QA/packaging step or repair actually needs them. See [the cleanup procedure](references/render-qa-delivery.md#mandatory-cleanup-after-qa-and-packaging).
+> [!IMPORTANT] Storage takes care of itself (keep it that way)
+> Generation must never fill the disk. The pipeline cleans up automatically; don't bypass it.
+> - `render_master.sh` **streams**: renders 90 frames, averages them, deletes their sub-frames, repeats (peak ≈ 5 GB per film, never ~27 GB). It refuses to start a chunk under 20 GB free, kills every browser it started, and deletes its bundle when done.
+> - `package.py` deletes the averaged frames as soon as the poster, key frames and player page exist (`"keep_frames": true` in deliver.json to keep them).
+> - `scripts/tidy.py` (the storage janitor) removes only regenerable leftovers: stale bundles (~600 MB each), Remotion temp and browser profiles, sub-frames of dead masters, old review stills (contact sheets kept), art download temp. Every master and stills batch runs it; a systemd `--user` timer (`mfs-tidy.timer`, installed by `new-project.sh`) runs `tidy.py --all --apply` every 30 min. Log: `~/.cache/mfs-tidy.log`.
+> - Before a long batch: `python3 scripts/tidy.py --apply --ensure 20`. To stop a master: kill its `render_master.sh` (its renders and browsers stop with it). Never queue masters with a loop that calls `remotion render` directly.
+> Still verify at hand-over that no bulk frame folder is left for a finished film ([the cleanup check](references/render-qa-delivery.md#mandatory-cleanup-after-qa-and-packaging)).
 
 This is the studio behind the 30 Brainfast films the user called *"magnificent… far beyond and cooler"*: ads like *Every business runs on questions* and *The glass box*, the *AI, explained* episodes, native TikTok comment replies, the *1-star reviews* yapping series, and a real-customer case study with niche playbooks.
 
@@ -61,6 +66,7 @@ These are hard rules from direct feedback. Read [references/brand-brainfast.md](
 - **Don't:** use black text on dark glass, busy dot-webs crossing the logo, counters that stop mid-roll, the same face for "different people", or cropped digits.
 - **No code on screen for business audiences:** *"our target is not a client that reads code"*. Show a tool as the agent ⇄ the business's own system (`kit/systems` `SystemCard`), never a function call.
 - **Generic:** no city, no named languages or countries ("in their own language"), so anyone anywhere relates.
+- **Generated artwork (owner rule, Oct 2026):** images come from **Codex in a bb thread** using its `imagegen` skill: you write the prompt and attach the reference images. **Never call an image or video generation API yourself** (Higgsfield, OpenAI Images/Sora, Kling, fal, Replicate…), even when a key is in the environment. **No AI video clips** unless the user asks for them; motion comes from the film's own code. When a generation route fails or runs out, **ask the user** before switching to anything else. Procedure: [references/artwork.md](references/artwork.md).
 
 ## Workflow
 
@@ -121,6 +127,10 @@ After editing the skill itself, run `bash $SKILL/scripts/selftest.sh [--master]`
   - C is the final hit.
 - A single long generation won't land the drop on the word.
 
+### 4b. Artwork (only when the concept needs illustrations): [references/artwork.md](references/artwork.md)
+- One Codex bb thread per batch with the `imagegen` skill: prompts + reference images in, PNGs saved into `public/films/<slug>/art/`.
+- No generation APIs, no AI video unless the user asked. Look at every image before using it.
+
 ### 5. Picture: [references/picture.md](references/picture.md) · [references/formats.md](references/formats.md)
 - Replace the animatic with your scenes, one at a time. Key each scene to `T.ws()`, add its beats to `SOUND`, and render stills as you go.
 - Build from the kit in `src/remotion/kit` where it fits: `format` (useLayout, Fit), `fx`, `type` (Kinetic), `ui`, `camera`, `cube`, `lockup` and `sound`.
@@ -139,7 +149,7 @@ bun scripts/film_sound.ts src/remotion/films/<slug>/<Id>.tsx > public/films/<slu
 
 ### 8. Master, QA, deliver: [references/render-qa-delivery.md](references/render-qa-delivery.md)
 ```bash
-scripts/render_master.sh <Id>-v <slug> 5 angle          # SS render on the GPU (auto-resume) → finish → encode
+scripts/render_master.sh <Id>-v <slug>          # SS render on the GPU (auto-resume) → finish → encode
 .venv/bin/python scripts/qa.py out/<Id>-v.mp4 out/<Id>-v-final films/<slug>/script.txt
 .venv/bin/python scripts/package.py films/<slug>/deliver.json   # poster, key frames, 720p inline player page
 ```
@@ -147,15 +157,12 @@ scripts/render_master.sh <Id>-v <slug> 5 angle          # SS render on the GPU (
 - Show the inline player page with `::inline-vis`.
 - Serve the folder with `python3 -m http.server <port>` plus `bb connect expose <port>`, and link the mp4.
 
-### 9. Mandatory cleanup, after QA and packaging
+### 9. Cleanup (automatic, then verify)
 
-Follow [the cleanup procedure](references/render-qa-delivery.md#mandatory-cleanup-after-qa-and-packaging) for **every film and delivered format**, including supersampled renders, correction patches, retries and alternative cuts. `render_master.sh`/`finish.py` leave frame sequences for QA and repairs; they do not perform this final cleanup for you.
-
-- Finish encoding, pass QA, and generate the poster and keyframe sheet first. Confirm that no render/encoder/QA/packaging job still uses the sequence.
-- Remove only that completed film's temporary numbered PNG sequences from its `out/<Id>-<fmt>-ss`, `out/<Id>-<fmt>-final` and temporary patch folders. Preserve any curated stills or metadata in those folders. **Never delete the whole `out` directory.**
-- Keep final MP4/MOV/WebM files, audio, source assets, project code/configs, QA reports, posters, keyframe sheets and selected review images.
-- Verify that the completed film has no leftover bulk frame sequence and its final video still exists and opens. Check reclaimed space with `df -h .`; report a substantial recovery.
-- Interrupted/failed render frames may remain only while needed for the current resume or repair. Clean them once the verified replacement is finished or the temporary run is deliberately abandoned.
+`render_master.sh` already deleted the sub-frames chunk by chunk, and `package.py` deletes the averaged frames after packaging. Then verify, for every film and delivered format:
+- `ls out/` shows no `<Id>-<fmt>-ss` or `<Id>-<fmt>-final` frame folder for a finished film (patch or retry folders included); the final video exists and opens.
+- `python3 scripts/tidy.py --apply` reports nothing large left; mention a substantial recovery (`df -h .`).
+- Keep final videos, audio, source, configs, QA reports, posters, keyframe sheets and selected review sheets. **Never delete the whole `out` directory.**
 
 ## Before you hand over
 
@@ -167,7 +174,7 @@ The user sees results, not process. Before anything reaches them, check each of 
 - [ ] The CTA wording is right, and the narrator is the approved voice.
 - [ ] The README states the specs, script, concept, how it was made, the checks, and the illustrative content and claims. Every product claim traces to a line in the brand's `product.md`.
 - [ ] The brand kit is `approved`, and nothing from another brand (name, URL, logo, colours) is in the film.
-- [ ] **Disk cleanup DONE:** all completed-film supersampled, final working-frame and obsolete patch sequences are removed; final videos, audio, source, QA metadata and curated review assets remain.
+- [ ] **Disk clean:** no frame folders left for finished films (streaming master + `package.py` + `tidy.py`); final videos, audio, source, QA metadata and curated review assets remain.
 - [ ] The source is committed in the film project. Nothing is pushed.
 - [ ] The final message has the inline player, the mp4 link, the remote link, and one line per film on its idea.
 
@@ -175,8 +182,9 @@ The user sees results, not process. Before anything reaches them, check each of 
 
 - **Voice:** a take costs about the script's characters. The Creator tier has 300k characters a month; check with `curl …/v1/user/subscription`.
 - **Music:** 3 pieces per film, one request at a time. The account allows 2 concurrent requests, shared with anything else running.
-- **Render:** a 40 s 9:16 film is about 9,600 sub-frames, roughly 25–35 min on the RTX 3060 with `--gl=angle`. Finish and encode take about 2 min. Plan 2–3 review rounds of stills before the master.
+- **Render:** a 40 s 9:16 film is about 9,600 sub-frames, roughly 25–35 min on the RTX 3060 with `--gl=angle-egl`. Finish and encode take about 2 min. Plan 2–3 review rounds of stills before the master.
 - **Parallel films:** render one at a time or cap concurrency. Don't run two GPU renders at 6 concurrency each.
+- **Disk:** masters stream (peak ≈ 5 GB per film, never the old ~27 GB) and stop by themselves under 20 GB free; queue them only through `render_master.sh`.
 
 ## Reference map
 
@@ -187,6 +195,7 @@ The user sees results, not process. Before anything reaches them, check each of 
 | Music pieces, prompts that worked, stitching | [references/music.md](references/music.md) |
 | The kit, proven motion values, scene grammar, ideas to go further | [references/picture.md](references/picture.md) |
 | 9:16 / 16:9 / 1:1 / 4:5, zones, Fit, re-composing | [references/formats.md](references/formats.md) |
+| Illustrations / generated images: Codex `imagegen` thread, prompts, references, cut-outs, review | [references/artwork.md](references/artwork.md) |
 | Sound cues, the 42-effect library, levels, the mix | [references/sound.md](references/sound.md) |
 | Master render, QA gate, review checklist, packaging, delivery | [references/render-qa-delivery.md](references/render-qa-delivery.md) |
 | Something looks or sounds wrong | [references/pitfalls.md](references/pitfalls.md) (read this first when debugging) |
