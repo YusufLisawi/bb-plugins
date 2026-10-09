@@ -18,13 +18,12 @@ export interface ThreadActivitySnapshot {
   status: "error" | "stopping" | "idle" | "starting" | "active" | "pending";
   parentThreadId: string | null;
   latestAttentionAt: number;
+  lifecycleOwnerThreadId?: string | null;
 }
 
 export interface SweepConfig {
   /** Days of inactivity before a thread becomes a candidate. */
   inactivityDays: number;
-  /** Also archive pinned threads that meet the threshold. */
-  archivePinned: boolean;
   /** Also archive hidden (background-worker) threads. */
   archiveHidden: boolean;
   /** Also archive threads with work in flight (starting/active/stopping). */
@@ -59,7 +58,7 @@ export interface SweepStats {
  *   them.
  * - Threads with work in flight (starting/active/stopping) are skipped
  *   unless `archiveRunning`, because archiving stops running work.
- * - Pinned and hidden threads are skipped unless opted in.
+ * - Pinned threads are always protected; hidden threads are skipped unless opted in.
  * - A fresh install never nukes a pre-existing backlog: threads whose last
  *   activity (`latestAttentionAt`) predates `sinceInstallAt` are skipped,
  *   so only threads that become idle after install are ever candidates.
@@ -77,13 +76,16 @@ export function selectThreadsToArchive<T extends ThreadActivitySnapshot>(
     if (thread.archivedAt !== null || thread.deletedAt !== null) {
       return false;
     }
-    if (thread.parentThreadId !== null) {
+    if (
+      thread.parentThreadId !== null ||
+      thread.lifecycleOwnerThreadId != null
+    ) {
       return false;
     }
     if (thread.visibility === "hidden" && !config.archiveHidden) {
       return false;
     }
-    if (thread.pinnedAt !== null && !config.archivePinned) {
+    if (thread.pinnedAt !== null) {
       return false;
     }
     if (
@@ -109,7 +111,9 @@ export function parseInactivityDays(raw: string): number {
 /** Milliseconds until the next top-of-hour; exactly on the hour → a full hour. */
 export function msUntilNextHour(now: Date = new Date()): number {
   return (
-    (60 - now.getMinutes()) * 60_000 - now.getSeconds() * 1000 - now.getMilliseconds()
+    (60 - now.getMinutes()) * 60_000 -
+    now.getSeconds() * 1000 -
+    now.getMilliseconds()
   );
 }
 

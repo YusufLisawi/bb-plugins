@@ -1,7 +1,7 @@
 {
   "name": "bb-plugin-auto-archive",
-  "version": "0.1.5",
-  "description": "Auto-archive inactive threads with per-thread exemptions.",
+  "version": "0.2.0",
+  "description": "Archive inactive threads and optionally clean old archives, with permanent pin protection.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -10,7 +10,7 @@
   },
   "bb": {
     "name": "Auto Archive",
-    "description": "Auto-archive inactive threads with per-thread exemptions from Sidebar Plus.",
+    "description": "Auto-archive inactive threads and optionally delete old archives. Pinned and recent threads are protected.",
     "branding": {
       "icon": "Archive"
     },

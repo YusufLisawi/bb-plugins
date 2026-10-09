@@ -37,7 +37,9 @@ vi.mock("../src/ThreadPreferences", () => ({
     pendingIds: new Set(),
   }),
 }));
-vi.mock("../components/ui/icon", () => ({ Icon: () => <span /> }));
+vi.mock("../components/ui/icon", () => ({
+  Icon: ({ name }: { name: string }) => <span data-test-icon={name} />,
+}));
 const project = {
   id: "proj_example",
   name: "Example",
@@ -230,7 +232,7 @@ describe("mobile sidebar menus", () => {
         />
       </ul>,
     );
-    const link = screen.getByRole("link", { name: "One" });
+    const link = screen.getByRole("link", { name: /^One/ });
     await hold(link);
     fireEvent.click(link);
     expect(mock.open).not.toHaveBeenCalled();
@@ -261,34 +263,67 @@ describe("mobile sidebar menus", () => {
         />
       </ul>,
     );
-    await hold(screen.getByRole("link", { name: "One" }));
+    await hold(screen.getByRole("link", { name: /^One/ }));
     fireEvent.click(
       screen.getByRole("menuitem", { name: "Move to project pinned section" }),
     );
     expect(mock.setPinMode).toHaveBeenCalledWith("One", "project");
   });
-  it("lets a project pin move back globally and an exempt thread enable auto-archive", async () => {
+  it("keeps pinned threads protected even if a manual exemption can otherwise be enabled", async () => {
     mock.projectPinnedIds.add("One");
     mock.exemptIds.add("One");
-    render(
+    const renderRow = (pinned: boolean) => (
       <ul>
         <ThreadRow
-          thread={thread("One", true)}
+          thread={thread("One", pinned)}
           isActive={false}
           isFollowUp={false}
           onToggleFollowUp={() => {}}
           colored={false}
           onNavigate={() => {}}
         />
-      </ul>,
+      </ul>
     );
-    await hold(screen.getByRole("link", { name: "One" }));
+    const view = render(renderRow(true));
+    await hold(screen.getByRole("link", { name: /^One/ }));
     expect(
       screen.getByRole("menuitem", { name: "Move to global pinned section" }),
     ).toBeTruthy();
+    const protectedItem = screen.getByRole("menuitem", {
+      name: "Auto-archive disabled while pinned",
+    });
+    expect(protectedItem.getAttribute("data-disabled")).not.toBeNull();
+    fireEvent.click(protectedItem);
+    expect(mock.setAutoArchiveExempt).not.toHaveBeenCalled();
+    fireEvent.keyDown(protectedItem, { key: "Escape" });
+    view.rerender(renderRow(false));
+    await hold(screen.getByRole("link", { name: "One" }));
     fireEvent.click(
       screen.getByRole("menuitem", { name: "Enable auto-archive" }),
     );
     expect(mock.setAutoArchiveExempt).toHaveBeenCalledWith("One", false);
+  });
+  it("shows project pins before their titles without Pinned or Recent folder headings", () => {
+    mock.projectPinnedIds.add("Pin thread");
+    const { container } = render(
+      <Folder
+        project={project}
+        threads={[thread("Pin thread", true), thread("Other thread")]}
+        open
+        onToggle={() => {}}
+        activeThreadId={null}
+        followUpThreadIds={new Set()}
+        onSetFollowUp={() => {}}
+        colored={false}
+        onNavigate={() => {}}
+      />,
+    );
+    expect(screen.queryByText("Pinned", { exact: true })).toBeNull();
+    expect(screen.queryByText("Recent", { exact: true })).toBeNull();
+    const pin = container.querySelector("[data-sbp-thread-pin]")!;
+    const title = screen.getByText("Pin thread", { exact: true });
+    expect(
+      pin.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

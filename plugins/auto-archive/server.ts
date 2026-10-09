@@ -6,14 +6,27 @@
 // metadata edits never count. Child threads are never archived directly:
 // archiving a parent cascades to its children.
 //
-// Everything destructive is configurable: pinned/hidden/running threads are
-// skipped by default, and a dry-run mode logs candidates without touching
-// them.
+// Pins are always protected. Optional archive cleanup deletes old archived
+// leaves without cascades; recent, active, hidden, and exempt families are kept.
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { createExemptions, exemptionResultSchema, type Exemptions } from "./exemptions";
 import {
-  HOUR_MS,
+  createExemptions,
+  exemptionResultSchema,
+  type Exemptions,
+} from "./exemptions";
+import {
+  runCleanup,
+  parseDeletionDays,
+  type CleanupConfig,
+  type CleanupStats,
+} from "./cleanup";
+import {
+  archiveProtectedIds,
+  readThreadIndex,
+  refreshFamily,
+} from "./thread-safety";
+import {
   msUntilNextHour,
   parseInactivityDays,
   selectThreadsToArchive,
@@ -22,7 +35,7 @@ import {
   type SweepStats,
 } from "./sweep.js";
 
-export interface ResolvedSweepConfig extends SweepConfig {
+export interface ResolvedSweepConfig extends SweepConfig, CleanupConfig {
   /** Log candidates without archiving anything. */
   dryRun: boolean;
 }
@@ -40,12 +53,12 @@ export interface RunSweepOptions {
 export const rpcContract = defineRpcContract({
   getExemptions: { input: z.null(), output: exemptionResultSchema },
   setExemption: {
-    input: z.object({ threadId: z.string().min(1).max(512), exempt: z.boolean() }).strict(),
+    input: z
+      .object({ threadId: z.string().min(1).max(512), exempt: z.boolean() })
+      .strict(),
     output: exemptionResultSchema,
   },
 });
-
-const PAGE_SIZE = 100;
 
 /**
  * Run one archive sweep: page through non-archived root threads (hidden
@@ -68,36 +81,25 @@ export async function runSweep(
   };
 
   const exemptions = options.exemptions ?? createExemptions(bb);
-  const protectedIds = await exemptions.withProtectedThreads(async (ids) => ids);
-
-  // Collect candidates first, then archive: the list is offset-paged, and
-  // archiving mid-scan would shift the page window.
-  const candidates: { id: string; label: string }[] = [];
-  let offset = 0;
-  while (!options.signal?.aborted) {
-    const page = await bb.sdk.threads.list({
-      archived: false,
-      includeHidden: true,
-      hasParent: false,
-      limit: PAGE_SIZE,
-      offset,
-    });
-    stats.scanned += page.length;
-    candidates.push(
-      ...selectThreadsToArchive(page, config, now).filter((thread) => !protectedIds.has(thread.id)).map((thread) => ({
-        id: thread.id,
-        label: threadTitle(thread),
-      })),
-    );
-    if (page.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
+  const explicit = await exemptions.withProtectedThreads(async (ids) => ids);
+  const index = await readThreadIndex(bb, options.signal);
+  const protectedIds = archiveProtectedIds(index, explicit, config, now);
+  // Collect first: archive changes which page a thread belongs to.
+  const roots = [...index.values()].filter(
+    (thread) => thread.archivedAt === null && thread.parentThreadId === null,
+  );
+  stats.scanned = roots.length;
+  const candidates = selectThreadsToArchive(roots, config, now)
+    .filter((thread) => !protectedIds.has(thread.id))
+    .map((thread) => ({ id: thread.id, label: threadTitle(thread) }));
   stats.candidates = candidates.length;
 
   for (const candidate of candidates) {
     if (options.signal?.aborted) break;
     if (dryRun) {
-      bb.log.info(`[dry-run] would archive ${candidate.id} — ${candidate.label}`);
+      bb.log.info(
+        `[dry-run] would archive ${candidate.id} — ${candidate.label}`,
+      );
       continue;
     }
     try {
@@ -105,7 +107,15 @@ export async function runSweep(
       // activity/pin state: work may have started while the list was paged.
       await exemptions.withProtectedThreads(async (ids) => {
         if (options.signal?.aborted || ids.has(candidate.id)) return;
-        const current = await bb.sdk.threads.get({ threadId: candidate.id });
+        const fresh = await readThreadIndex(bb, options.signal);
+        if (!fresh.has(candidate.id)) return;
+        await refreshFamily(bb, fresh, candidate.id, options.signal);
+        const current = fresh.get(candidate.id)!;
+        if (
+          options.signal?.aborted ||
+          archiveProtectedIds(fresh, ids, config, now).has(candidate.id)
+        )
+          return;
         if (selectThreadsToArchive([current], config, now).length === 0) return;
         await bb.sdk.threads.archive({ threadId: candidate.id });
         stats.archived += 1;
@@ -142,7 +152,9 @@ export default async function plugin(bb: BbPluginApi) {
   });
   bb.rpc.register(rpcContract, {
     getExemptions: async () => ({ threadIds: await exemptions.read() }),
-    setExemption: async ({ threadId, exempt }) => ({ threadIds: await exemptions.set(threadId, exempt) }),
+    setExemption: async ({ threadId, exempt }) => ({
+      threadIds: await exemptions.set(threadId, exempt),
+    }),
   });
 
   const settings = bb.settings.define({
@@ -155,13 +167,6 @@ export default async function plugin(bb: BbPluginApi) {
         "ever archived — a pre-existing backlog is left untouched, and " +
         "nothing happens until the threshold has elapsed since install.",
       default: "15",
-    },
-    archivePinned: {
-      type: "boolean",
-      label: "Archive pinned threads",
-      description:
-        "Also archive pinned threads that meet the inactivity threshold.",
-      default: false,
     },
     archiveHidden: {
       type: "boolean",
@@ -179,11 +184,25 @@ export default async function plugin(bb: BbPluginApi) {
         "Archiving stops running work, so this is off by default.",
       default: false,
     },
+    deleteArchivedThreads: {
+      type: "boolean",
+      label: "Automatically delete archived threads",
+      description:
+        "Permanently remove old archived threads. Off by default. Pinned, exempt, recently used, hidden, and busy threads and their families are protected. No cascading deletion.",
+      default: false,
+    },
+    deleteArchivedAfterDays: {
+      type: "string",
+      label: "Delete after days in archive",
+      description:
+        "Whole days since archiving and last use (13 by default). Existing old archives can qualify when cleanup is enabled. Invalid values disable deletion. Preview with bb auto-archive cleanup --dry-run.",
+      default: "13",
+    },
     dryRun: {
       type: "boolean",
       label: "Dry run",
       description:
-        "Report what would be archived without archiving anything.",
+        "Report archive and deletion candidates without changing any threads.",
       default: false,
     },
   });
@@ -193,12 +212,24 @@ export default async function plugin(bb: BbPluginApi) {
     const installedAt = await ensureInstalledAt(bb);
     return {
       inactivityDays: parseInactivityDays(values.inactivityDays),
-      archivePinned: values.archivePinned,
       archiveHidden: values.archiveHidden,
       archiveRunning: values.archiveRunning,
       dryRun: values.dryRun,
+      deleteArchivedThreads: values.deleteArchivedThreads,
+      deleteArchivedAfterDays: parseDeletionDays(
+        values.deleteArchivedAfterDays,
+      ),
       sinceInstallAt: installedAt,
     };
+  }
+
+  async function canDelete(days: number | null): Promise<boolean> {
+    const values = await settings.get();
+    return (
+      values.deleteArchivedThreads &&
+      !values.dryRun &&
+      parseDeletionDays(values.deleteArchivedAfterDays) === days
+    );
   }
 
   // Sweep once on load, then at the top of every hour. Settings are re-read
@@ -206,13 +237,20 @@ export default async function plugin(bb: BbPluginApi) {
   bb.background.service("sweeper", {
     async start(signal) {
       while (!signal.aborted) {
-        const config = await resolveConfig();
         try {
+          const config = await resolveConfig();
           const stats = await runSweep(bb, config, { signal, exemptions });
           bb.log.info(
             `sweep complete — scanned ${stats.scanned}, archived ${stats.archived}, ` +
               `errors ${stats.errors}${stats.dryRun ? " (dry run)" : ""}`,
           );
+          const cleanupConfig = await resolveConfig();
+          const cleanup = await runCleanup(bb, cleanupConfig, {
+            signal,
+            exemptions,
+            canDelete: () => canDelete(cleanupConfig.deleteArchivedAfterDays),
+          });
+          if (cleanup.enabled) bb.log.info(formatCleanup(cleanup));
         } catch (error) {
           bb.log.error(`sweep failed: ${errorMessage(error)}`);
         }
@@ -229,6 +267,12 @@ export default async function plugin(bb: BbPluginApi) {
         name: "run",
         summary: "Run an archive sweep now",
         usage: "bb auto-archive run [--dry-run]",
+      },
+      {
+        name: "cleanup",
+        summary:
+          "Clean old archived threads or safely preview deletion candidates",
+        usage: "bb auto-archive cleanup [--dry-run]",
       },
       {
         name: "status",
@@ -253,17 +297,31 @@ export default async function plugin(bb: BbPluginApi) {
           stdout: formatStats(stats),
         };
       }
+      if (sub === "cleanup") {
+        const config = await resolveConfig();
+        const preview = rest.includes("--dry-run");
+        const stats = await runCleanup(bb, config, {
+          signal: ctx.signal,
+          exemptions,
+          preview,
+          canDelete: () => canDelete(config.deleteArchivedAfterDays),
+        });
+        return { exitCode: 0, stdout: formatCleanup(stats) };
+      }
       if (sub === "status") {
         const config = await resolveConfig();
-        const last = await bb.storage.kv.get<
-          SweepStats & { at: number }
-        >("last-sweep");
+        const last = await bb.storage.kv.get<SweepStats & { at: number }>(
+          "last-sweep",
+        );
         const lines = [
           `threshold: ${config.inactivityDays} day(s)`,
-          `archive pinned: ${config.archivePinned}`,
+          "pinned threads: always protected from automatic archive and deletion",
           `archive hidden: ${config.archiveHidden}`,
           `archive running: ${config.archiveRunning}`,
           `dry run: ${config.dryRun}`,
+          `auto-delete archived: ${config.deleteArchivedThreads}`,
+          `archive retention: ${config.deleteArchivedAfterDays === null ? "invalid (deletion disabled)" : `${config.deleteArchivedAfterDays} day(s)`}`,
+          "deletion safeguards: no cascades; protect recent/active/queued/hidden/exempt families; max 25 per sweep",
           `exempt threads: ${(await exemptions.read()).length}`,
           `installed: ${new Date(config.sinceInstallAt).toISOString()}`,
         ];
@@ -275,11 +333,19 @@ export default async function plugin(bb: BbPluginApi) {
         } else {
           lines.push("last sweep: never");
         }
+        const cleanup = await bb.storage.kv.get<CleanupStats & { at: number }>(
+          "last-cleanup",
+        );
+        if (cleanup)
+          lines.push(
+            `last cleanup: ${new Date(cleanup.at).toISOString()}`,
+            formatCleanup(cleanup),
+          );
         return { exitCode: 0, stdout: lines.join("\n") };
       }
       return {
         exitCode: 2,
-        stderr: "usage: bb auto-archive <run|status>",
+        stderr: "usage: bb auto-archive <run|cleanup|status>",
       };
     },
   });
@@ -290,6 +356,13 @@ function formatStats(stats: SweepStats): string {
   return (
     `scanned ${stats.scanned}, candidates ${stats.candidates}, ` +
     `archived ${stats.archived}, errors ${stats.errors}${suffix}`
+  );
+}
+
+function formatCleanup(stats: CleanupStats): string {
+  return (
+    `cleanup ${stats.enabled ? "enabled" : "disabled"}${stats.dryRun ? " (dry run)" : ""} — ` +
+    `scanned ${stats.scanned}, candidates ${stats.candidates}, deleted ${stats.deleted}, skipped ${stats.skipped}, errors ${stats.errors}`
   );
 }
 

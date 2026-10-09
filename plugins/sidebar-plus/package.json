@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-sidebar-plus",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "description": "An editable bb sidebar: smart sections, colored status, project folders, and an icon grid for the top nav.",
   "engines": {
