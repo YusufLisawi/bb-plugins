@@ -105,6 +105,7 @@ export function SidebarList(props: PluginThreadListProps) {
 function SidebarListContent({
   activeThreadId,
   activeProjectId,
+  isCompactViewport,
   onNavigate,
   searchQuery,
 }: PluginThreadListProps) {
@@ -341,11 +342,11 @@ function SidebarListContent({
       <Popover.Portal>
         <Popover.Content
           {...portalScopeProps}
-          side="right"
+          side={isCompactViewport ? "bottom" : "right"}
           align="start"
           sideOffset={8}
           collisionPadding={12}
-          className="z-50 w-72 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none"
+          className="z-50 w-72 max-w-[calc(100vw-24px)] rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none"
         >
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-medium">Customize sidebar</span>
