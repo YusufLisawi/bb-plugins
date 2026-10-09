@@ -16,7 +16,7 @@
     },
     "server": "./server.ts",
     "skills": [
-      "auto-archive"
+      "skills"
     ]
   },
   "scripts": {
