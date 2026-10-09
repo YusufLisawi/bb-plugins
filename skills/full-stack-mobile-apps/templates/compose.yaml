@@ -1,0 +1,35 @@
+# Adapt paths, domains, and volumes to the new app. Do not publish the admin port
+# directly without an access-control plan. Keep ADMIN_TOKEN in host secrets.
+services:
+  api:
+    build: ./services/api
+    environment:
+      PORT: "3000"
+      DATABASE_PATH: /data/app.db
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?Set ADMIN_TOKEN}
+    volumes:
+      - app_data:/data
+    expose:
+      - "3000"
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8090}:80"
+    restart: unless-stopped
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    depends_on:
+      - api
+    # Bind locally or route through a private/authenticated edge.
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-8091}:80"
+    restart: unless-stopped
+volumes:
+  app_data:

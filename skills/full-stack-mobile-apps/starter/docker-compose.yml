@@ -1,0 +1,30 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    environment:
+      PORT: "3000"
+      DATABASE_PATH: /data/app.db
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?Set ADMIN_TOKEN in .env}
+    volumes:
+      - app_data:/data
+    ports:
+      - "${API_PORT:-3090}:3000"
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "${WEB_PORT:-8090}:80"
+    restart: unless-stopped
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-8091}:80"
+    restart: unless-stopped
+volumes:
+  app_data:

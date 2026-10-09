@@ -1,0 +1,16 @@
+node_modules/
+.env
+apps/mobile/.env
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/ios/
+apps/mobile/android/
+services/api/dist/
+data/
+*.db
+*.db-wal
+*.db-shm
+*.p8
+*.p12
+*.mobileprovision
+.DS_Store

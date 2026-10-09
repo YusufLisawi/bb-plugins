@@ -1,0 +1,3 @@
+# iOS simulator can use localhost. Android emulator uses 10.0.2.2;
+# physical devices need this computer's LAN address or a reachable HTTPS API.
+EXPO_PUBLIC_API_URL=http://localhost:3000
