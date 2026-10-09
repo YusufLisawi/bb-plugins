@@ -230,3 +230,29 @@ html[data-sbp-primary="tiles"] [data-testid="app-sidebar-primary-actions"] > div
 html[data-sbp-primary="tiles"] [data-testid="app-sidebar-primary-actions"] > div > div.flex > span > :not(button) {
   display: none !important;
 }
+
+/* Keep touch holds on our rows in BB's context menus. */
+.sbp-folder-header,
+.sbp-thread-row {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.sbp-menu {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+.sbp-menu-item[data-disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (max-width: 767px), (pointer: coarse) {
+  .sbp-folder-header,
+  .sbp-thread-row,
+  .sbp-show-more,
+  .sbp-menu-item {
+    min-height: 44px;
+  }
+  .sbp-thread-row { padding-right: 8px; }
+  .sbp-thread-row > span:last-child { width: 28px; height: 32px; }
+}

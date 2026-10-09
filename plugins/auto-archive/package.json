@@ -1,0 +1,41 @@
+{
+  "name": "bb-plugin-auto-archive",
+  "version": "0.1.5",
+  "description": "Auto-archive inactive threads with per-thread exemptions.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.39",
+    "bbPluginSdk": ">=0.6.15"
+  },
+  "bb": {
+    "name": "Auto Archive",
+    "description": "Auto-archive inactive threads with per-thread exemptions from Sidebar Plus.",
+    "branding": {
+      "icon": "Archive"
+    },
+    "server": "./server.ts",
+    "skills": [
+      "auto-archive"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "bb plugin build"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.15",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
+    "cron-parser": "^5.10.2",
+    "hono": "^4.11.9",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.7"
+  }
+}

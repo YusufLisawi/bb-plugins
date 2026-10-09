@@ -1,11 +1,11 @@
 {
   "name": "bb-plugin-sidebar-plus",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "An editable bb sidebar: smart sections, colored status, project folders, and an icon grid for the top nav.",
   "engines": {
     "bb": ">=0.39",
-    "bbPluginSdk": ">=0.4.8"
+    "bbPluginSdk": ">=0.6.15"
   },
   "bb": {
     "name": "Sidebar Plus",
@@ -19,7 +19,8 @@
   },
   "scripts": {
     "build": "bb plugin build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",
@@ -28,7 +29,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "0.4.104",
+    "@get-bb/plugin-sdk": "0.6.15",
     "@pierre/diffs": "^1.2.9",
     "@radix-ui/react-alert-dialog": "^1.1.19",
     "@radix-ui/react-context-menu": "^2.3.3",
@@ -40,17 +41,22 @@
     "@radix-ui/react-popover": "^1.1.19",
     "@radix-ui/react-select": "^2.3.3",
     "@radix-ui/react-tooltip": "^1.2.12",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/react-dom": "^19.3.0",
     "better-sqlite3": "^12.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cron-parser": "^5.10.2",
     "hono": "^4.11.9",
+    "jsdom": "^29.1.1",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.4.0",
     "typescript": "^5.7.0",
-    "vaul": "^1.1.2"
+    "vaul": "^1.1.2",
+    "vitest": "^3.2.7"
   }
 }

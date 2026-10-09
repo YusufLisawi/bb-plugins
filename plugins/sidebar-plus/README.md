@@ -12,7 +12,9 @@ An editable bb sidebar that keeps bb's look but reorganizes it around
 - **Projects as folders** — every project is a folder with a status cluster
   and thread count; open it to see its threads as a tree (children indented).
   The active thread's project opens automatically; folders remember what you
-  opened. Hover a folder for “New thread here”.
+  opened. Five recent threads appear initially; **Show 5 more** reveals the
+  next five. Children count toward that limit. Hover a folder for “New thread
+  here”, or hold it on mobile for **Start new thread in this project**.
 - **Icon grid for the top nav** — Extensions and plugin pages (Dispatch,
   Automations, Docs, …) become small icon tiles in a configurable grid; New
   thread / Search are styled to match. The rows stay host-rendered, so
@@ -34,12 +36,30 @@ bb plugin install /path/to/bb-plugin-sidebar-plus
 If another sidebar plugin is enabled, pick this one under
 **Settings → Appearance → Sidebar**.
 
+## Thread menus
+
+Right-click a thread, use its actions button, or hold it on mobile:
+
+| Action | Result |
+| --- | --- |
+| Pin globally | Keep the thread in the sidebar's global Pinned section. |
+| Pin in project | Keep it in a Pinned group inside its project folder, above the five recent threads. |
+| Move to project pinned section | Move an existing global pin into its folder. Offered only for pinned threads. |
+| Move to global pinned section | Move a project pin back to the global Pinned section. |
+| Unpin | Remove the pin from either location. |
+| Disable auto-archive | Exempt the thread from the inactivity policy without pinning it. |
+| Enable auto-archive | Remove the exemption and apply the usual inactivity policy again. |
+
+> [!NOTE]
+> Archive exemptions require this repository's Auto Archive plugin. The menu shows **Auto-archive unavailable** if that plugin cannot be reached. Pin placement and exemptions are saved on the server and update across open windows. Existing follow-up marks remain independent.
+
 ## Develop
 
 ```sh
 npm install
 bb plugin dev      # rebuild + reload on save
 npm run typecheck
+npm test
 ```
 
 Layout state lives in the plugin's kv store (`layout`); per-client collapse
