@@ -10,12 +10,14 @@ import {
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract } from "../server";
+import type { FolderPlacement } from "./threadFolders";
 
 export type PinMode = "global" | "project" | "none";
 interface Preferences {
   projectPinnedThreadIds: string[];
   exemptThreadIds: string[];
   autoArchiveAvailable: boolean;
+  folderPlacements: FolderPlacement[];
 }
 interface Value {
   projectPinnedIds: ReadonlySet<string>;
@@ -23,6 +25,8 @@ interface Value {
   ready: boolean;
   autoArchiveAvailable: boolean;
   pendingIds: ReadonlySet<string>;
+  folderPlacements: ReadonlyMap<string, FolderPlacement>;
+  setThreadFolder: (threadId: string, projectId: string) => Promise<boolean>;
   setPinMode: (threadId: string, mode: PinMode) => void;
   setAutoArchiveExempt: (threadId: string, exempt: boolean) => void;
 }
@@ -41,6 +45,7 @@ export function ThreadPreferencesProvider({
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const mounted = useRef(true);
   const revision = useRef(0);
+  const pendingCounts = useRef(new Map<string, number>());
   const refresh = useCallback(async () => {
     const sequence = ++revision.current;
     try {
@@ -66,8 +71,12 @@ export function ThreadPreferencesProvider({
 
   const mutate = useCallback(
     (threadId: string, work: () => Promise<Preferences>) => {
+      pendingCounts.current.set(
+        threadId,
+        (pendingCounts.current.get(threadId) ?? 0) + 1,
+      );
       setPendingIds((current) => new Set([...current, threadId]));
-      queue.current = queue.current
+      const request = queue.current
         .catch(() => undefined)
         .then(async () => {
           ++revision.current;
@@ -75,6 +84,7 @@ export function ThreadPreferencesProvider({
             const result = await work();
             ++revision.current;
             if (mounted.current) setPreferences(result);
+            return true;
           } catch (error) {
             if (mounted.current)
               toast.error(
@@ -83,15 +93,21 @@ export function ThreadPreferencesProvider({
                   : "Could not update thread settings",
               );
             void refresh();
+            return false;
           } finally {
+            const remaining = (pendingCounts.current.get(threadId) ?? 1) - 1;
+            if (remaining > 0) pendingCounts.current.set(threadId, remaining);
+            else pendingCounts.current.delete(threadId);
             if (mounted.current)
               setPendingIds((current) => {
                 const next = new Set(current);
-                next.delete(threadId);
+                if (remaining === 0) next.delete(threadId);
                 return next;
               });
           }
         });
+      queue.current = request;
+      return request;
     },
     [refresh],
   );
@@ -104,6 +120,16 @@ export function ThreadPreferencesProvider({
         ready: preferences !== null,
         autoArchiveAvailable: preferences?.autoArchiveAvailable ?? false,
         pendingIds,
+        folderPlacements: new Map(
+          (preferences?.folderPlacements ?? []).map((placement) => [
+            placement.threadId,
+            placement,
+          ]),
+        ),
+        setThreadFolder: (threadId, projectId) =>
+          mutate(threadId, () =>
+            rpc.call("setThreadFolder", { threadId, projectId }),
+          ),
         setPinMode: (threadId, mode) =>
           mutate(threadId, () => rpc.call("setPinMode", { threadId, mode })),
         setAutoArchiveExempt: (threadId, exempt) =>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as Popover from "@radix-ui/react-popover";
 import {
@@ -24,6 +24,9 @@ import { useFollowUps } from "./useFollowUps";
 import { useNavGrid } from "./navGrid";
 import { matchesQuery, threadStatus } from "./status";
 import { moveProjectOrder, orderProjects } from "./projectOrder";
+import { ThreadFolderPickerProvider } from "./ThreadFolderPicker";
+import { threadFolderId } from "./threadFolders";
+import type { FolderPlacement } from "./threadFolders";
 
 const STORE_KEY = "sidebar-plus:ui";
 
@@ -91,13 +94,27 @@ function useUiState() {
       })),
     [commit],
   );
-  return { state, toggleSection, setFolderOpen };
+  const showProjectFolder = useCallback(
+    (id: string) =>
+      commit((c) => ({
+        ...c,
+        collapsedSections: c.collapsedSections.filter(
+          (section) => section !== "projects",
+        ),
+        openFolders: [...new Set([...c.openFolders, id])],
+        closedFolders: c.closedFolders.filter((folder) => folder !== id),
+      })),
+    [commit],
+  );
+  return { state, toggleSection, setFolderOpen, showProjectFolder };
 }
 
 export function SidebarList(props: PluginThreadListProps) {
   return (
     <ThreadPreferencesProvider>
-      <SidebarListContent {...props} />
+      <ThreadFolderPickerProvider isCompactViewport={props.isCompactViewport}>
+        <SidebarListContent {...props} />
+      </ThreadFolderPickerProvider>
     </ThreadPreferencesProvider>
   );
 }
@@ -111,12 +128,45 @@ function SidebarListContent({
 }: PluginThreadListProps) {
   const { status, threads, projects } = useSidebarThreads();
   const { layout, update, isLoaded: layoutLoaded } = useLayout();
-  const { projectPinnedIds } = useThreadPreferences();
+  const {
+    projectPinnedIds,
+    folderPlacements,
+    ready: preferencesReady,
+  } = useThreadPreferences();
   const portalScopeProps = usePortalScopeProps();
   const { threadIds: followUpThreadIds, setMarked: setFollowUpMarked } =
     useFollowUps();
   useNavGrid(layout);
-  const { state: ui, toggleSection, setFolderOpen } = useUiState();
+  const {
+    state: ui,
+    toggleSection,
+    setFolderOpen,
+    showProjectFolder,
+  } = useUiState();
+  const previousPlacements = useRef<ReadonlyMap<
+    string,
+    FolderPlacement
+  > | null>(null);
+  useEffect(() => {
+    if (!preferencesReady) return;
+    const previous = previousPlacements.current;
+    previousPlacements.current = folderPlacements;
+    if (previous === null) return;
+    for (const placement of folderPlacements.values()) {
+      const old = previous.get(placement.threadId);
+      if (
+        old?.projectId !== placement.projectId ||
+        old.movedAt !== placement.movedAt
+      )
+        showProjectFolder(placement.projectId);
+    }
+    for (const threadId of previous.keys()) {
+      if (!folderPlacements.has(threadId)) {
+        const thread = threads.find((thread) => thread.id === threadId);
+        if (thread) showProjectFolder(thread.projectId);
+      }
+    }
+  }, [preferencesReady, folderPlacements, showProjectFolder, threads]);
   // The Customize trigger lives in the top chrome row (left of Back/Forward)
   // when that row exists; the mobile drawer has none, so it falls back to a
   // slim row above the list.
@@ -177,6 +227,14 @@ function SidebarListContent({
     () => new Map(projects.map((project) => [project.id, project])),
     [projects],
   );
+  const projectIds = new Set(projectById.keys());
+  const folderId = (thread: PluginSidebarThread) =>
+    threadFolderId(thread, folderPlacements, projectIds);
+  const placedAt = new Map(
+    [...folderPlacements.values()]
+      .filter((placement) => projectIds.has(placement.projectId))
+      .map((placement) => [placement.threadId, placement.movedAt]),
+  );
   const activeThread = useMemo(
     () => visible.find((thread) => thread.id === activeThreadId) ?? null,
     [visible, activeThreadId],
@@ -204,7 +262,7 @@ function SidebarListContent({
                   void setFollowUpMarked(thread.id, marked)
                 }
                 colored={layout.statusColors}
-                hint={projectById.get(thread.projectId)?.name ?? null}
+                hint={projectById.get(folderId(thread))?.name ?? null}
                 onNavigate={onNavigate}
               />
             ))}
@@ -260,16 +318,28 @@ function SidebarListContent({
 
   const threadsByProject = new Map<string, PluginSidebarThread[]>();
   for (const thread of visible) {
-    if (layout.dedupeFolders && listed.has(thread.id)) {
+    const explicitlyPlaced =
+      folderPlacements.has(thread.id) &&
+      (!thread.isPinned || projectPinnedIds.has(thread.id));
+    if (layout.dedupeFolders && listed.has(thread.id) && !explicitlyPlaced) {
       // Keep a child visible if its parent is in the folder; the folder tree
       // needs the parent to place it. Simplest rule: hide only root threads.
       if (!thread.parentThreadId) continue;
     }
-    const list = threadsByProject.get(thread.projectId) ?? [];
+    const projectId = folderId(thread);
+    const list = threadsByProject.get(projectId) ?? [];
     list.push(thread);
-    threadsByProject.set(thread.projectId, list);
+    threadsByProject.set(projectId, list);
   }
-  const orderedProjects = orderProjects(projects, visible, layout.projectOrder);
+  const folderActivity = visible.map((thread) => ({
+    ...thread,
+    projectId: folderId(thread),
+  }));
+  const orderedProjects = orderProjects(
+    projects,
+    folderActivity,
+    layout.projectOrder,
+  );
 
   const renderSmart = (
     id: SectionId,
@@ -308,7 +378,7 @@ function SidebarListContent({
               colored={layout.statusColors}
               hint={
                 layout.showProjectHint
-                  ? (projectById.get(thread.projectId)?.name ?? null)
+                  ? (projectById.get(folderId(thread))?.name ?? null)
                   : null
               }
               onNavigate={onNavigate}
@@ -435,7 +505,8 @@ function SidebarListContent({
                   >
                     {orderedProjects.map((project, index) => {
                       const autoOpen =
-                        activeThread?.projectId === project.id ||
+                        (activeThread !== null &&
+                          folderId(activeThread) === project.id) ||
                         (activeThread === null &&
                           activeProjectId === project.id);
                       const open =
@@ -446,6 +517,7 @@ function SidebarListContent({
                           key={project.id}
                           project={project}
                           threads={threadsByProject.get(project.id) ?? []}
+                          placedAt={placedAt}
                           open={open}
                           onToggle={() => setFolderOpen(project.id, !open)}
                           activeThreadId={activeThreadId}
@@ -465,7 +537,7 @@ function SidebarListContent({
                               projectOrder: moveProjectOrder(
                                 orderProjects(
                                   projects,
-                                  visible,
+                                  folderActivity,
                                   current.projectOrder,
                                 ).map((p) => p.id),
                                 project.id,

@@ -8,14 +8,20 @@ import {
   normalizeLayout,
   type SidebarLayout,
 } from "./src/layout";
+import {
+  folderPlacementSchema,
+  normalizeFolderPlacements,
+} from "./src/threadFolders";
 
 const preferenceSchema = z.object({
   projectPinnedThreadIds: z.array(z.string()),
   exemptThreadIds: z.array(z.string()),
   autoArchiveAvailable: z.boolean(),
+  folderPlacements: z.array(folderPlacementSchema),
 });
 const exemptionSchema = z.object({ threadIds: z.array(z.string()) });
 const PROJECT_PINS_KEY = "project-pinned-thread-ids";
+const THREAD_FOLDERS_KEY = "thread-folder-placements";
 
 const LAYOUT_KEY = "layout";
 const LAYOUT_CHANNEL = "layout-changed";
@@ -34,6 +40,15 @@ function normalizeFollowUpIds(value: unknown): string[] {
 
 export const rpcContract = defineRpcContract({
   getThreadPreferences: { input: z.null(), output: preferenceSchema },
+  setThreadFolder: {
+    input: z
+      .object({
+        threadId: z.string().min(1).max(512),
+        projectId: z.string().min(1).max(512),
+      })
+      .strict(),
+    output: preferenceSchema,
+  },
   setPinMode: {
     input: z
       .object({
@@ -93,6 +108,9 @@ export default async function plugin(bb: BbPluginApi) {
     const projectPinnedThreadIds = normalizeFollowUpIds(
       await bb.storage.kv.get(PROJECT_PINS_KEY),
     );
+    const folderPlacements = normalizeFolderPlacements(
+      await bb.storage.kv.get(THREAD_FOLDERS_KEY),
+    );
     try {
       const result = await bb.sdk.plugins.callRpc({
         pluginId: "auto-archive",
@@ -102,16 +120,37 @@ export default async function plugin(bb: BbPluginApi) {
       });
       return {
         projectPinnedThreadIds,
+        folderPlacements,
         exemptThreadIds: result.threadIds,
         autoArchiveAvailable: true,
       };
     } catch {
       return {
         projectPinnedThreadIds,
+        folderPlacements,
         exemptThreadIds: [],
         autoArchiveAvailable: false,
       };
     }
+  }
+  async function setThreadFolder(threadId: string, projectId: string) {
+    return serialize(async () => {
+      const thread = await bb.sdk.threads.get({ threadId });
+      if (thread.deletedAt !== null) throw new Error("This thread was deleted");
+      // Validate the destination through BB, without changing project ownership
+      // or the thread's environment. Only this plugin's folder placement changes.
+      await bb.sdk.projects.get({ projectId });
+      const placements = new Map(
+        normalizeFolderPlacements(
+          await bb.storage.kv.get(THREAD_FOLDERS_KEY),
+        ).map((placement) => [placement.threadId, placement]),
+      );
+      if (projectId === thread.projectId) placements.delete(threadId);
+      else placements.set(threadId, { threadId, projectId, movedAt: Date.now() });
+      await bb.storage.kv.set(THREAD_FOLDERS_KEY, [...placements.values()]);
+      bb.realtime.publish("thread-preferences-changed", { at: Date.now() });
+      return readPreferences();
+    });
   }
   async function setPinMode(
     threadId: string,
@@ -210,6 +249,8 @@ export default async function plugin(bb: BbPluginApi) {
 
   bb.rpc.register(rpcContract, {
     getThreadPreferences: async () => readPreferences(),
+    setThreadFolder: async ({ threadId, projectId }) =>
+      setThreadFolder(threadId, projectId),
     setPinMode: async ({ threadId, mode }) => setPinMode(threadId, mode),
     setAutoArchiveExempt: async ({ threadId, exempt }) =>
       setAutoArchiveExempt(threadId, exempt),

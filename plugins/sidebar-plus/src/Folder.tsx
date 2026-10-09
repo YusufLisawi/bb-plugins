@@ -33,6 +33,7 @@ export function Folder({
   onMove,
   canMoveUp = false,
   canMoveDown = false,
+  placedAt,
 }: {
   project: PluginSidebarProject;
   threads: readonly PluginSidebarThread[];
@@ -46,6 +47,7 @@ export function Folder({
   onMove?: (move: ProjectMove) => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  placedAt?: ReadonlyMap<string, number>;
 }) {
   const actions = useSidebarThreadActions();
   const [visibleCount, setVisibleCount] = useState(FOLDER_PAGE_SIZE);
@@ -61,8 +63,8 @@ export function Folder({
   );
   const counts = useMemo(() => countStatuses(threads), [threads]);
   const { pinned, page, hiddenCount } = useMemo(
-    () => folderThreads(threads, projectPinnedIds, visibleCount),
-    [threads, projectPinnedIds, visibleCount],
+    () => folderThreads(threads, projectPinnedIds, visibleCount, placedAt),
+    [threads, projectPinnedIds, visibleCount, placedAt],
   );
   const tree = useMemo(() => buildTree(page), [page]);
   const isActiveHere =
