@@ -3,12 +3,12 @@ import { createPortal } from "react-dom";
 import * as Popover from "@radix-ui/react-popover";
 import {
   experimental_useSidebarThreads as useSidebarThreads,
-  type PluginSidebarProject,
   type PluginSidebarThread,
   type PluginThreadListProps,
 } from "@get-bb/plugin-sdk/app";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { usePortalScopeProps } from "@/lib/portal-scope";
 import { Folder } from "./Folder";
 import { LayoutEditor } from "./LayoutEditor";
 import { Section } from "./Section";
@@ -23,6 +23,7 @@ import { useLayout } from "./useLayout";
 import { useFollowUps } from "./useFollowUps";
 import { useNavGrid } from "./navGrid";
 import { matchesQuery, threadStatus } from "./status";
+import { moveProjectOrder, orderProjects } from "./projectOrder";
 
 const STORE_KEY = "sidebar-plus:ui";
 
@@ -108,8 +109,9 @@ function SidebarListContent({
   searchQuery,
 }: PluginThreadListProps) {
   const { status, threads, projects } = useSidebarThreads();
-  const { layout } = useLayout();
+  const { layout, update, isLoaded: layoutLoaded } = useLayout();
   const { projectPinnedIds } = useThreadPreferences();
+  const portalScopeProps = usePortalScopeProps();
   const { threadIds: followUpThreadIds, setMarked: setFollowUpMarked } =
     useFollowUps();
   useNavGrid(layout);
@@ -266,12 +268,7 @@ function SidebarListContent({
     list.push(thread);
     threadsByProject.set(thread.projectId, list);
   }
-  const orderedProjects: PluginSidebarProject[] = [...projects].sort((a, b) => {
-    if (a.isPersonal !== b.isPersonal) return a.isPersonal ? 1 : -1;
-    const la = threadsByProject.get(a.id)?.[0]?.updatedAt ?? 0;
-    const lb = threadsByProject.get(b.id)?.[0]?.updatedAt ?? 0;
-    return lb - la;
-  });
+  const orderedProjects = orderProjects(projects, visible, layout.projectOrder);
 
   const renderSmart = (
     id: SectionId,
@@ -343,6 +340,7 @@ function SidebarListContent({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
+          {...portalScopeProps}
           side="right"
           align="start"
           sideOffset={8}
@@ -434,7 +432,7 @@ function SidebarListContent({
                     collapsed={ui.collapsedSections.includes("projects")}
                     onToggle={() => toggleSection("projects")}
                   >
-                    {orderedProjects.map((project) => {
+                    {orderedProjects.map((project, index) => {
                       const autoOpen =
                         activeThread?.projectId === project.id ||
                         (activeThread === null &&
@@ -456,6 +454,24 @@ function SidebarListContent({
                           }
                           colored={colored}
                           onNavigate={onNavigate}
+                          canMoveUp={layoutLoaded && index > 0}
+                          canMoveDown={
+                            layoutLoaded && index < orderedProjects.length - 1
+                          }
+                          onMove={(move) =>
+                            update((current) => ({
+                              ...current,
+                              projectOrder: moveProjectOrder(
+                                orderProjects(
+                                  projects,
+                                  visible,
+                                  current.projectOrder,
+                                ).map((p) => p.id),
+                                project.id,
+                                move,
+                              ),
+                            }))
+                          }
                         />
                       );
                     })}

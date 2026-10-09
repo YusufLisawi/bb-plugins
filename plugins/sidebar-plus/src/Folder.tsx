@@ -13,6 +13,7 @@ import { usePortalScopeProps } from "@/lib/portal-scope";
 import { useThreadPreferences } from "./ThreadPreferences";
 import { buildTree, folderThreads, FOLDER_PAGE_SIZE } from "./folderThreads";
 import { countStatuses } from "./status";
+import type { ProjectMove } from "./projectOrder";
 
 /**
  * A project drawn as a folder: a header row with the folder glyph, the name,
@@ -29,6 +30,9 @@ export function Folder({
   onSetFollowUp,
   colored,
   onNavigate,
+  onMove,
+  canMoveUp = false,
+  canMoveDown = false,
 }: {
   project: PluginSidebarProject;
   threads: readonly PluginSidebarThread[];
@@ -39,6 +43,9 @@ export function Folder({
   onSetFollowUp: (threadId: string, marked: boolean) => void;
   colored: boolean;
   onNavigate: () => void;
+  onMove?: (move: ProjectMove) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }) {
   const actions = useSidebarThreadActions();
   const [visibleCount, setVisibleCount] = useState(FOLDER_PAGE_SIZE);
@@ -178,6 +185,33 @@ export function Folder({
               <Icon name="Plus" className="size-3.5" /> Start new thread in this
               project
             </ContextMenu.Item>
+            {onMove ? (
+              <>
+                <ContextMenu.Separator className="my-1 h-px bg-border" />
+                {(
+                  [
+                    ["up", "Move folder up", "ChevronUp", canMoveUp],
+                    ["down", "Move folder down", "ChevronDown", canMoveDown],
+                    ["top", "Move folder to top", "ChevronsUp", canMoveUp],
+                    [
+                      "bottom",
+                      "Move folder to bottom",
+                      "ChevronsDown",
+                      canMoveDown,
+                    ],
+                  ] as const
+                ).map(([move, label, icon, enabled]) => (
+                  <ContextMenu.Item
+                    key={move}
+                    disabled={!enabled}
+                    onSelect={() => window.setTimeout(() => onMove(move), 0)}
+                    className="sbp-menu-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
+                  >
+                    <Icon name={icon} className="size-3.5" /> {label}
+                  </ContextMenu.Item>
+                ))}
+              </>
+            ) : null}
           </ContextMenu.Content>
         </ContextMenu.Portal>
       </ContextMenu.Root>

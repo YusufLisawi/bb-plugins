@@ -59,6 +59,39 @@ async function setup() {
   return { ...h, threads, exemptions };
 }
 describe("thread preferences", () => {
+  it("persists folder order across reload, preserves it for older clients, and resets to automatic order", async () => {
+    const h = await setup();
+    await h.harness.behavior.callRpc("setLayout", {
+      layout: { projectOrder: ["two", "one"] },
+    });
+    await h.harness.behavior.callRpc("setLayout", {
+      layout: { statusColors: false },
+    });
+    const reloaded = await h.harness.lifecycle.reload(plugin);
+    hosts.push(reloaded);
+    expect(
+      await reloaded.harness.behavior.callRpc("getLayout", null),
+    ).toMatchObject({
+      layout: { projectOrder: ["two", "one"], statusColors: false },
+    });
+    expect(
+      await reloaded.harness.behavior.callRpc("resetLayout", null),
+    ).toMatchObject({ layout: { projectOrder: [] } });
+  });
+  it("serializes concurrent settings edits so an order change is preserved", async () => {
+    const h = await setup();
+    await Promise.all([
+      h.harness.behavior.callRpc("setLayout", {
+        layout: { projectOrder: ["two", "one"] },
+      }),
+      h.harness.behavior.callRpc("setLayout", {
+        layout: { navGridColumns: 4 },
+      }),
+    ]);
+    expect(await h.harness.behavior.callRpc("getLayout", null)).toMatchObject({
+      layout: { projectOrder: ["two", "one"], navGridColumns: 4 },
+    });
+  });
   it("pins inside a project and moves an existing pin globally without repinning", async () => {
     const h = await setup();
     expect(

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { toast } from "sonner";
 import type { rpcContract } from "../server";
 import { DEFAULT_LAYOUT, normalizeLayout, type SidebarLayout } from "./layout";
 
@@ -8,6 +9,9 @@ const LAYOUT_CHANNEL = "layout-changed";
 // One in-memory copy per window so the sidebar and the settings editor agree
 // instantly, before the server round-trip lands.
 let cached: SidebarLayout | null = null;
+let writeQueue: Promise<unknown> = Promise.resolve();
+let pendingWrites = 0;
+let revision = 0;
 const listeners = new Set<(layout: SidebarLayout) => void>();
 function broadcast(layout: SidebarLayout) {
   cached = layout;
@@ -20,11 +24,13 @@ export function useLayout() {
     () => cached ?? DEFAULT_LAYOUT,
   );
   const [isLoaded, setIsLoaded] = useState(cached !== null);
-  const pending = useRef<Promise<unknown> | null>(null);
 
   const refetch = useCallback(async () => {
+    if (pendingWrites > 0) return;
+    const before = revision;
     try {
       const result = await rpc.call("getLayout");
+      if (pendingWrites > 0 || revision !== before) return;
       broadcast(normalizeLayout(result.layout));
       setIsLoaded(true);
     } catch {
@@ -45,27 +51,55 @@ export function useLayout() {
   });
 
   const update = useCallback(
-    (patch: Partial<SidebarLayout> | ((current: SidebarLayout) => SidebarLayout)) => {
+    (
+      patch:
+        | Partial<SidebarLayout>
+        | ((current: SidebarLayout) => SidebarLayout),
+    ) => {
       const base = cached ?? layout;
       const next = normalizeLayout(
         typeof patch === "function" ? patch(base) : { ...base, ...patch },
       );
       broadcast(next); // optimistic
-      const request = rpc
-        .call("setLayout", { layout: next as unknown as Record<string, unknown> })
-        .then((result) => broadcast(normalizeLayout(result.layout)))
-        .catch(() => void refetch());
-      pending.current = request;
+      const sequence = ++revision;
+      ++pendingWrites;
+      writeQueue = writeQueue
+        .catch(() => undefined)
+        .then(async () => {
+          try {
+            const result = await rpc.call("setLayout", {
+              layout: next as unknown as Record<string, unknown>,
+            });
+            if (sequence === revision)
+              broadcast(normalizeLayout(result.layout));
+          } catch {
+            toast.error("Could not save sidebar settings");
+          } finally {
+            --pendingWrites;
+            if (pendingWrites === 0) void refetch();
+          }
+        });
     },
     [layout, refetch, rpc],
   );
 
   const reset = useCallback(() => {
     broadcast(DEFAULT_LAYOUT);
-    void rpc
-      .call("resetLayout")
-      .then((result) => broadcast(normalizeLayout(result.layout)))
-      .catch(() => void refetch());
+    const sequence = ++revision;
+    ++pendingWrites;
+    writeQueue = writeQueue
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          const result = await rpc.call("resetLayout");
+          if (sequence === revision) broadcast(normalizeLayout(result.layout));
+        } catch {
+          toast.error("Could not reset sidebar settings");
+        } finally {
+          --pendingWrites;
+          if (pendingWrites === 0) void refetch();
+        }
+      });
   }, [refetch, rpc]);
 
   return { layout, isLoaded, update, reset };

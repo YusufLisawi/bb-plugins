@@ -1,6 +1,7 @@
 // The sidebar layout model: which sections show, in what order, plus a few
 // presentation knobs. Shared by server (kv storage + validation) and app.
 import { z } from "zod";
+import { normalizeProjectOrder } from "./projectOrder";
 
 export const SECTION_IDS = [
   "attention",
@@ -45,6 +46,8 @@ export const sectionSchema = z.object({
 export const layoutSchema = z.object({
   version: z.literal(1),
   sections: z.array(sectionSchema),
+  /** Empty means automatic; otherwise saved project IDs have explicit ranks. */
+  projectOrder: z.array(z.string().min(1).max(512)).max(4096),
   /** Render host nav rows (Extensions, plugin pages) as an icon grid. */
   navGrid: z.boolean(),
   /** Columns of the icon grid. */
@@ -66,6 +69,7 @@ export type SectionSetting = z.infer<typeof sectionSchema>;
 
 export const DEFAULT_LAYOUT: SidebarLayout = {
   version: 1,
+  projectOrder: [],
   sections: [
     { id: "attention", enabled: true },
     { id: "running", enabled: true },
@@ -118,6 +122,7 @@ export function normalizeLayout(input: unknown): SidebarLayout {
   };
   return {
     version: 1,
+    projectOrder: normalizeProjectOrder(raw.projectOrder),
     sections,
     navGrid: bool("navGrid"),
     navGridColumns: int("navGridColumns", 3, 8),
