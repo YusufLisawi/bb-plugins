@@ -258,4 +258,7 @@ html[data-sbp-primary="tiles"] [data-testid="app-sidebar-primary-actions"] > div
   .sbp-order-button { width: 44px; height: 44px; }
   .sbp-thread-row { padding-right: 8px; }
   .sbp-thread-row > span:last-child { width: 28px; height: 32px; }
+  .sbp-folder-destination,
+  .sbp-folder-cancel,
+  .sbp-folder-search { min-height: 44px; }
 }

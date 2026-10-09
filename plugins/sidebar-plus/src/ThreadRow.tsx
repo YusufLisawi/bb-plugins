@@ -10,6 +10,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { usePortalScopeProps } from "@/lib/portal-scope";
 import { useThreadPreferences } from "./ThreadPreferences";
+import { useThreadFolderPicker } from "./ThreadFolderPicker";
 import { StatusGlyph } from "./StatusGlyph";
 import { threadDisplayTitle } from "./status";
 
@@ -57,6 +58,7 @@ export function ThreadRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
   const preferences = useThreadPreferences();
+  const openFolderPicker = useThreadFolderPicker();
   const isProjectPinned =
     thread.isPinned && preferences.projectPinnedIds.has(thread.id);
   const title = threadDisplayTitle(thread);
@@ -197,6 +199,11 @@ export function ThreadRow({
                     isFollowUp={isFollowUp}
                     onToggleFollowUp={onToggleFollowUp}
                     onRename={() => setIsEditing(true)}
+                    onMoveFolder={
+                      openFolderPicker
+                        ? () => openFolderPicker(thread)
+                        : undefined
+                    }
                     surface="dropdown"
                   />
                 </DropdownMenu.Content>
@@ -216,6 +223,9 @@ export function ThreadRow({
             isFollowUp={isFollowUp}
             onToggleFollowUp={onToggleFollowUp}
             onRename={() => setIsEditing(true)}
+            onMoveFolder={
+              openFolderPicker ? () => openFolderPicker(thread) : undefined
+            }
             surface="context"
           />
         </ContextMenu.Content>
@@ -234,12 +244,14 @@ function MenuItems({
   isFollowUp,
   onToggleFollowUp,
   onRename,
+  onMoveFolder,
   surface,
 }: {
   thread: PluginSidebarThread;
   isFollowUp: boolean;
   onToggleFollowUp: (marked: boolean) => void;
   onRename: () => void;
+  onMoveFolder?: () => void;
   surface: "context" | "dropdown";
 }) {
   const actions = useSidebarThreadActions();
@@ -277,6 +289,14 @@ function MenuItems({
       <Item onSelect={() => deferMenuAction(onRename)}>
         <Icon name="Edit" className="size-3.5" /> Rename
       </Item>
+      {onMoveFolder ? (
+        <Item
+          disabled={!preferences.ready || pending}
+          onSelect={() => deferMenuAction(onMoveFolder)}
+        >
+          <Icon name="Folder" className="size-3.5" /> Move to project folder…
+        </Item>
+      ) : null}
       <Sep />
       <Item onSelect={() => void actions.setRead(thread.id, thread.isUnread)}>
         <Icon

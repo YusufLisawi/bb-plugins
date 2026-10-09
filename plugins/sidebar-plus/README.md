@@ -48,6 +48,7 @@ Right-click a thread, use its actions button, or hold it on mobile:
 
 | Action | Result |
 | --- | --- |
+| Move to project folder… | Choose another sidebar project folder, with searchable destinations. |
 | Pin globally | Keep the thread in the sidebar's global Pinned section. |
 | Pin in project | Keep it at the top of its project folder, above the five recent threads, with a leading pin icon. |
 | Move to project pinned section | Move an existing global pin into its folder. Offered only for pinned threads. |
@@ -58,6 +59,13 @@ Right-click a thread, use its actions button, or hold it on mobile:
 
 > [!NOTE]
 > Pinned threads are always protected from automatic archiving and deletion, in either location. Archive exemptions require this repository's Auto Archive plugin. The menu shows **Auto-archive unavailable** if that plugin cannot be reached. Pin placement and exemptions are saved on the server and update across open windows. Existing follow-up marks remain independent.
+
+## Move a thread between folders
+
+Hold a thread on mobile, right-click it on desktop, or open its actions button. Choose **Move to project folder…**, then select a destination. The destination opens automatically, and a moved thread appears within its first five recent rows. Project pins stay above those rows; global pins stay in the global Pinned section. Choose the original project in the same picker to clear the custom placement and return to BB's usual grouping.
+
+> [!NOTE]
+> This changes Sidebar Plus folder placement. BB's actual project, workspace, conversation, thread ID, parent relationships, pins, and archive exemptions are preserved. Only the selected thread moves; its children keep their own folder placement. If the destination project disappears, the thread falls back to its original folder. Folder moves sync across open windows and survive reloads.
 
 ## Develop
 
