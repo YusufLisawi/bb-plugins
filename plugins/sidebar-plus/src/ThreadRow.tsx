@@ -92,7 +92,13 @@ export function ThreadRow({
               data-sidebar-thread-shortcut-target=""
               data-sidebar-thread-id={thread.id}
               href="#"
-              aria-label={isFollowUp ? `${title}, marked for follow-up` : title}
+              aria-label={[
+                title,
+                isFollowUp ? "marked for follow-up" : null,
+                thread.isPinned ? "pinned" : null,
+              ]
+                .filter(Boolean)
+                .join(", ")}
               aria-current={isActive ? "page" : undefined}
               {...splitProps}
               onClick={open}
@@ -109,6 +115,18 @@ export function ThreadRow({
             </span>
           ) : null}
           <span className="pointer-events-none relative flex min-w-0 flex-1 items-center gap-1.5">
+            {thread.isPinned && !isEditing ? (
+              <span
+                data-sbp-thread-pin=""
+                title={
+                  isProjectPinned ? "Pinned in project" : "Pinned globally"
+                }
+                className="flex shrink-0 items-center text-muted-foreground"
+                aria-hidden="true"
+              >
+                <Icon name="Pin" className="size-3" />
+              </span>
+            ) : null}
             {isEditing ? (
               <InlineRename
                 initial={title}
@@ -130,13 +148,6 @@ export function ThreadRow({
                 {title}
               </span>
             )}
-            {isProjectPinned && !isEditing ? (
-              <Icon
-                name="Pin"
-                className="size-3 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-            ) : null}
             {hint && !isEditing ? (
               <span className="ml-auto shrink-0 truncate pl-1 text-2xs text-muted-foreground/60 group-hover/row:hidden">
                 {hint}
@@ -310,17 +321,21 @@ function MenuItems({
         </Item>
       )}
       <Item
-        disabled={!preferences.autoArchiveAvailable || pending}
+        disabled={
+          thread.isPinned || !preferences.autoArchiveAvailable || pending
+        }
         onSelect={() => preferences.setAutoArchiveExempt(thread.id, !isExempt)}
       >
         <Icon name="Archive" className="size-3.5" />
-        {!preferences.ready
-          ? "Loading auto-archive…"
-          : !preferences.autoArchiveAvailable
-            ? "Auto-archive unavailable"
-            : isExempt
-              ? "Enable auto-archive"
-              : "Disable auto-archive"}
+        {thread.isPinned
+          ? "Auto-archive disabled while pinned"
+          : !preferences.ready
+            ? "Loading auto-archive…"
+            : !preferences.autoArchiveAvailable
+              ? "Auto-archive unavailable"
+              : isExempt
+                ? "Enable auto-archive"
+                : "Disable auto-archive"}
       </Item>
       <Item onSelect={() => onToggleFollowUp(!isFollowUp)}>
         <Icon name={isFollowUp ? "Check" : "Clock"} className="size-3.5" />

@@ -49,15 +49,15 @@ Right-click a thread, use its actions button, or hold it on mobile:
 | Action | Result |
 | --- | --- |
 | Pin globally | Keep the thread in the sidebar's global Pinned section. |
-| Pin in project | Keep it in a Pinned group inside its project folder, above the five recent threads. |
+| Pin in project | Keep it at the top of its project folder, above the five recent threads, with a leading pin icon. |
 | Move to project pinned section | Move an existing global pin into its folder. Offered only for pinned threads. |
 | Move to global pinned section | Move a project pin back to the global Pinned section. |
 | Unpin | Remove the pin from either location. |
 | Disable auto-archive | Exempt the thread from the inactivity policy without pinning it. |
-| Enable auto-archive | Remove the exemption and apply the usual inactivity policy again. |
+| Enable auto-archive | Remove the exemption and apply the usual inactivity policy again when the thread is unpinned. |
 
 > [!NOTE]
-> Archive exemptions require this repository's Auto Archive plugin. The menu shows **Auto-archive unavailable** if that plugin cannot be reached. Pin placement and exemptions are saved on the server and update across open windows. Existing follow-up marks remain independent.
+> Pinned threads are always protected from automatic archiving and deletion, in either location. Archive exemptions require this repository's Auto Archive plugin. The menu shows **Auto-archive unavailable** if that plugin cannot be reached. Pin placement and exemptions are saved on the server and update across open windows. Existing follow-up marks remain independent.
 
 ## Develop
 

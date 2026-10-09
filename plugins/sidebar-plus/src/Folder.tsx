@@ -225,9 +225,6 @@ export function Folder({
         >
           {pinned.length > 0 ? (
             <>
-              <li className="pl-6 pt-1 text-2xs font-medium text-muted-foreground">
-                Pinned
-              </li>
               {pinned.map((thread) => (
                 <ThreadRow
                   key={thread.id}
@@ -243,11 +240,6 @@ export function Folder({
                   onNavigate={onNavigate}
                 />
               ))}
-              {rows.length > 0 ? (
-                <li className="pl-6 pt-1 text-2xs font-medium text-muted-foreground">
-                  Recent
-                </li>
-              ) : null}
             </>
           ) : null}
           {rows}
