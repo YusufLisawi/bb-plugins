@@ -1,18 +1,18 @@
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import {
-  SECTION_META,
-  moveSection,
-  type SidebarLayout,
-} from "./layout";
+import { SECTION_META, moveSection, type SidebarLayout } from "./layout";
 import { useLayout } from "./useLayout";
+import { experimental_useSidebarThreads as useSidebarThreads } from "@get-bb/plugin-sdk/app";
+import { moveProjectOrder, orderProjects } from "./projectOrder";
 
 /**
  * The one editor for the sidebar, used both in the in-sidebar popover and on
  * the plugin's settings page. Every change saves immediately.
  */
 export function LayoutEditor({ compact = false }: { compact?: boolean }) {
-  const { layout, update, reset } = useLayout();
+  const { layout, update, reset, isLoaded } = useLayout();
+  const { projects, threads, status } = useSidebarThreads();
+  const orderedProjects = orderProjects(projects, threads, layout.projectOrder);
 
   return (
     <div className={cn("flex flex-col gap-4 text-sm", compact && "gap-3")}>
@@ -73,6 +73,97 @@ export function LayoutEditor({ compact = false }: { compact?: boolean }) {
         </ul>
       </Group>
 
+      <Group
+        title="Project folders"
+        hint="Move folders with the arrows. Saved across devices."
+      >
+        {status === "loading" ? (
+          <p className="px-1.5 text-xs text-muted-foreground">
+            Loading projects…
+          </p>
+        ) : status === "error" ? (
+          <p role="status" className="px-1.5 text-xs text-muted-foreground">
+            Could not load projects.
+          </p>
+        ) : orderedProjects.length === 0 ? (
+          <p className="px-1.5 text-xs text-muted-foreground">
+            No projects yet.
+          </p>
+        ) : (
+          <ul
+            className="flex flex-col gap-px"
+            aria-label="Project folder order"
+          >
+            {orderedProjects.map((project, index) => (
+              <li
+                key={project.id}
+                className="sbp-order-row flex min-h-8 items-center gap-2 rounded-md px-1.5 hover:bg-accent/60"
+              >
+                <Icon
+                  name="Folder"
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                />
+                <span className="min-w-0 flex-1 truncate" title={project.name}>
+                  {project.name}
+                </span>
+                <span className="flex shrink-0 items-center">
+                  <IconButton
+                    label={`Move ${project.name} up`}
+                    icon="ChevronUp"
+                    projectOrder
+                    disabled={!isLoaded || index === 0}
+                    onClick={() =>
+                      update((current) => ({
+                        ...current,
+                        projectOrder: moveProjectOrder(
+                          orderProjects(
+                            projects,
+                            threads,
+                            current.projectOrder,
+                          ).map((p) => p.id),
+                          project.id,
+                          "up",
+                        ),
+                      }))
+                    }
+                  />
+                  <IconButton
+                    label={`Move ${project.name} down`}
+                    icon="ChevronDown"
+                    projectOrder
+                    disabled={!isLoaded || index === orderedProjects.length - 1}
+                    onClick={() =>
+                      update((current) => ({
+                        ...current,
+                        projectOrder: moveProjectOrder(
+                          orderProjects(
+                            projects,
+                            threads,
+                            current.projectOrder,
+                          ).map((p) => p.id),
+                          project.id,
+                          "down",
+                        ),
+                      }))
+                    }
+                  />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="button"
+          disabled={!isLoaded || layout.projectOrder.length === 0}
+          onClick={() => update({ projectOrder: [] })}
+          className="sbp-order-reset self-start px-1.5 py-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50 disabled:no-underline"
+        >
+          {layout.projectOrder.length > 0
+            ? "Use recent activity order"
+            : "Ordered by recent activity"}
+        </button>
+      </Group>
+
       <Group title="Top navigation">
         <Row label="Icon grid" hint="Pages as icon tiles instead of rows.">
           <Toggle
@@ -110,7 +201,10 @@ export function LayoutEditor({ compact = false }: { compact?: boolean }) {
       </Group>
 
       <Group title="Threads">
-        <Row label="Status colors" hint="Orange running · green done · blue waiting.">
+        <Row
+          label="Status colors"
+          hint="Orange running · green done · blue waiting."
+        >
           <Toggle
             checked={layout.statusColors}
             label="Status colors"
@@ -124,7 +218,10 @@ export function LayoutEditor({ compact = false }: { compact?: boolean }) {
             onChange={(showProjectHint) => update({ showProjectHint })}
           />
         </Row>
-        <Row label="Hide listed threads from folders" hint="A thread shown above is not repeated in its folder.">
+        <Row
+          label="Hide listed threads from folders"
+          hint="A thread shown above is not repeated in its folder."
+        >
           <Toggle
             checked={layout.dedupeFolders}
             label="Hide threads already listed above from folders"
@@ -157,7 +254,9 @@ export function LayoutEditor({ compact = false }: { compact?: boolean }) {
         >
           Reset to defaults
         </button>
-        <span className="text-2xs text-muted-foreground/60">Saved automatically</span>
+        <span className="text-2xs text-muted-foreground/60">
+          Saved automatically
+        </span>
       </div>
     </div>
   );
@@ -245,12 +344,17 @@ export function Toggle({
       style={
         checked
           ? undefined
-          : { background: "color-mix(in oklab, var(--muted-foreground) 35%, transparent)" }
+          : {
+              background:
+                "color-mix(in oklab, var(--muted-foreground) 35%, transparent)",
+            }
       }
     >
       <span
         className="pointer-events-none block size-3 rounded-full bg-background shadow transition-transform"
-        style={{ transform: checked ? "translateX(0.875rem)" : "translateX(0.125rem)" }}
+        style={{
+          transform: checked ? "translateX(0.875rem)" : "translateX(0.125rem)",
+        }}
       />
     </button>
   );
@@ -261,11 +365,13 @@ function IconButton({
   icon,
   disabled,
   onClick,
+  projectOrder,
 }: {
   label: string;
   icon: "ChevronUp" | "ChevronDown";
   disabled?: boolean;
   onClick: () => void;
+  projectOrder?: boolean;
 }) {
   return (
     <button
@@ -273,7 +379,10 @@ function IconButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+      className={cn(
+        "flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent",
+        projectOrder && "sbp-order-button",
+      )}
     >
       <Icon name={icon} className="size-3.5" />
     </button>

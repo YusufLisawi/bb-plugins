@@ -36,6 +36,12 @@ bb plugin install /path/to/bb-plugin-sidebar-plus
 If another sidebar plugin is enabled, pick this one under
 **Settings → Appearance → Sidebar**.
 
+## Order project folders
+
+Hold a project folder on mobile or right-click it on desktop to choose **Move folder up**, **Move folder down**, **Move folder to top**, or **Move folder to bottom**. You can also open **Customize sidebar → Project folders** and use the labelled arrow buttons.
+
+Your custom order is saved on the server and shared across devices. New projects appear after the saved folders; deleted projects are ignored. **Use recent activity order** returns to automatic sorting, with Personal last. Personal can be placed anywhere in a custom order.
+
 ## Thread menus
 
 Right-click a thread, use its actions button, or hold it on mobile:

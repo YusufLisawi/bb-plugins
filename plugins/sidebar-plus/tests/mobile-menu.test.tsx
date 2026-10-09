@@ -97,6 +97,44 @@ async function hold(element: HTMLElement) {
   });
 }
 describe("mobile sidebar menus", () => {
+  it("offers folder ordering through a touch hold and disables movement beyond the first folder", async () => {
+    const move = vi.fn();
+    render(
+      <Folder
+        project={project}
+        threads={[]}
+        open={false}
+        onToggle={() => {}}
+        activeThreadId={null}
+        followUpThreadIds={new Set()}
+        onSetFollowUp={() => {}}
+        colored={false}
+        onNavigate={() => {}}
+        onMove={move}
+        canMoveUp={false}
+        canMoveDown
+      />,
+    );
+    await hold(screen.getByRole("button", { name: "Example (0 threads)" }));
+    expect(
+      screen
+        .getByRole("menuitem", { name: "Move folder up" })
+        .getAttribute("data-disabled"),
+    ).not.toBeNull();
+    expect(
+      screen
+        .getByRole("menuitem", { name: "Move folder to top" })
+        .getAttribute("data-disabled"),
+    ).not.toBeNull();
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Move folder to bottom" }),
+    );
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+    });
+    expect(move).toHaveBeenCalledWith("bottom");
+    expect(mock.openNewThread).not.toHaveBeenCalled();
+  });
   it("long-presses a project folder and opens a composer scoped to that project", async () => {
     const toggle = vi.fn(),
       navigate = vi.fn();

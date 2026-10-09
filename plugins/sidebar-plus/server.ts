@@ -79,6 +79,7 @@ export const rpcContract = defineRpcContract({
 });
 
 export default async function plugin(bb: BbPluginApi) {
+  let layoutWriteQueue: Promise<unknown> = Promise.resolve();
   let preferenceQueue: Promise<unknown> = Promise.resolve();
   const serialize = <T>(work: () => Promise<T>): Promise<T> => {
     const request = preferenceQueue.catch(() => undefined).then(work);
@@ -156,11 +157,27 @@ export default async function plugin(bb: BbPluginApi) {
     return normalizeLayout(stored ?? DEFAULT_LAYOUT);
   }
 
-  async function writeLayout(next: unknown): Promise<SidebarLayout> {
-    const layout = normalizeLayout(next);
-    await bb.storage.kv.set(LAYOUT_KEY, layout);
-    bb.realtime.publish(LAYOUT_CHANNEL, { at: Date.now() });
-    return layout;
+  async function writeLayout(
+    next: unknown,
+    merge = false,
+  ): Promise<SidebarLayout> {
+    const request = layoutWriteQueue
+      .catch(() => undefined)
+      .then(async () => {
+        const layout = normalizeLayout(
+          merge
+            ? { ...(await readLayout()), ...(next as Record<string, unknown>) }
+            : next,
+        );
+        await bb.storage.kv.set(LAYOUT_KEY, layout);
+        bb.realtime.publish(LAYOUT_CHANNEL, { at: Date.now() });
+        return layout;
+      });
+    layoutWriteQueue = request.then(
+      () => undefined,
+      () => undefined,
+    );
+    return request;
   }
 
   async function readFollowUps(): Promise<string[]> {
@@ -197,7 +214,10 @@ export default async function plugin(bb: BbPluginApi) {
     setAutoArchiveExempt: async ({ threadId, exempt }) =>
       setAutoArchiveExempt(threadId, exempt),
     getLayout: async () => ({ layout: await readLayout() }),
-    setLayout: async ({ layout }) => ({ layout: await writeLayout(layout) }),
+    // An older open client may omit settings added in a newer plugin bundle.
+    setLayout: async ({ layout }) => ({
+      layout: await writeLayout(layout, true),
+    }),
     resetLayout: async () => ({ layout: await writeLayout(DEFAULT_LAYOUT) }),
     getFollowUps: async () => ({ threadIds: await readFollowUps() }),
     setFollowUp: async ({ threadId, marked }) => ({
