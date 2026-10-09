@@ -15,7 +15,12 @@ import { Section } from "./Section";
 import { statusDotClass } from "./StatusGlyph";
 import { ThreadRow } from "./ThreadRow";
 import type { SectionId } from "./layout";
+import {
+  ThreadPreferencesProvider,
+  useThreadPreferences,
+} from "./ThreadPreferences";
 import { useLayout } from "./useLayout";
+import { useFollowUps } from "./useFollowUps";
 import { useNavGrid } from "./navGrid";
 import { matchesQuery, threadStatus } from "./status";
 
@@ -35,7 +40,9 @@ function readUiState(): UiState {
     const raw = window.localStorage.getItem(STORE_KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<UiState>) : {};
     const arr = (v: unknown) =>
-      Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+      Array.isArray(v)
+        ? v.filter((x): x is string => typeof x === "string")
+        : [];
     return {
       collapsedSections: arr(parsed.collapsedSections),
       openFolders: arr(parsed.openFolders),
@@ -86,7 +93,15 @@ function useUiState() {
   return { state, toggleSection, setFolderOpen };
 }
 
-export function SidebarList({
+export function SidebarList(props: PluginThreadListProps) {
+  return (
+    <ThreadPreferencesProvider>
+      <SidebarListContent {...props} />
+    </ThreadPreferencesProvider>
+  );
+}
+
+function SidebarListContent({
   activeThreadId,
   activeProjectId,
   onNavigate,
@@ -94,6 +109,9 @@ export function SidebarList({
 }: PluginThreadListProps) {
   const { status, threads, projects } = useSidebarThreads();
   const { layout } = useLayout();
+  const { projectPinnedIds } = useThreadPreferences();
+  const { threadIds: followUpThreadIds, setMarked: setFollowUpMarked } =
+    useFollowUps();
   useNavGrid(layout);
   const { state: ui, toggleSection, setFolderOpen } = useUiState();
   // The Customize trigger lives in the top chrome row (left of Back/Forward)
@@ -137,9 +155,14 @@ export function SidebarList({
     };
   }, [extensionsInFooter]);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [nowMinute, setNowMinute] = useState(() => Math.floor(Date.now() / 60_000));
+  const [nowMinute, setNowMinute] = useState(() =>
+    Math.floor(Date.now() / 60_000),
+  );
   useEffect(() => {
-    const timer = setInterval(() => setNowMinute(Math.floor(Date.now() / 60_000)), 60_000);
+    const timer = setInterval(
+      () => setNowMinute(Math.floor(Date.now() / 60_000)),
+      60_000,
+    );
     return () => clearInterval(timer);
   }, []);
 
@@ -173,6 +196,10 @@ export function SidebarList({
                 key={thread.id}
                 thread={thread}
                 isActive={thread.id === activeThreadId}
+                isFollowUp={followUpThreadIds.has(thread.id)}
+                onToggleFollowUp={(marked) =>
+                  void setFollowUpMarked(thread.id, marked)
+                }
                 colored={layout.statusColors}
                 hint={projectById.get(thread.projectId)?.name ?? null}
                 onNavigate={onNavigate}
@@ -191,17 +218,22 @@ export function SidebarList({
       : 0;
   const byUpdated = (a: PluginSidebarThread, b: PluginSidebarThread) =>
     b.updatedAt - a.updatedAt;
-  const attention = visible
+  const smartThreads = visible.filter(
+    (thread) => !thread.isPinned || !projectPinnedIds.has(thread.id),
+  );
+  const attention = smartThreads
     .filter((t) => {
       const s = threadStatus(t);
       return s === "attention" || s === "error";
     })
     .sort((a, b) => b.latestAttentionAt - a.latestAttentionAt);
-  const running = visible.filter((t) => threadStatus(t) === "running").sort(byUpdated);
-  const done = visible
+  const running = smartThreads
+    .filter((t) => threadStatus(t) === "running")
+    .sort(byUpdated);
+  const done = smartThreads
     .filter((t) => threadStatus(t) === "done" && t.updatedAt >= windowStart)
     .sort(byUpdated);
-  const pinned = visible.filter((t) => t.isPinned).sort(byUpdated);
+  const pinned = smartThreads.filter((t) => t.isPinned).sort(byUpdated);
 
   // Threads visibly listed in an OPEN smart section above. A collapsed or
   // disabled section does not claim its threads, so folding "In progress"
@@ -241,11 +273,21 @@ export function SidebarList({
     return lb - la;
   });
 
-  const renderSmart = (id: SectionId, list: PluginSidebarThread[], accent: string | null) => {
+  const renderSmart = (
+    id: SectionId,
+    list: PluginSidebarThread[],
+    accent: string | null,
+  ) => {
     if (list.length === 0 && id !== "pinned") return null;
     if (id === "pinned" && list.length === 0) return null;
     const label =
-      id === "attention" ? "Needs attention" : id === "running" ? "In progress" : id === "done" ? "Done" : "Pinned";
+      id === "attention"
+        ? "Needs attention"
+        : id === "running"
+          ? "In progress"
+          : id === "done"
+            ? "Done"
+            : "Pinned";
     return (
       <Section
         key={id}
@@ -261,6 +303,10 @@ export function SidebarList({
               key={thread.id}
               thread={thread}
               isActive={thread.id === activeThreadId}
+              isFollowUp={followUpThreadIds.has(thread.id)}
+              onToggleFollowUp={(marked) =>
+                void setFollowUpMarked(thread.id, marked)
+              }
               colored={layout.statusColors}
               hint={
                 layout.showProjectHint
@@ -360,11 +406,23 @@ export function SidebarList({
           enabledSections.map((section) => {
             switch (section.id) {
               case "attention":
-                return renderSmart("attention", attention, statusDotClass("attention", colored));
+                return renderSmart(
+                  "attention",
+                  attention,
+                  statusDotClass("attention", colored),
+                );
               case "running":
-                return renderSmart("running", running, statusDotClass("running", colored));
+                return renderSmart(
+                  "running",
+                  running,
+                  statusDotClass("running", colored),
+                );
               case "done":
-                return renderSmart("done", done, statusDotClass("done", colored));
+                return renderSmart(
+                  "done",
+                  done,
+                  statusDotClass("done", colored),
+                );
               case "pinned":
                 return renderSmart("pinned", pinned, null);
               case "projects": {
@@ -379,7 +437,8 @@ export function SidebarList({
                     {orderedProjects.map((project) => {
                       const autoOpen =
                         activeThread?.projectId === project.id ||
-                        (activeThread === null && activeProjectId === project.id);
+                        (activeThread === null &&
+                          activeProjectId === project.id);
                       const open =
                         ui.openFolders.includes(project.id) ||
                         (autoOpen && !ui.closedFolders.includes(project.id));
@@ -391,6 +450,10 @@ export function SidebarList({
                           open={open}
                           onToggle={() => setFolderOpen(project.id, !open)}
                           activeThreadId={activeThreadId}
+                          followUpThreadIds={followUpThreadIds}
+                          onSetFollowUp={(threadId, marked) =>
+                            void setFollowUpMarked(threadId, marked)
+                          }
                           colored={colored}
                           onNavigate={onNavigate}
                         />
@@ -411,7 +474,10 @@ export function SidebarList({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p role="status" className="px-2 py-6 text-center text-xs text-muted-foreground">
+    <p
+      role="status"
+      className="px-2 py-6 text-center text-xs text-muted-foreground"
+    >
       {children}
     </p>
   );

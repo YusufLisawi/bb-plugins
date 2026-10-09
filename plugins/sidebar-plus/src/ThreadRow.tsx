@@ -9,6 +9,7 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { usePortalScopeProps } from "@/lib/portal-scope";
+import { useThreadPreferences } from "./ThreadPreferences";
 import { StatusGlyph } from "./StatusGlyph";
 import { threadDisplayTitle } from "./status";
 
@@ -23,6 +24,8 @@ export const ROW_CLASS =
 export function ThreadRow({
   thread,
   isActive,
+  isFollowUp,
+  onToggleFollowUp,
   colored,
   depth = 0,
   bgInset = 0,
@@ -32,6 +35,8 @@ export function ThreadRow({
 }: {
   thread: PluginSidebarThread;
   isActive: boolean;
+  isFollowUp: boolean;
+  onToggleFollowUp: (marked: boolean) => void;
   colored: boolean;
   depth?: number;
   /**
@@ -50,21 +55,27 @@ export function ThreadRow({
   const { splitProps } = useSidebarThreadSplit(thread.id);
   const [isEditing, setIsEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [contextOpen, setContextOpen] = useState(false);
+  const preferences = useThreadPreferences();
+  const isProjectPinned =
+    thread.isPinned && preferences.projectPinnedIds.has(thread.id);
   const title = threadDisplayTitle(thread);
   const portalScopeProps = usePortalScopeProps();
 
   const open = (event: React.MouseEvent) => {
     event.preventDefault();
+    if (contextOpen || menuOpen) return;
     actions.open(thread.id, { split: event.metaKey || event.ctrlKey });
     onNavigate();
   };
 
   return (
-    <ContextMenu.Root>
+    <ContextMenu.Root onOpenChange={setContextOpen}>
       <ContextMenu.Trigger asChild>
         <li
           className={cn(
             ROW_CLASS,
+            "sbp-thread-row",
             isActive
               ? "bg-sidebar-accent text-sidebar-foreground"
               : "text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:text-sidebar-foreground",
@@ -81,7 +92,7 @@ export function ThreadRow({
               data-sidebar-thread-shortcut-target=""
               data-sidebar-thread-id={thread.id}
               href="#"
-              aria-label={title}
+              aria-label={isFollowUp ? `${title}, marked for follow-up` : title}
               aria-current={isActive ? "page" : undefined}
               {...splitProps}
               onClick={open}
@@ -103,7 +114,8 @@ export function ThreadRow({
                 initial={title}
                 onCommit={(next) => {
                   setIsEditing(false);
-                  if (next && next !== title) void actions.rename(thread.id, next);
+                  if (next && next !== title)
+                    void actions.rename(thread.id, next);
                 }}
                 onCancel={() => setIsEditing(false)}
               />
@@ -118,6 +130,13 @@ export function ThreadRow({
                 {title}
               </span>
             )}
+            {isProjectPinned && !isEditing ? (
+              <Icon
+                name="Pin"
+                className="size-3 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+            ) : null}
             {hint && !isEditing ? (
               <span className="ml-auto shrink-0 truncate pl-1 text-2xs text-muted-foreground/60 group-hover/row:hidden">
                 {hint}
@@ -134,6 +153,13 @@ export function ThreadRow({
             >
               <StatusGlyph thread={thread} colored={colored} />
             </span>
+            {isFollowUp ? (
+              <span
+                aria-hidden="true"
+                title="Marked for follow-up"
+                className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-warning ring-2 ring-sidebar"
+              />
+            ) : null}
             <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenu.Trigger asChild>
                 <button
@@ -157,6 +183,8 @@ export function ThreadRow({
                 >
                   <MenuItems
                     thread={thread}
+                    isFollowUp={isFollowUp}
+                    onToggleFollowUp={onToggleFollowUp}
                     onRename={() => setIsEditing(true)}
                     surface="dropdown"
                   />
@@ -174,6 +202,8 @@ export function ThreadRow({
         >
           <MenuItems
             thread={thread}
+            isFollowUp={isFollowUp}
+            onToggleFollowUp={onToggleFollowUp}
             onRename={() => setIsEditing(true)}
             surface="context"
           />
@@ -184,32 +214,44 @@ export function ThreadRow({
 }
 
 const MENU_CLASS =
-  "z-50 min-w-44 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md";
+  "sbp-menu z-50 min-w-44 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md";
 const ITEM_CLASS =
-  "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground";
+  "sbp-menu-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground";
 
 function MenuItems({
   thread,
+  isFollowUp,
+  onToggleFollowUp,
   onRename,
   surface,
 }: {
   thread: PluginSidebarThread;
+  isFollowUp: boolean;
+  onToggleFollowUp: (marked: boolean) => void;
   onRename: () => void;
   surface: "context" | "dropdown";
 }) {
   const actions = useSidebarThreadActions();
+  const preferences = useThreadPreferences();
+  const isProjectPinned =
+    thread.isPinned && preferences.projectPinnedIds.has(thread.id);
+  const isExempt = preferences.exemptIds.has(thread.id);
+  const pending = preferences.pendingIds.has(thread.id);
   const M = surface === "context" ? ContextMenu : DropdownMenu;
   const Item = ({
     children,
     destructive,
+    disabled,
     onSelect,
   }: {
     children: ReactNode;
     destructive?: boolean;
+    disabled?: boolean;
     onSelect: () => void;
   }) => (
     <M.Item
       onSelect={onSelect}
+      disabled={disabled}
       className={cn(ITEM_CLASS, destructive && "text-destructive-text")}
     >
       {children}
@@ -226,12 +268,63 @@ function MenuItems({
       </Item>
       <Sep />
       <Item onSelect={() => void actions.setRead(thread.id, thread.isUnread)}>
-        <Icon name={thread.isUnread ? "MailOpen" : "Mail"} className="size-3.5" />
+        <Icon
+          name={thread.isUnread ? "MailOpen" : "Mail"}
+          className="size-3.5"
+        />
         {thread.isUnread ? "Mark read" : "Mark unread"}
       </Item>
-      <Item onSelect={() => void actions.setPinned(thread.id, !thread.isPinned)}>
+      <Item
+        disabled={!preferences.ready || pending}
+        onSelect={() =>
+          preferences.setPinMode(thread.id, thread.isPinned ? "none" : "global")
+        }
+      >
         <Icon name={thread.isPinned ? "PinOff" : "Pin"} className="size-3.5" />
-        {thread.isPinned ? "Unpin" : "Pin"}
+        {thread.isPinned ? "Unpin" : "Pin globally"}
+      </Item>
+      {thread.isPinned ? (
+        <Item
+          disabled={!preferences.ready || pending}
+          onSelect={() =>
+            preferences.setPinMode(
+              thread.id,
+              isProjectPinned ? "global" : "project",
+            )
+          }
+        >
+          <Icon
+            name={isProjectPinned ? "Pin" : "Folder"}
+            className="size-3.5"
+          />
+          {isProjectPinned
+            ? "Move to global pinned section"
+            : "Move to project pinned section"}
+        </Item>
+      ) : (
+        <Item
+          disabled={!preferences.ready || pending}
+          onSelect={() => preferences.setPinMode(thread.id, "project")}
+        >
+          <Icon name="Folder" className="size-3.5" /> Pin in project
+        </Item>
+      )}
+      <Item
+        disabled={!preferences.autoArchiveAvailable || pending}
+        onSelect={() => preferences.setAutoArchiveExempt(thread.id, !isExempt)}
+      >
+        <Icon name="Archive" className="size-3.5" />
+        {!preferences.ready
+          ? "Loading auto-archive…"
+          : !preferences.autoArchiveAvailable
+            ? "Auto-archive unavailable"
+            : isExempt
+              ? "Enable auto-archive"
+              : "Disable auto-archive"}
+      </Item>
+      <Item onSelect={() => onToggleFollowUp(!isFollowUp)}>
+        <Icon name={isFollowUp ? "Check" : "Clock"} className="size-3.5" />
+        {isFollowUp ? "Clear follow-up mark" : "Mark for follow-up"}
       </Item>
       <Sep />
       <Item onSelect={() => actions.archive(thread.id)}>

@@ -3,6 +3,7 @@
   "schemaVersion": 1,
   "name": "yusuf-bb-plugins",
   "plugins": [
+    { "name": "auto-archive", "source": "./plugins/auto-archive" },
     { "name": "dispatch", "source": "./plugins/dispatch" },
     { "name": "generated-images", "source": "./plugins/generated-images" },
     { "name": "sidebar-plus", "source": "./plugins/sidebar-plus" },
