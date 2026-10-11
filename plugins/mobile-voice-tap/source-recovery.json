@@ -1,0 +1,20 @@
+{
+  "source_thread": "thr_nt4ryxm86d",
+  "source_workspace_destroyed": true,
+  "recorded_change_sequences_applied": [
+    761,
+    773,
+    783,
+    811,
+    952,
+    973,
+    1031,
+    1074
+  ],
+  "restored_original_files": [
+    "app.tsx",
+    "server.ts",
+    "package.json"
+  ],
+  "original_version": "0.1.0"
+}

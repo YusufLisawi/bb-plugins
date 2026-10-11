@@ -6,6 +6,7 @@
     { "name": "auto-archive", "source": "./plugins/auto-archive" },
     { "name": "dispatch", "source": "./plugins/dispatch" },
     { "name": "generated-images", "source": "./plugins/generated-images" },
+    { "name": "mobile-voice-tap", "source": "./plugins/mobile-voice-tap" },
     { "name": "sidebar-plus", "source": "./plugins/sidebar-plus" },
     { "name": "sync", "source": "./plugins/sync" },
     { "name": "system-tools", "source": "./plugins/system-tools" },
