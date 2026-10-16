@@ -3,6 +3,7 @@
   "schemaVersion": 1,
   "name": "yusuf-bb-plugins",
   "plugins": [
+    { "name": "account-pool-plus", "source": "./plugins/account-pool-plus" },
     { "name": "auto-archive", "source": "./plugins/auto-archive" },
     { "name": "dispatch", "source": "./plugins/dispatch" },
     { "name": "generated-images", "source": "./plugins/generated-images" },
