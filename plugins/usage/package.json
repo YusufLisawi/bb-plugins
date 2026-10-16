@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Usage",
-    "description": "Provider usage & limits in the sidebar \u2014 see Claude Code, Codex, and Cursor limits at a glance.",
+    "description": "Provider usage & limits in the sidebar — see Claude Code, Codex, and Cursor limits at a glance.",
     "branding": {
       "icon": "ChartColumn"
     },
@@ -25,14 +25,14 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "0.4.8",
+    "@get-bb/plugin-sdk": "^0.6.37",
+    "@radix-ui/react-dialog": "^1.1.19",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "better-sqlite3": "^12.0.0",
     "hono": "^4.11.9",
-    "typescript": "^5.7.0",
-    "@radix-ui/react-dialog": "^1.1.19"
+    "typescript": "^5.7.0"
   }
 }
