@@ -75,7 +75,7 @@ export function LayoutEditor({ compact = false }: { compact?: boolean }) {
 
       <Group
         title="Project folders"
-        hint="Move folders with the arrows. Saved across devices."
+        hint="Move folders with the arrows; the eye hides or shows one. Saved across devices."
       >
         {status === "loading" ? (
           <p className="px-1.5 text-xs text-muted-foreground">
@@ -103,10 +103,43 @@ export function LayoutEditor({ compact = false }: { compact?: boolean }) {
                   name="Folder"
                   className="size-3.5 shrink-0 text-muted-foreground"
                 />
-                <span className="min-w-0 flex-1 truncate" title={project.name}>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate",
+                    layout.hiddenProjects.includes(project.id) &&
+                      "text-muted-foreground line-through",
+                  )}
+                  title={project.name}
+                >
                   {project.name}
                 </span>
                 <span className="flex shrink-0 items-center">
+                  <IconButton
+                    label={
+                      layout.hiddenProjects.includes(project.id)
+                        ? `Show ${project.name} in sidebar`
+                        : `Hide ${project.name} from sidebar`
+                    }
+                    icon={
+                      layout.hiddenProjects.includes(project.id)
+                        ? "EyeOff"
+                        : "Eye"
+                    }
+                    projectOrder
+                    disabled={!isLoaded}
+                    onClick={() =>
+                      update((current) => ({
+                        ...current,
+                        hiddenProjects: current.hiddenProjects.includes(
+                          project.id,
+                        )
+                          ? current.hiddenProjects.filter(
+                              (id) => id !== project.id,
+                            )
+                          : [...current.hiddenProjects, project.id],
+                      }))
+                    }
+                  />
                   <IconButton
                     label={`Move ${project.name} up`}
                     icon="ChevronUp"
@@ -368,7 +401,7 @@ function IconButton({
   projectOrder,
 }: {
   label: string;
-  icon: "ChevronUp" | "ChevronDown";
+  icon: "ChevronUp" | "ChevronDown" | "Eye" | "EyeOff";
   disabled?: boolean;
   onClick: () => void;
   projectOrder?: boolean;

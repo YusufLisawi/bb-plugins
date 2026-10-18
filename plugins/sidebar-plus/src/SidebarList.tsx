@@ -23,7 +23,7 @@ import { useLayout } from "./useLayout";
 import { useFollowUps } from "./useFollowUps";
 import { useNavGrid } from "./navGrid";
 import { matchesQuery, threadStatus } from "./status";
-import { moveProjectOrder, orderProjects } from "./projectOrder";
+import { moveVisibleProjectOrder, orderProjects } from "./projectOrder";
 import { ThreadFolderPickerProvider } from "./ThreadFolderPicker";
 import { threadFolderId } from "./threadFolders";
 import type { FolderPlacement } from "./threadFolders";
@@ -335,11 +335,12 @@ function SidebarListContent({
     ...thread,
     projectId: folderId(thread),
   }));
+  const hiddenProjects = new Set(layout.hiddenProjects);
   const orderedProjects = orderProjects(
     projects,
     folderActivity,
     layout.projectOrder,
-  );
+  ).filter((project) => !hiddenProjects.has(project.id));
 
   const renderSmart = (
     id: SectionId,
@@ -534,15 +535,25 @@ function SidebarListContent({
                           onMove={(move) =>
                             update((current) => ({
                               ...current,
-                              projectOrder: moveProjectOrder(
+                              projectOrder: moveVisibleProjectOrder(
                                 orderProjects(
                                   projects,
                                   folderActivity,
                                   current.projectOrder,
                                 ).map((p) => p.id),
+                                current.hiddenProjects,
                                 project.id,
                                 move,
                               ),
+                            }))
+                          }
+                          onHide={() =>
+                            update((current) => ({
+                              ...current,
+                              hiddenProjects: [
+                                ...current.hiddenProjects,
+                                project.id,
+                              ],
                             }))
                           }
                         />

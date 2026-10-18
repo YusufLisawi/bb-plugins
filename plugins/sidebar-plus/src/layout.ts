@@ -48,6 +48,8 @@ export const layoutSchema = z.object({
   sections: z.array(sectionSchema),
   /** Empty means automatic; otherwise saved project IDs have explicit ranks. */
   projectOrder: z.array(z.string().min(1).max(512)).max(4096),
+  /** Project IDs whose folders are hidden; the projects and threads remain. */
+  hiddenProjects: z.array(z.string().min(1).max(512)).max(4096),
   /** Render host nav rows (Extensions, plugin pages) as an icon grid. */
   navGrid: z.boolean(),
   /** Columns of the icon grid. */
@@ -70,6 +72,7 @@ export type SectionSetting = z.infer<typeof sectionSchema>;
 export const DEFAULT_LAYOUT: SidebarLayout = {
   version: 1,
   projectOrder: [],
+  hiddenProjects: [],
   sections: [
     { id: "attention", enabled: true },
     { id: "running", enabled: true },
@@ -123,6 +126,7 @@ export function normalizeLayout(input: unknown): SidebarLayout {
   return {
     version: 1,
     projectOrder: normalizeProjectOrder(raw.projectOrder),
+    hiddenProjects: normalizeProjectOrder(raw.hiddenProjects),
     sections,
     navGrid: bool("navGrid"),
     navGridColumns: int("navGridColumns", 3, 8),

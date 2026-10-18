@@ -31,6 +31,7 @@ export function Folder({
   colored,
   onNavigate,
   onMove,
+  onHide,
   canMoveUp = false,
   canMoveDown = false,
   placedAt,
@@ -45,6 +46,8 @@ export function Folder({
   colored: boolean;
   onNavigate: () => void;
   onMove?: (move: ProjectMove) => void;
+  /** Hide this folder from the sidebar; the project and threads remain. */
+  onHide?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   placedAt?: ReadonlyMap<string, number>;
@@ -212,6 +215,17 @@ export function Folder({
                     <Icon name={icon} className="size-3.5" /> {label}
                   </ContextMenu.Item>
                 ))}
+              </>
+            ) : null}
+            {onHide ? (
+              <>
+                <ContextMenu.Separator className="my-1 h-px bg-border" />
+                <ContextMenu.Item
+                  onSelect={() => window.setTimeout(onHide, 0)}
+                  className="sbp-menu-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
+                >
+                  <Icon name="EyeOff" className="size-3.5" /> Hide from sidebar
+                </ContextMenu.Item>
               </>
             ) : null}
           </ContextMenu.Content>

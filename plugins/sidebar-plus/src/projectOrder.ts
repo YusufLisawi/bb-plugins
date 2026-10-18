@@ -70,3 +70,24 @@ export function moveProjectOrder(
   next.splice(target, 0, projectId);
   return next;
 }
+
+/**
+ * Move among the visible projects only: hidden projects keep their slots, so
+ * unhiding one puts it back where it was.
+ */
+export function moveVisibleProjectOrder(
+  projectIds: readonly string[],
+  hiddenIds: readonly string[],
+  projectId: string,
+  move: ProjectMove,
+): string[] {
+  const all = normalizeProjectOrder(projectIds);
+  const hidden = new Set(hiddenIds);
+  const moved = moveProjectOrder(
+    all.filter((id) => !hidden.has(id)),
+    projectId,
+    move,
+  );
+  let next = 0;
+  return all.map((id) => (hidden.has(id) ? id : moved[next++]!));
+}

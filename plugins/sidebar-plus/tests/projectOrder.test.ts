@@ -5,6 +5,7 @@ import type {
 } from "@get-bb/plugin-sdk/app";
 import {
   moveProjectOrder,
+  moveVisibleProjectOrder,
   normalizeProjectOrder,
   orderProjects,
 } from "../src/projectOrder";
@@ -70,4 +71,20 @@ describe("project folder ordering", () => {
       normalizeProjectOrder(["a", "a", null, 1, "", "x".repeat(513), "b"]),
     ).toEqual(["a", "b"]);
   });
+});
+
+describe("moveVisibleProjectOrder", () => {
+  it("moves past hidden projects and keeps their slots", () => {
+    expect(
+      moveVisibleProjectOrder(["a", "h", "b", "c"], ["h"], "b", "up"),
+    ).toEqual(["b", "h", "a", "c"]);
+    expect(
+      moveVisibleProjectOrder(["a", "h", "b", "c"], ["h"], "a", "bottom"),
+    ).toEqual(["b", "h", "c", "a"]);
+  });
+});
+
+it("keeps hidden project IDs through layout normalization", () => {
+  expect(normalizeLayout({ hiddenProjects: ["p", "p", "", 3] }).hiddenProjects).toEqual(["p"]);
+  expect(normalizeLayout({}).hiddenProjects).toEqual([]);
 });
