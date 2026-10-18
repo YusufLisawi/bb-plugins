@@ -10,6 +10,20 @@ The gallery is intentionally separate from BB's existing Image Preview plugin:
 Image Preview can enlarge `<img>` elements that already exist, while this
 plugin creates the missing conversation-level `<img>` elements.
 
+## Import workspace images
+
+Images created by tools that do not emit Codex `imageGeneration` events can be
+registered from the thread workspace with:
+
+```bash
+bb generated-images import --thread <thread-id> path/to/image.png path/to/other.jpg
+```
+
+The command verifies the files on the thread's host and only accepts paths
+inside that thread's workspace. It stores file paths, not duplicate image
+bytes; moving or deleting an imported file makes it unavailable to the viewer.
+Importing the same workspace path again updates the existing entry.
+
 ## Tray controls
 
 - Select **Generated images** to collapse or expand the thumbnail strip.

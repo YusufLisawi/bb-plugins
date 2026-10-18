@@ -25,6 +25,7 @@
     "server.ts",
     "app.tsx",
     "generated-images.ts",
-    "image-events.ts"
+    "image-events.ts",
+    "workspace-import.ts"
   ]
 }
