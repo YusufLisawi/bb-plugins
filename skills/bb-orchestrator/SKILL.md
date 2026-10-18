@@ -1,6 +1,6 @@
 ---
 name: bb-orchestrator
-description: Delegate substantial implementation work to a BB subagent and manage it to a verified finish. When the user does not explicitly mention a provider or model, always spawn the child with Codex GPT-5.6-Luna at maximum reasoning effort; only an explicit user override may select another provider, model, reasoning level, or service tier. Use when the user asks you to be the boss, requests another BB agent or subagent, or wants a review-and-iterate coding workflow, and when the afk skill routes a large or parallelizable build here. For a bare "I am away/AFK, do X", prefer the afk skill, which owns the ownership frame and decides whether to delegate. Do not use for read-only questions, reviews, or trivial one-step edits.
+description: Delegate substantial implementation work to a BB subagent and manage it to a verified finish. When the user does not explicitly choose a provider or model, use the newest available GPT Luna model in the target environment's Codex catalog at maximum reasoning effort; resolve it from the catalog each time so future Luna releases are picked up automatically. Only an explicit user override may select another provider, model, reasoning level, or service tier. Use when the user asks you to be the boss, requests another BB agent or subagent, or wants a review-and-iterate coding workflow, and when the afk skill routes a large or parallelizable build here. For a bare "I am away/AFK, do X", prefer the afk skill, which owns the ownership frame and decides whether to delegate. Do not use for read-only questions, reviews, or trivial one-step edits.
 ---
 
 # BB orchestrated implementation
@@ -37,48 +37,44 @@ Inspect the repository enough to remove cheap ambiguity. Ask the user only when 
 
 ## 2. Resolve the child provider, model, and effort
 
-### Non-negotiable default
+### Non-negotiable default: newest Codex Luna
 
-If the user says nothing about a provider or model, the child execution tuple is always:
+If the user does not explicitly choose a provider or model, use Codex and select the newest available GPT Luna model from the target environment's Codex model catalog at maximum reasoning effort. Resolve the model at delegation time; never hard-code a version in this default path. This lets a future catalog entry such as a newer `gpt-<version>-luna` become the default automatically.
 
-```text
---provider codex --model gpt-5.6-luna --reasoning-level max
-```
+Get the current project and exact environment from `bb status --json` and `bb thread show --self --json`. Then run `bb provider list --environment <environment-id> --json` and `bb provider models codex --environment <environment-id> --json`. Select among the available catalog entries whose model ID identifies a GPT Luna model (for example, `gpt-6-luna` or `gpt-5.6-luna`). Compare version components numerically, from highest major to minor and patch, treating omitted components as zero; use the exact model ID returned by the catalog. Do not rely on catalog order, `isDefault`, or lexical sorting. Confirm the selected model supports `max` reasoning. Codex currently advertises service tiers; use `default` unless the user explicitly requests `fast`.
 
-This is the default even when the parent is running another provider, the project remembers another model, or BB reports another catalog default. Do not omit any of these three flags and do not substitute another model. BB’s omitted-flag behavior uses remembered project defaults, so an omitted flag is a configuration error on this path.
-
-Resolve the tuple before constructing the spawn command, and verify that the final command contains the literal provider, model, and `max` reasoning flags. If the default tuple is unavailable in the target environment, stop and ask the user; never silently downgrade, use the project default, or let BB choose.
+Resolve the tuple before constructing the spawn command. Always pass the literal `--provider codex`, the exact newest Luna model ID from the target catalog, and `--reasoning-level max`; do not omit a flag and let BB fall back to remembered project defaults. If Codex is unavailable, no Luna model is listed, or the newest listed Luna model does not support `max`, stop and ask the user. Never silently choose an older Luna, a different model family, or the project default.
 
 ### Explicit overrides
 
 Only treat model selection as overridden when the user explicitly names a provider or model, or explicitly asks for a different reasoning level or service tier:
 
-- Honor an explicit provider/model override. Match display names to real BB IDs only after inspecting the target environment’s catalogs. For example, if the catalog returns these IDs, “Cursor Composer 2.5, medium, no fast mode” maps to `--provider acp-cursor --model composer-2.5 --reasoning-level medium --service-tier default`, while “Cursor Grok 4.6, medium” maps to `--provider acp-cursor --model grok-4.6 --reasoning-level medium` plus `--service-tier default` when that provider supports service tiers.
-- If the user explicitly requests “Luna 5.6 max,” use the catalog’s exact Codex tuple, such as `--provider codex --model gpt-5.6-luna --reasoning-level max`.
+- Honor an explicit provider/model override. Match display names to real BB IDs only after inspecting the target environment’s catalogs. For example, if the catalog returns these IDs, “Cursor Composer 2.5, medium, no fast mode” maps to `--provider acp-cursor --model composer-2.5 --reasoning-level medium --service-tier default`, while “Cursor Grok 4.6, medium” maps to `--provider acp-cursor --model grok-4.7 --reasoning-level medium` plus `--service-tier default` when that provider supports service tiers.
+- If the user explicitly requests a particular Luna version, honor that version when it appears in the catalog, even if a newer Luna version is available. Use the catalog's exact model ID and the requested reasoning level.
 - If the user names a model but not its provider, search the available provider list and query candidate provider catalogs. Do not invent a provider ID; a model such as Grok may be exposed through an ACP provider rather than a provider named `grok`.
 - For an explicit override, preserve any user-specified reasoning and service tier. If the user gives only a provider/model, use the provider’s catalog-supported default for fields they did not specify; the Luna/max rule applies to the no-provider/no-model path.
 - Treat service tier separately from model and reasoning. Use `default` when the user says no fast mode or does not request fast; pass `fast` only when the user explicitly asks for it and the provider supports it. Omit the flag for providers without service-tier support.
 - If the requested provider, model, reasoning level, or service tier is unavailable, do not silently substitute. Explain the exact mismatch and ask for a choice when it materially affects the task.
 
-Get the current project and exact environment from `bb status --json` and `bb thread show --self --json`. Run `bb provider list --environment <environment-id> --json`, then query the selected provider with `bb provider models <provider-id> --environment <environment-id> --json`. Use the exact provider/model IDs and supported reasoning levels returned for that environment.
+For any explicit override, query the relevant provider's catalog with `bb provider models <provider-id> --environment <environment-id> --json`. Use the exact provider/model IDs and supported reasoning levels returned for that environment.
 
 ## 3. Spawn the owner in the same BB environment
 
-Spawn one child against the same environment so its changes are visible for review. For the default path, use this literal execution shape and fill in only the project, environment, and prompt:
+Spawn one child against the same environment so its changes are visible for review. For the default path, resolve the newest Luna model from the target environment's catalog first, then replace `<newest-luna-model-id>` below with that exact ID. Fill in the project, environment, and prompt as well:
 
 ```sh
-bb thread spawn --project <project-id> --environment <environment-id> --parent-self --provider codex --model gpt-5.6-luna --reasoning-level max --service-tier default --prompt "<complete implementation brief>"
+bb thread spawn --project <project-id> --environment <environment-id> --parent-self --provider codex --model <newest-luna-model-id> --reasoning-level max --service-tier default --prompt "<complete implementation brief>"
 ```
 
 For an explicit override, replace the provider/model/reasoning/service-tier fields with the verified tuple. Add `--service-tier default` when the selected provider supports service tiers and the user did not request fast; add `--service-tier fast` only for an explicit fast request. Omit `--permission-mode` to inherit the parent’s permission ceiling. Do not request a higher permission mode than the parent has. Do not create a separate worktree unless the user explicitly wants isolated work.
 
 Before executing `bb thread spawn`, perform this preflight:
 
-1. If there is no explicit provider/model override, confirm the command has `--provider codex --model gpt-5.6-luna --reasoning-level max` (and `--service-tier default` when Codex advertises it).
-2. If any of those default flags are missing, stop and correct the command before spawning.
-3. Include the resolved provider, model, reasoning level, and service tier in the child’s prompt so the execution choice is explicit and can be reported back.
+1. If there is no explicit provider/model override, confirm the command has `--provider codex`, the exact newest available Luna model ID from the target environment's catalog, and `--reasoning-level max` (plus `--service-tier default` when Codex advertises it).
+2. Confirm that the selected ID is the numerically newest available GPT Luna entry and supports `max`. If any default flag is missing or the catalog does not support this tuple, stop and resolve the issue before spawning; do not fall back to another model.
+3. Include the resolved provider, exact model ID, reasoning level, and service tier in the child’s prompt so the execution choice is explicit and can be reported back.
 
-The default execution tuple is `codex / gpt-5.6-luna / max`; the child should not change that selection mid-task unless the parent directs it.
+The default execution tuple is `codex / newest available GPT Luna model ID / max / default service tier`; the child should not change that selection mid-task unless the parent directs it.
 
 The child’s prompt must make it the sole owner and include this instruction:
 
