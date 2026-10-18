@@ -1,0 +1,8 @@
+{
+  "image_url": "https://example.com/first-frame.jpg",
+  "end_image_url": "https://example.com/last-frame.jpg",
+  "prompt": "One continuous camera move from the opening composition to the closing composition.",
+  "duration": 8,
+  "resolution": "720p",
+  "generate_audio": true
+}

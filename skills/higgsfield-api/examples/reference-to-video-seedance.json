@@ -1,0 +1,13 @@
+{
+  "prompt": "Use the first image for the character, the second for the location, the clip for pacing, and the audio for atmosphere. Show the character entering the room.",
+  "image_urls": [
+    "https://example.com/character.jpg",
+    "https://example.com/location.jpg"
+  ],
+  "video_urls": ["https://example.com/motion-reference.mp4"],
+  "audio_urls": ["https://example.com/ambience.wav"],
+  "duration": 8,
+  "resolution": "720p",
+  "aspect_ratio": "16:9",
+  "generate_audio": true
+}

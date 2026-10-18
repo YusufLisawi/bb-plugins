@@ -1,0 +1,7 @@
+{
+  "prompt": "Keep the movement and pacing of the reference clip while changing the setting to a city street at sunrise.",
+  "video_urls": ["https://example.com/reference.mp4"],
+  "duration": 5,
+  "resolution": "720p",
+  "aspect_ratio": "16:9"
+}

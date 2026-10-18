@@ -1,0 +1,11 @@
+{
+  "prompt": "Edit image 1: keep the person and camera angle. Use image 2 only as a lighting reference; make the scene a warm sunset.",
+  "image_urls": [
+    "https://example.com/source.jpg",
+    "https://example.com/lighting-reference.jpg"
+  ],
+  "resolution": "1k",
+  "aspect_ratio": "3:2",
+  "prompt_extend": false,
+  "enable_thinking": false
+}

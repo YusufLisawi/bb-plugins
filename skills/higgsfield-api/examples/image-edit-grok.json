@@ -1,0 +1,10 @@
+{
+  "prompt": "Edit the first image to keep the subject, using the second image for the color palette and lighting.",
+  "image_urls": [
+    "https://example.com/source.jpg",
+    "https://example.com/color-reference.jpg"
+  ],
+  "quality": "medium",
+  "resolution": "1k",
+  "aspect_ratio": "auto"
+}
