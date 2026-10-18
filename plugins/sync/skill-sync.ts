@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { cp, lstat, mkdir, readdir, readFile, rename, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 export type ManagedSkillState = Record<string, { digest: string }>;
 
@@ -22,6 +22,33 @@ interface RepositorySkill {
 
 const skillIdPattern = /^[a-z0-9][a-z0-9._-]*$/i;
 
+/**
+ * Files that belong to one machine, never to the repository: generated
+ * caches, and environment or secret files. They are left out of digests (so
+ * they never make a skill look locally edited), are never copied from the
+ * repository, and survive updates of the installed skill.
+ */
+const CACHE_DIRECTORIES = new Set(["__pycache__", "node_modules", ".venv", "venv", ".pytest_cache", ".mypy_cache"]);
+const CACHE_FILES = /^(\.DS_Store|.*\.py[co])$/;
+const SECRET_DIRECTORIES = new Set(["secrets", ".secrets"]);
+const SHARED_ENV_TEMPLATES = /^\.env\.(example|sample|template)$/;
+
+export type LocalOnlyKind = "cache" | "secret";
+
+export function localOnlyKind(name: string, isDirectory: boolean): LocalOnlyKind | null {
+  if (isDirectory) {
+    if (CACHE_DIRECTORIES.has(name)) return "cache";
+    if (SECRET_DIRECTORIES.has(name)) return "secret";
+    return null;
+  }
+  if (CACHE_FILES.test(name)) return "cache";
+  if ((name === ".env" || name.startsWith(".env.")) && !SHARED_ENV_TEMPLATES.test(name)) return "secret";
+  return null;
+}
+
+/** Digest format: "v2:" digests skip machine-local files; older ones do not. */
+const DIGEST_V2_PREFIX = "v2:";
+
 function isMissing(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error
     && (error as { code?: unknown }).code === "ENOENT";
@@ -36,7 +63,7 @@ async function lstatOrNull(path: string) {
   }
 }
 
-async function directoryDigest(path: string): Promise<string | null> {
+export async function directoryDigest(path: string, version: 1 | 2 = 2): Promise<string | null> {
   const root = await lstatOrNull(path);
   if (!root) return null;
   if (root.isSymbolicLink() || !root.isDirectory()) {
@@ -44,7 +71,7 @@ async function directoryDigest(path: string): Promise<string | null> {
   }
 
   const hash = createHash("sha256");
-  hash.update("bb-skill-directory-v1\0");
+  hash.update(version === 2 ? "bb-skill-directory-v2\0" : "bb-skill-directory-v1\0");
 
   async function visit(directory: string, relativePath: string): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true });
@@ -54,6 +81,9 @@ async function directoryDigest(path: string): Promise<string | null> {
       const childPath = join(directory, entry.name);
       const childRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
       const stats = await lstat(childPath);
+      if (version === 2 && !stats.isSymbolicLink() && localOnlyKind(entry.name, stats.isDirectory()) !== null) {
+        continue;
+      }
 
       if (stats.isSymbolicLink()) {
         throw new Error(`${childPath} is a symbolic link; repository skills may not contain symbolic links.`);
@@ -73,7 +103,32 @@ async function directoryDigest(path: string): Promise<string | null> {
   }
 
   await visit(path, "");
-  return hash.digest("hex");
+  return version === 2 ? DIGEST_V2_PREFIX + hash.digest("hex") : hash.digest("hex");
+}
+
+/** Whether the installed copy still matches a digest recorded by any version. */
+async function matchesRecordedDigest(path: string, recorded: string): Promise<boolean> {
+  const version = recorded.startsWith(DIGEST_V2_PREFIX) ? 2 : 1;
+  return (await directoryDigest(path, version)) === recorded;
+}
+
+/** Machine-local entries of an installed skill, as paths relative to it. */
+async function localOnlyEntries(root: string, kinds: ReadonlySet<LocalOnlyKind>): Promise<string[]> {
+  const found: string[] = [];
+  async function visit(directory: string, relativePath: string): Promise<void> {
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const childRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      const kind = entry.isSymbolicLink() ? null : localOnlyKind(entry.name, entry.isDirectory());
+      if (kind !== null) {
+        if (kinds.has(kind)) found.push(childRelativePath);
+        continue;
+      }
+      if (entry.isDirectory()) await visit(join(directory, entry.name), childRelativePath);
+    }
+  }
+  if (await lstatOrNull(root)) await visit(root, "");
+  return found;
 }
 
 async function discoverRepositorySkills(sourceRoot: string): Promise<{
@@ -123,11 +178,28 @@ async function replaceDirectory(
       errorOnExist: true,
       preserveTimestamps: true,
       verbatimSymlinks: true,
+      // Never ship one machine's caches or secrets from the repository checkout.
+      filter: (path) => {
+        const name = path.slice(path.lastIndexOf("/") + 1);
+        return path === source || localOnlyKind(name, false) === null && !CACHE_DIRECTORIES.has(name) && !SECRET_DIRECTORIES.has(name);
+      },
     });
 
     const actualDestinationDigest = await directoryDigest(destination);
     if (actualDestinationDigest !== expectedDestinationDigest) {
       throw new Error("Local skill changed while it was being synchronized.");
+    }
+
+    // Keep this machine's env and secret files across the update.
+    for (const relativePath of await localOnlyEntries(destination, new Set(["secret"]))) {
+      const target = join(stagingPath, relativePath);
+      await mkdir(dirname(target), { recursive: true });
+      await cp(join(destination, relativePath), target, {
+        recursive: true,
+        force: true,
+        preserveTimestamps: true,
+        verbatimSymlinks: true,
+      });
     }
 
     const previous = await lstatOrNull(destination);
@@ -227,7 +299,10 @@ export async function synchronizeRepositorySkills({
         continue;
       }
 
-      if (destinationDigest !== null && (!previousDigest || destinationDigest !== previousDigest)) {
+      if (
+        destinationDigest !== null &&
+        (!previousDigest || !(await matchesRecordedDigest(destinationPath, previousDigest)))
+      ) {
         skippedSkillIds.push(skill.id);
         continue;
       }
@@ -251,12 +326,17 @@ export async function synchronizeRepositorySkills({
         delete managedSkills[id];
         continue;
       }
-      if (destinationDigest !== state.digest) {
+      if (!(await matchesRecordedDigest(destinationPath, state.digest))) {
+        skippedSkillIds.push(id);
+        continue;
+      }
+      // A machine's own env or secret files are never deleted with the skill.
+      if ((await localOnlyEntries(destinationPath, new Set(["secret"]))).length > 0) {
         skippedSkillIds.push(id);
         continue;
       }
 
-      await removeDirectory(destinationPath, stagingRoot, state.digest);
+      await removeDirectory(destinationPath, stagingRoot, destinationDigest);
       delete managedSkills[id];
       removedSkillIds.push(id);
     } catch (error) {

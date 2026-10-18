@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { synchronizeRepositorySkills } from "./skill-sync";
+import { directoryDigest, synchronizeRepositorySkills } from "./skill-sync";
 
 const temporaryRoots: string[] = [];
 
@@ -64,5 +64,74 @@ describe("repository skill synchronization", () => {
 
     expect(result.removedSkillIds).toEqual(["alpha"]);
     await expect(readFile(join(paths.destinationRoot, "alpha", "SKILL.md"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("ignores caches that a skill's scripts create on this machine", async () => {
+    const paths = await fixture();
+    await writeSkill(paths.sourceRoot, "alpha", "first version");
+    await mkdir(join(paths.sourceRoot, "alpha", "scripts"), { recursive: true });
+    await writeFile(join(paths.sourceRoot, "alpha", "scripts", "tool.py"), "print(1)\n");
+    const initial = await synchronizeRepositorySkills({ ...paths, previous: {} });
+
+    const cache = join(paths.destinationRoot, "alpha", "scripts", "__pycache__");
+    await mkdir(cache, { recursive: true });
+    await writeFile(join(cache, "tool.cpython-314.pyc"), "bytecode");
+    await writeSkill(paths.sourceRoot, "alpha", "second version");
+    const updated = await synchronizeRepositorySkills({ ...paths, previous: initial.managedSkills });
+
+    expect(updated.skippedSkillIds).toEqual([]);
+    expect(updated.updatedSkillIds).toEqual(["alpha"]);
+  });
+
+  it("keeps this machine's env files across updates and never ships repository ones", async () => {
+    const paths = await fixture();
+    await writeSkill(paths.sourceRoot, "alpha", "first version");
+    await writeFile(join(paths.sourceRoot, "alpha", ".env"), "TOKEN=from-repository\n");
+    await writeFile(join(paths.sourceRoot, "alpha", ".env.example"), "TOKEN=\n");
+    const initial = await synchronizeRepositorySkills({ ...paths, previous: {} });
+    const installed = join(paths.destinationRoot, "alpha");
+    await expect(readFile(join(installed, ".env"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(join(installed, ".env.example"), "utf8")).toBe("TOKEN=\n");
+
+    await writeFile(join(installed, ".env"), "TOKEN=local-secret\n");
+    await mkdir(join(installed, "secrets"), { recursive: true });
+    await writeFile(join(installed, "secrets", "key.json"), "{}");
+    await writeSkill(paths.sourceRoot, "alpha", "second version");
+    const updated = await synchronizeRepositorySkills({ ...paths, previous: initial.managedSkills });
+
+    expect(updated.updatedSkillIds).toEqual(["alpha"]);
+    expect(await readFile(join(installed, "SKILL.md"), "utf8")).toContain("second version");
+    expect(await readFile(join(installed, ".env"), "utf8")).toBe("TOKEN=local-secret\n");
+    expect(await readFile(join(installed, "secrets", "key.json"), "utf8")).toBe("{}");
+  });
+
+  it("keeps a removed skill that still holds this machine's secrets", async () => {
+    const paths = await fixture();
+    await writeSkill(paths.sourceRoot, "alpha", "repository version");
+    const initial = await synchronizeRepositorySkills({ ...paths, previous: {} });
+    await writeFile(join(paths.destinationRoot, "alpha", ".env"), "TOKEN=local\n");
+
+    await rm(join(paths.sourceRoot, "alpha"), { recursive: true });
+    const result = await synchronizeRepositorySkills({ ...paths, previous: initial.managedSkills });
+
+    expect(result.removedSkillIds).toEqual([]);
+    expect(result.skippedSkillIds).toEqual(["alpha"]);
+    expect(await readFile(join(paths.destinationRoot, "alpha", ".env"), "utf8")).toBe("TOKEN=local\n");
+  });
+
+  it("still updates skills recorded with the previous digest format", async () => {
+    const paths = await fixture();
+    await writeSkill(paths.sourceRoot, "alpha", "first version");
+    await synchronizeRepositorySkills({ ...paths, previous: {} });
+    const legacy = await directoryDigest(join(paths.destinationRoot, "alpha"), 1);
+
+    await writeSkill(paths.sourceRoot, "alpha", "second version");
+    const updated = await synchronizeRepositorySkills({
+      ...paths,
+      previous: { alpha: { digest: legacy ?? "" } },
+    });
+
+    expect(updated.updatedSkillIds).toEqual(["alpha"]);
+    expect(updated.managedSkills.alpha?.digest.startsWith("v2:")).toBe(true);
   });
 });
