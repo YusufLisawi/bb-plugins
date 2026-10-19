@@ -7,6 +7,7 @@ SRC="${1:?usage: fetch.sh <url-or-file> [workdir]}"
 ROOT="${BB_THREAD_STORAGE:-/tmp}/watch-video"
 WORK="${2:-$ROOT/$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "$WORK"
+trap '[ -s "$WORK/probe.json" ] || { echo "fetch failed; removed $WORK" >&2; rm -rf "$WORK"; }' EXIT
 export PATH="$HOME/.local/bin:$PATH"
 
 if [ -f "$SRC" ]; then
@@ -16,13 +17,17 @@ if [ -f "$SRC" ]; then
 else
   echo "$SRC" > "$WORK/source.txt"
   # <=1080p keeps downloads fast; frames are scaled to 1024px anyway.
-  yt-dlp --no-playlist --no-progress --quiet --no-warnings \
+  if ! yt-dlp --no-playlist --no-progress --quiet --no-warnings \
     --js-runtimes node \
     -f "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b" \
     --merge-output-format mp4 \
     --write-info-json \
     -o "$WORK/video.%(ext)s" "$SRC" \
-    ${YTDLP_COOKIES_BROWSER:+--cookies-from-browser "$YTDLP_COOKIES_BROWSER"}
+    ${YTDLP_COOKIES_BROWSER:+--cookies-from-browser "$YTDLP_COOKIES_BROWSER"}; then
+    echo "yt-dlp failed; trying cobalt" >&2
+    rm -f "$WORK"/video.*
+    "$(dirname "$0")/cobalt.sh" "$SRC" "$WORK"
+  fi
   # Keep only the useful metadata (the full dump is ~100 KB).
   [ -f "$WORK/video.info.json" ] && python3 -c '
 import json, sys

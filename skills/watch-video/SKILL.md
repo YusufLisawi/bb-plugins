@@ -20,7 +20,8 @@ $S/setup.sh
 
 This is idempotent. It installs or updates yt-dlp in `~/.local/bin`, installs
 uv, and builds a Python 3.12 venv in `~/.local/share/watch-video/venv` with
-faster-whisper and the CUDA 12 cuBLAS/cuDNN wheels. The Whisper model
+faster-whisper and the CUDA 12 cuBLAS/cuDNN wheels. It also clones cobalt (the
+API only, run with Node) into `~/.local/share/watch-video/cobalt`. The Whisper model
 (`large-v3-turbo`, about 1.6 GB) downloads the first time you transcribe. It
 needs ffmpeg and should print `CUDA devices: 1` or more.
 
@@ -35,11 +36,24 @@ W=$($S/fetch.sh "<url or local path>")   # prints the work dir
   duration) and `probe.json`.
 - Downloads are capped at 1080p. Playlists are off, so only the linked video is
   fetched.
-- Login-gated or private posts (some Instagram, Facebook, private X): retry with
-  `YTDLP_COOKIES_BROWSER=chrome $S/fetch.sh ...` (or `firefox`), but **ask the
-  user first**, because this reads their browser cookies.
-- If yt-dlp fails with an extractor error, run `$S/setup.sh` (it updates
-  yt-dlp) and try again once.
+- yt-dlp tries first. If it fails, `fetch.sh` falls back to a local
+  [cobalt](https://github.com/imputnet/cobalt) API, which it starts on demand
+  on port 9009 and stops afterwards. cobalt has its own extractors and uses
+  logged-out public endpoints.
+- Tested with no login (2026-10): YouTube and Shorts, TikTok, X, Facebook,
+  Instagram reels, Dailymotion, Twitch clips, LinkedIn and direct .mp4 links
+  work with yt-dlp. Vimeo and Instagram carousel posts work through the cobalt
+  fallback.
+- **Reddit blocks every logged-out request** (403). Neither tool can fetch it
+  without credentials. A few Vimeo videos also refuse the file from their CDN.
+- Login-gated or private posts, and Reddit: retry with
+  `YTDLP_COOKIES_BROWSER=firefox $S/fetch.sh ...`. The user's Firefox is a
+  snap, so the profile is at `~/snap/firefox/common/.mozilla/firefox`; pass
+  `firefox:<that profile dir>` if the plain name isn't found. **Ask the user
+  first**, because this reads their browser cookies.
+- If both downloaders fail with an extractor error, run `$S/setup.sh`. It
+  updates yt-dlp and cobalt. Then try again once. A failed fetch deletes its
+  work dir and prints the reason.
 - For a local file, the work dir gets a symlink to it, never a copy. Cleanup
   never touches the original.
 

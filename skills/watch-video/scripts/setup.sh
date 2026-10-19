@@ -24,5 +24,16 @@ fi
 uv pip install --quiet --python "$HOME_DIR/venv/bin/python" \
   faster-whisper nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*"
 
+# cobalt: fallback downloader for links yt-dlp can't get logged out (Vimeo, Instagram carousels).
+if command -v node >/dev/null; then
+  if [ -d "$HOME_DIR/cobalt/.git" ]; then git -C "$HOME_DIR/cobalt" pull -q --ff-only || true
+  else git clone -q --depth 1 https://github.com/imputnet/cobalt.git "$HOME_DIR/cobalt"; fi
+  command -v pnpm >/dev/null || npm i -g --prefix "$HOME/.local" pnpm >/dev/null
+  (cd "$HOME_DIR/cobalt" && pnpm install --silent --filter ./api... --frozen-lockfile)
+  echo "cobalt $(node -p "require('$HOME_DIR/cobalt/api/package.json').version")"
+else
+  echo "node missing: cobalt fallback disabled" >&2
+fi
+
 echo "yt-dlp $("$BIN/yt-dlp" --version)"
 "$HOME_DIR/venv/bin/python" -c "import faster_whisper, ctranslate2; print('faster-whisper', faster_whisper.__version__, '| CUDA devices:', ctranslate2.get_cuda_device_count())"
