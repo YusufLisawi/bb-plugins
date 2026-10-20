@@ -5,9 +5,12 @@ description: Make premium animated TikTok/Reels/Shorts episodes entirely in code
 
 # Story Studio
 
-The engine is the project **`~/Developer/story-studio`** (Remotion + TypeScript + Python, git).
-`THE LAST TRAIN · Part 1` (`src/episodes/last-train/`) is the reference episode: read it before
-you write your own. This skill is the playbook: how to think, what to make, the exact commands,
+The engine is the project **`~/Developer/story-studio`** (Remotion + TypeScript + Python, git;
+bb project `Story Studio`). It holds 12 finished episodes in `src/episodes/` — read the ones in
+your format before writing your own: stories `last-train` (the reference), `fake-taxi`,
+`deep-shift`, `thirteenth-floor`, `three-oh-seven`, `night-ferry`; explainers `cobra-effect`
+(reference), `lindy`, `dirty-money`; what-ifs `trench` (reference), `sun-gone`; cardboard
+`squirrels`. Delivered masters + a gallery: `~/Videos/story-studio/` (index.html). This skill is the playbook: how to think, what to make, the exact commands,
 and the bar.
 
 > [!IMPORTANT] Storage is life-or-death on this machine
@@ -100,7 +103,16 @@ df -h ~                                # ≥ 30 GB free before anything heavy
 | `hud` | `SeriesBar Stamp PhoneAlert RuleCard RouteMap Timers Speed SwitchDiagram TitleCard EndCard PassingLights typed` |
 | `world` | `makeMotion` (speed → position) · `Outside`/`OutsideBox` (night world in windows) · `Skyline` (districts black out) · `TrainSide` |
 
+More kit (contributed by episodes, reuse them): `rain` (Rain, Ripples, GlassDrops, wipers) ·
+`car` (SedanSide/Rear/Front, CarPlan) · `city` (CityFlow, RoadAhead, NeonGlyph) · `phone` (Phone,
+RideMap, RideSheet, CallChip, Notification) · `devices` (PhoneShell, CallScreen, EtaPill) ·
+`elevator` (FloorDisplay, CableDiagram, Callout) · `ferry` (Sea, Fog, ShipSide, ShipBow) ·
+`scenery` (makeRoom/RoomShell one-point rooms, Shaft) · `craft` (stop-motion: useStepT, boil, Cut,
+Googly, Marker/WriteOn, Tape, Odometer, Bulb, Dust) · `hud` also has Meter, CallCard, TimeLadder,
+PlateCheck, MapCard, Gauge, DepthMeter, Roster, PhoneLine, KnockMarks.
 New devices belong in the kit when they're reusable (a map, a meter, a dossier card…).
+**Registering an episode:** don't edit `src/Root.tsx` by hand — run `python3 scripts/gen_root.py`
+(it registers every `src/episodes/<slug>/<Id>.tsx` that exports `<Id>` and `DUR`).
 
 ## Delegation (parent agents)
 

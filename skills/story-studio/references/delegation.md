@@ -46,3 +46,16 @@ y=600"). Pass only when:
 - the brief shows a real concept (not a reskin of the Last Train).
 Grade each child (A/B/C) with one line on what it did well and what it missed; tell the user
 which model met the bar.
+
+## Results of the first comparison (Oct 2026, 9 delegated episodes, same brief + skill)
+
+| Model · effort | Episodes | Grade | What it did well | What it missed |
+|---|---|---|---|---|
+| Opus 5.5 high | The Fake Taxi, Deep Shift | A−, A− | richest sets and devices (plate check, ride-app map, roll call, catch diagram), new reusable kit pieces, thorough frame QA, honest reports | slight overruns in length; a few long torsos in seated poses |
+| Sonnet 5.5 high | 3:07 AM, Squirrels (cardboard), The Lindy Effect | B+, A−, A− | best at matching a reference style (the cardboard episode); strong explainer craft; 100–230 cues | first pass too monochrome (3:07 AM) until told to add warm key lights |
+| Opus 5.5 low | The 13th Floor, Dirty Money | B+, B+ | fast, clean structure, good fair-play twist plants, applies review notes precisely | simpler sets, stiffer staging; diagrams small until asked |
+| Haiku 5.5 max | The Night Ferry, What if the Sun disappeared? | B, B | follows the pipeline; physics-careful facts; good QA hygiene | emptier frames, less variety in puppets, needs more review rounds |
+
+Recommendation: Opus 5.5 high or Sonnet 5.5 high for premium episodes; Opus 5.5 low for fast
+volume with a strong review; Haiku 5.5 max only with two review rounds. Every model improved a lot
+from the checkpoint-1 review — never skip it.
