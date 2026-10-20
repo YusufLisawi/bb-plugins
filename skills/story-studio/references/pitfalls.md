@@ -30,6 +30,7 @@
 | `mix.py` took > 10 min under load | moving averages via `np.convolve(x, ones(k))` = O(n·k) | cumulative-sum moving average (O(n)) — now ~20 s |
 | First frame black (bad thumbnail) | a fade-in from black at t = 0 | never fade from black at 0; frame 0 is the thumbnail |
 | A hard cut shows one frame of both shots blended ("ghosting at cuts", found by frame QA) | the Shot switch used `useT()`: 2 of the 4 blur sub-samples see the old shot | switch shots (and any hard on/off) on `useTq()`; keep `useT()` inside the shot for motion |
+| **Videos "unplayable" on the user's phone** from the share link | (1) `python3 -m http.server` has no HTTP Range support (phones need 206 partial content to stream mp4); (2) masters were full-range `yuvj420p` at H.264 level 5.0 | serve `~/Videos/story-studio` with its `serve.py` (range-capable); `render.sh` now encodes TV-range `yuv420p` High@4.1; `deliver.sh` adds a 720p copy for streaming. Check with `curl -I -H "Range: bytes=0-99" …` → 206 and `ffprobe … pix_fmt` → yuv420p |
 | Banging/waving arms smear into a mess under motion blur | ≥ 2.5 Hz large arm swings | ≤ 1.5 Hz, smaller amplitude, or accept and keep it brief |
 
 ## Do a frame-by-frame QA of every master with the watch-video skill
