@@ -80,7 +80,8 @@ df -h ~                                # ≥ 30 GB free before anything heavy
    → `stt_check.py <slug> public/<slug>/mix.wav`.
 9. **Master** `scripts/render.sh <Id> <slug>` (≈ 7 min for 100 s; queues on the GPU lock).
    Test a slice first when unsure: `scripts/render.sh <Id> <slug> 44 49`.
-10. **QA + deliver** (no-narrator episodes: `lines.json` = `[]`, silent `vo.wav`; mix and QA adapt) `.venv/bin/python scripts/qa.py <slug>` (format, loudness, black/frozen
+10. **Frame QA**: run the master through the `watch-video` skill with a harsh-critic focus (pitfalls.md § frame-by-frame QA); fix and re-render.
+11. **QA + deliver** (no-narrator episodes: `lines.json` = `[]`, silent `vo.wav`; mix and QA adapt) `.venv/bin/python scripts/qa.py <slug>` (format, loudness, black/frozen
     frames, speech) → `scripts/deliver.sh <slug>` (copies to `~/Videos/story-studio/`, poster,
     contact sheet) → `scripts/clean.sh <slug>` → commit.
 
@@ -88,7 +89,7 @@ df -h ~                                # ≥ 30 GB free before anything heavy
 
 | Module | What |
 |---|---|
-| `core/anim` | `useT()` seconds · `tw/keys/spring/win/prog` · `E.*` easings · `noise/fbm` (continuous) · `rnd` (layout only) |
+| `core/anim` | `useT()` seconds (motion) · `useTq()` frame-snapped (digits, counters, captions — avoids motion-blur ghosting) · `tw/keys/spring/win/prog` · `E.*` easings · `noise/fbm` (continuous) · `rnd` (layout only) |
 | `core/vo` | `makeVO(lines)` → `vo.s(id) vo.e(id) vo.at(id, word) vo.w(id,i)` |
 | `sets` | `World` (SVG in world px) · `proj/Persp` (one-point perspective) · `LightPool` `Haze` `Stripe` · reference sets in `src/episodes/last-train/sets.tsx` |
 | `stage` | `Scene cam` + `Layer depth blur dof` (2.5D parallax + depth of field) · `Pic` · `Above y` (clip at a seat line) · `Glow` · `Motes` · `Vignette` · `Grade` · `Black` · `shake()` · `rock()` · fonts `F.*` |

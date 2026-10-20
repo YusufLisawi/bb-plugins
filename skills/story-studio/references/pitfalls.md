@@ -23,3 +23,17 @@
 | Frame folders filling the disk | rendering image sequences | `render.sh` renders straight to H.264 at 120 fps and blends with ffmpeg `tmix` → 30 fps; intermediate deleted |
 | A Luna/Codex agent described the wrong video's frames | it opened files from another folder | brief with absolute paths and "if it doesn't look like X you opened the wrong files" |
 | `ffmpeg` in a `while read` loop ate the input list | ffmpeg reads stdin | always `-nostdin` |
+| **Counters/timers/captions look doubled or "overprinted" in the master** (found by a frame-by-frame Luna QA, invisible in stills) | the 120 fps master averages 4 sub-samples; a number that changes between them shows 4 values at once | use `useTq()` (time snapped to the output frame) for every digit, counter, typed text and caption word state; keep `useT()` for motion. The kit's Captions/Counter/Timers/Speed/Stamp already do |
+| `pkill -f <pattern>` killed the shell running it (exit 144) | the shell's own command line contains the pattern | `.venv/bin/python scripts/stop-renders.py <project>` (skips itself and its parents), or kill exact PIDs |
+| `clean.sh` deleted a running render's temp folder | cleanup ran while a master held the GPU | clean.sh skips caches while `/tmp/story-studio-gpu.lock` is held |
+| A failed QA didn't stop a `render && qa && render …` chain | `qa.py … | tail` — the pipe's exit code is tail's | don't pipe commands whose exit code you rely on, or use `set -o pipefail` |
+| `mix.py` took > 10 min under load | moving averages via `np.convolve(x, ones(k))` = O(n·k) | cumulative-sum moving average (O(n)) — now ~20 s |
+| First frame black (bad thumbnail) | a fade-in from black at t = 0 | never fade from black at 0; frame 0 is the thumbnail |
+| Banging/waving arms smear into a mess under motion blur | ≥ 2.5 Hz large arm swings | ≤ 1.5 Hz, smaller amplitude, or accept and keep it brief |
+
+## Do a frame-by-frame QA of every master with the watch-video skill
+
+Stills can't show motion artefacts. After `qa.py`, run the master through watch-video
+(`fetch.sh <mp4>`, `frames.py --max 60`, `delegate.sh` with a harsh-critic focus: cut-off/overlapping
+text, accidental crops, floating characters, black/static frames, glitches, caption collisions;
+"rank the 10 fixes"), fix what it finds, re-render. It found the counter ghosting above.
