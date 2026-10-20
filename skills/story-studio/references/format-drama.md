@@ -64,8 +64,8 @@ p = alive(p, t, seed);
 - Lip sync: `scripts/envelope.py <slug>` → `public/<slug>/vo/env.json` (run after voice.py).
 
 Model sheet: `src/episodes/actor-lab/ActorLab.tsx` (turnaround, expressions, cast lineup, gait strips).
-Fast iteration without Remotion: `bun .cache/snap.tsx out.svg '{lookOverrides}' yaw WHO expr "viewBox"`
-then rasterize with cairosvg (`.cache/ras.py`) — seconds per look.
+Fast iteration without Remotion: `bun scripts/actor-snap.tsx out.svg '{lookOverrides}' yaw WHO expr "viewBox"`
+then `.venv/bin/python scripts/rasterize.py out.png out.svg` — seconds per look.
 
 ## Drama graphics (`src/kit/drama.tsx`) and iso (`src/kit/iso.tsx`)
 
