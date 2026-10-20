@@ -27,7 +27,7 @@ out.mkdir()
 sel = (f"isnan(prev_selected_t)+gte(t-prev_selected_t\\,{max_gap})"
        f"+gt(scene\\,{a.scene})*gte(t-prev_selected_t\\,{a.min_gap})")
 r = subprocess.run(
-    ["ffmpeg", "-hide_banner", "-nostats", "-i", str(video), "-an",
+    ["ffmpeg", "-nostdin", "-hide_banner", "-nostats", "-i", str(video), "-an",
      "-vf", f"select='{sel}',showinfo,scale='min(1024,iw)':-2",
      "-fps_mode", "vfr", "-q:v", "3", str(out / "raw_%05d.jpg")],
     capture_output=True, text=True)
