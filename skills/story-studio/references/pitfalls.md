@@ -39,3 +39,16 @@ Stills can't show motion artefacts. After `qa.py`, run the master through watch-
 (`fetch.sh <mp4>`, `frames.py --max 60`, `delegate.sh` with a harsh-critic focus: cut-off/overlapping
 text, accidental crops, floating characters, black/static frames, glitches, caption collisions;
 "rank the 10 fixes"), fix what it finds, re-render. It found the counter ghosting above.
+
+## Actor rig / drama format (2026-10-20)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Giant translucent "rabbit ears" around a head | a stroke width in **px** inside a group whose `matrix()` scales units → px (×120) | inside feature/hand matrices use widths in head units (`light.lineW`), never px |
+| Hands rendered as slivers / circles collapsed | path numbers rounded to 0.1 in unit space | `f1` rounds to 0.001 |
+| Character looks at the sky while reading a phone | head pitch sign | `hp > 0` nods down (`rotX(+hp)` in solve) |
+| Iso buildings all black | `mixColor` returned `rgb()` which the iso shade re-parsed as hex → NaN | `mixColor` parses both `#hex` and `rgb()` |
+| Child's face below the frame in a two-shot | child is 4.3 heads, adults 5.8 | raise the child's ground by ≈ 1.5·s |
+| Cough/knock hand flies above the head when crouched | targets used rest hip height | targets are relative to `pose.ph` |
+| Phone visible "on the shoulder" in a back view | prop drawn on top of the actor | for back views draw only the screen glow, behind the actor |
+| Flood/transformer SFX mask the narration (STT drops words) | "hit" cues level to the voice peak | big story sounds as `fx` at −6…−10, re-run stt_check on the mix |

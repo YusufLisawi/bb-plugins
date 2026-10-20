@@ -21,7 +21,21 @@ Find more: `GET https://api.elevenlabs.io/v1/shared-voices?search=…&gender=…
 Audition script from motion-film-studio is a good model if you need a new narrator: measure pace
 (≥ 2.9 w/s), pitch range (≥ 4 st), accuracy (1.0).
 
-## The take
+## The take — seamless (owner rule: "it should feel smooth")
+
+The user heard the old pipeline as "cut, slowed, paused". Causes: each narrator line was cut out
+of the take and re-spaced with designed gaps (breaths lost, rhythm broken) and `atempo` stretched
+it. Now:
+- The narrator's lines stay **one unbroken piece of the take** (natural breaths and pauses).
+  The take is split only where a cast line goes in, or at an explicit hold, at the **quietest
+  point between sentences**, with 40 ms equal-power crossfades.
+- Air column in script.tsv: **blank** between narrator lines (natural timing); a number = gap
+  after a cast line / before one; **`+0.8`** = an extra dramatic hold inserted at that point.
+- Speed: cast.json `"speed": 1.04` → ElevenLabs' own `voice_settings.speed`. Never atempo.
+- Cast lines get `previous_text`/`next_text` context and are loudness-matched to the narrator.
+- `"fx": "radio"` / `"phone"` in cast.json colours a voice (radio broadcast in black-sky).
+
+## The take (details)
 
 - `scripts/voice.py <slug>` reads the narrator's lines as **one continuous v4 take** (flow and
   emotion carry across lines) with `/with-timestamps`, cuts each line on its words, generates each

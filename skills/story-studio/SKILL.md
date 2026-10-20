@@ -24,9 +24,10 @@ and the bar.
 1. **Hook in the first second.** First frame already shows the world in motion; the first line
    is a second-person rule or a claim the viewer can't scroll past ("If the outbreak starts
    while you're on a night train, don't get off at the next station.").
-2. **It's a show, not a clip.** Cold open → title card (`TITLE · PART 1`) → named hero → rules
-   or facts woven into the story → escalating problem → a twist line → end card with the
-   next part's title + "FOLLOW FOR PART 2". Character dialogue in their own voices.
+2. **It's a show, not a clip — but no series branding.** Hook → named hero in an everyday
+   situation → rules shown as actions → escalation → a twist line → a CTA question that begs
+   for comments. **Never** a top series bar, show name or "PART 1" label (owner rule, 2026-10-20).
+   Easy English, relatable situations. Character dialogue in their own voices.
 3. **The voice is the clock.** Every beat is keyed to a spoken word (`vo.at(line, word)`),
    never to a typed time. Re-voicing re-times the whole film.
 4. **Always moving.** Every shot has a camera move (push, pull, track, rack focus), parallax
@@ -44,7 +45,8 @@ and the bar.
 
 | Format | Read | Reference |
 |---|---|---|
-| **Story pilot** (apocalypse, crime, survival, mystery, horror) | [references/format-story.md](references/format-story.md) | `last-train` |
+| **Illustrated drama** (DEFAULT for stories: survival, disaster, crime — rigged 3-D characters with real faces, iso inserts) | [references/format-drama.md](references/format-drama.md) | `black-sky`, `low-tide` |
+| Story pilot (older silhouette-puppet style) | [references/format-story.md](references/format-story.md) | `last-train` |
 | **Explainer / finance** (chess.history style: bobble-head characters in 2.5D sets) | [references/format-explainer.md](references/format-explainer.md) | `cobra-effect` |
 | **What if** (immersive, one running number, sound-led, often no narrator) | [references/format-whatif.md](references/format-whatif.md) | `trench` |
 | **Cardboard** (paper-craft dioramas; the ONLY format with generated assets) | [references/format-cardboard.md](references/format-cardboard.md) | — |
@@ -64,7 +66,7 @@ df -h ~                                # ≥ 30 GB free before anything heavy
    the next part's title. Sketch 3 premises, pick the strongest, say why. → format file.
 2. **Script** `episodes/<slug>/script.tsv` (`id⇥speaker⇥text with v4 tags⇥air after`) and
    `cast.json`. 220–260 words → 85–100 s. One emotion tag per line. → [references/voice.md](references/voice.md)
-3. **Voice** `.venv/bin/python scripts/voice.py <slug>` then
+3. **Voice** `.venv/bin/python scripts/voice.py <slug>` (seamless: see voice.md), `.venv/bin/python scripts/envelope.py <slug>` (lip sync), then
    `.venv/bin/python scripts/stt_check.py <slug>` (≥ 0.97; numbers/spelling diffs are fine;
    re-check doubtful lines in isolation). `--reuse` re-times from the saved take for free.
 4. **Sets** — designed in code, never generated (owner rule; only the cardboard format uses
@@ -96,6 +98,8 @@ df -h ~                                # ≥ 30 GB free before anything heavy
 | `core/vo` | `makeVO(lines)` → `vo.s(id) vo.e(id) vo.at(id, word) vo.w(id,i)` |
 | `sets` | `World` (SVG in world px) · `proj/Persp` (one-point perspective) · `LightPool` `Haze` `Stripe` · reference sets in `src/episodes/last-train/sets.tsx` |
 | `stage` | `Scene cam` + `Layer depth blur dof` (2.5D parallax + depth of field) · `Pic` · `Above y` (clip at a seat line) · `Glow` · `Motes` · `Vignette` · `Grade` · `Black` · `shake()` · `rock()` · fonts `F.*` |
+| `actor/*` | **The Actor rig** (use for all new stories): 3-D skeleton, faces, hair, gaits, actions, lip sync — see format-drama.md |
+| `drama` `iso` | house graphics (Chapter, TipCard, BigClock, Post, Callout, Headline, Icon, Finish) · isometric dioramas (IsoBox, IsoTile, IsoWindows, IsoCyl, IsoPipe, IsoLabel) |
 | `puppet` | `Puppet o p` + `pose(...)`, `idle walk sit sitSide tremor bang talk`, `back`, `infected`, `turn`, `brow`, rim light · `OUTFITS` · explainer faces: `o.face {brows, beard, blush}`, `o.bobble`, hats `pith turban kepi cap conductor beanie hood` |
 | `edu` | explainer devices: `PlaceCard Nameplate Notice(stamp) Counter RiseChart Bars GoldTitle QuoteCard`, palette `GOLD` |
 | `creatures` | `Cobra Slither DeadCobra Rat` — animals in code; write new ones the same way (continuous motion) |
