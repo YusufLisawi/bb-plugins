@@ -29,6 +29,7 @@
 | A failed QA didn't stop a `render && qa && render …` chain | `qa.py … | tail` — the pipe's exit code is tail's | don't pipe commands whose exit code you rely on, or use `set -o pipefail` |
 | `mix.py` took > 10 min under load | moving averages via `np.convolve(x, ones(k))` = O(n·k) | cumulative-sum moving average (O(n)) — now ~20 s |
 | First frame black (bad thumbnail) | a fade-in from black at t = 0 | never fade from black at 0; frame 0 is the thumbnail |
+| A hard cut shows one frame of both shots blended ("ghosting at cuts", found by frame QA) | the Shot switch used `useT()`: 2 of the 4 blur sub-samples see the old shot | switch shots (and any hard on/off) on `useTq()`; keep `useT()` inside the shot for motion |
 | Banging/waving arms smear into a mess under motion blur | ≥ 2.5 Hz large arm swings | ≤ 1.5 Hz, smaller amplitude, or accept and keep it brief |
 
 ## Do a frame-by-frame QA of every master with the watch-video skill
