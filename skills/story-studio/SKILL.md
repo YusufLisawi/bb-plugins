@@ -49,6 +49,7 @@ and the bar.
 | Story pilot (older silhouette-puppet style) | [references/format-story.md](references/format-story.md) | `last-train` |
 | **Explainer / finance** (chess.history style: bobble-head characters in 2.5D sets) | [references/format-explainer.md](references/format-explainer.md) | `cobra-effect` |
 | **What if** (immersive, one running number, sound-led, often no narrator) | [references/format-whatif.md](references/format-whatif.md) | `trench` |
+| **Crayon picture book** (wax crayon on toothy paper, watercolour wash with white-wax resist; WebGL engine in `src/kit/crayon/`, README there) | [references/format-crayon.md](references/format-crayon.md) | `tern` |
 | **Cardboard** (paper-craft dioramas; the ONLY format with generated assets) | [references/format-cardboard.md](references/format-cardboard.md) | — |
 
 The style studies of the 16 reference TikToks the user picked (what each does, frame by
