@@ -23,8 +23,12 @@ Key with `scripts/key.py`, look at every file on a contact sheet, redo only bad 
 
 - **Step time**: quantise motion to 12 fps (`const ts = Math.floor(t * 12) / 12`) for character
   and camera moves; keep the bulb flicker and dust continuous. That is the stop-motion feel.
-- **Boil**: a ±1.5 px offset and ±0.6° rotation per step (deterministic `rnd(step)`), applied to
-  every cut-out.
+- **Boil** (owner: "don't make the characters jiggle a lot"): at most ±0.4 px and ±0.15°, a new
+  value every 2 steps (`<Cut hold={2} amp={0.4} boilRot={0.15}>`); never on camera, sets or text.
+- **Eyes exactly on the face** (owner rule): heads come WITHOUT eyes (or with a grey disc where each
+  eye goes); measure each eye centre on the full-res PNG, store as fractions in art.ts, draw eyes
+  inside the head's own transform, and prove it with a crosshair debug sheet before animating.
+  Prefer front heads when both eyes show (a ¾ far eye breaks the same-size rule).
 - **Rig**: parts pinned at joints (rotate arms/tail/head around pivot points), a squash on landing.
 - **Googly eyes in code**: white circles with a black pupil that LAGS behind head motion with a
   damped spring (it's what makes them funny).

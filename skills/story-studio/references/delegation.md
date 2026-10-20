@@ -56,6 +56,10 @@ which model met the bar.
 | Opus 5.5 low | The 13th Floor, Dirty Money | B+, B+ | fast, clean structure, good fair-play twist plants, applies review notes precisely | simpler sets, stiffer staging; diagrams small until asked |
 | Haiku 5.5 max | The Night Ferry, What if the Sun disappeared? | B, B | follows the pipeline; physics-careful facts; good QA hygiene | emptier frames, less variety in puppets, needs more review rounds |
 
+
+### Second round (2026-10-20): cardboard animal facts, Opus 5.5 **medium**
+| Opus 5.5 medium | Sea Otters Hold Hands, Never Upset a Crow | A−, A− | followed the strict eye-anchor procedure (measured anchors + crosshair debug sheet), kept boil tiny, 109–140 cues, found and fixed a real kit bug (stop-motion steps changing mid-frame ghosted under motion blur → `useStepT` reads the output frame) | first passes cropped characters at frame edges and used labels too small for a phone; both fixed after one review |
+
 Recommendation: Opus 5.5 high or Sonnet 5.5 high for premium episodes; Opus 5.5 low for fast
 volume with a strong review; Haiku 5.5 max only with two review rounds. Every model improved a lot
 from the checkpoint-1 review — never skip it.
