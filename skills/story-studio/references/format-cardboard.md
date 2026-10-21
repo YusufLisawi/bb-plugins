@@ -254,7 +254,7 @@ mkdir -p episodes/<slug> src/episodes/<slug>
    why the pick wins · facts table (claim → documented / anecdote → source) · look (sets, vibes per scene) · length.
 2. **Script** `episodes/<slug>/script.tsv` (`id⇥N⇥[tag] line⇥`), applying §1 line by line; ≈ 150–180 words.
    `cast.json`: the Fish narrator (voice.md):
-   `{"N": {"provider": "fish", "model": "drama-3-preview", "voice": "9259a7392c454a1eb6436141abb5a558", "name": "adam adam (Fish)", "temperature": 0.7, "top_p": 0.7}}`
+   `{"N": {"provider": "fish", "model": "drama-3-preview", "voice": "8d21b053e2804e2a890e1cf62f267b6f", "name": "Verity (Fish)", "temperature": 0.7, "top_p": 0.7}}` — never "adam adam" (owner: bad and too common); see voice.md for the approved Fish voices
 3. **Voice** `.venv/bin/python scripts/voice.py <slug>` → `.venv/bin/python scripts/stt_check.py <slug>` (≥ 0.97).
    Check the length (`lines.json` last `end` + 1.4 s ≤ 72 s) and pace (2.7–3.0 w/s). Too long → cut words, not speed.
 4. **Shot list** `episodes/<slug>/shots.md`: one row per shot — time, line, set · vibe, the action ON the words,

@@ -23,16 +23,28 @@ Audition script from motion-film-studio is a good model if you need a new narrat
 
 ## Two providers: ElevenLabs v4 and Fish Audio
 
-`cast.json` picks the engine per role. **Cardboard films use Fish** (the approved cardboard narrator below); stories
-and the older formats use ElevenLabs.
+`cast.json` picks the engine per role. **Fish Audio `drama-3-preview` is the default for EVERY format now** (owner,
+2026-10-21: ElevenLabs is out of credits; do not call any ElevenLabs endpoint, including sound effects and music,
+until the owner says it's topped up. For sound use the shared library `~/.local/share/motion-film-studio/sfx/` and
+other episodes' `public/<slug>/sfx/`).
 
-| Role | Engine · voice | id | Why (measured, `episodes/cobra-cardboard/voice-audition.md`) |
+> [!WARNING] Never use the Fish voice "adam adam" (`9259a7392c454a1eb6436141abb5a558`). The owner: "it's bad and too
+> common". It narrates cobra-cardboard and mall; don't reuse it.
+
+Approved Fish voices (all `drama-3-preview`, speed 1.0, measured in the episodes' `voice-audition.md`):
+
+| Role | Voice | id | Used in · why |
 |---|---|---|---|
-| **Cardboard narrator** | Fish `drama-3-preview` · "adam adam — confident, friendly" | `9259a7392c454a1eb6436141abb5a558` | the only voice inside 2.7–3.0 w/s on both audition passages at native speed (2.81 / 3.01), clean, 100 % heard, 12–17 st pitch range; ElevenLabs Michael/Jon rushed the short kid-simple lines (3.3 w/s) |
+| Bright, playful explainer / fun facts | **Verity** | `8d21b053e2804e2a890e1cf62f267b6f` | tickle, octopus · 2.78–2.85 w/s after stripping tags, liveliest pitch |
+| Energetic, friendly storyteller | **Alex** | `b5f4515fd395410b9ed3aef6fa51d9a0` | icecream, emu · 2.70–2.89 w/s, comic timing |
+| Serious true crime | **True Crime (M4K)** | `0c433181a86b45ea8c730d856525ffb5` | heather · 2.82 w/s, deep, wide range |
+
+Audition 2–3 Fish voices per film anyway (variety across the channel is good): `GET https://api.fish.audio/model?title=…`.
+Tip from four films: emotion tags in the narrator take make Fish drag (2.35–2.6 w/s); strip them and sample 4–6 takes.
 
 ```json
-{ "N": { "provider": "fish", "model": "drama-3-preview", "voice": "9259a7392c454a1eb6436141abb5a558",
-         "name": "adam adam (Fish)", "temperature": 0.7, "top_p": 0.7 } }
+{ "N": { "provider": "fish", "model": "drama-3-preview", "voice": "8d21b053e2804e2a890e1cf62f267b6f",
+         "name": "Verity (Fish)", "temperature": 0.7, "top_p": 0.7 } }
 ```
 
 How Fish works in `scripts/voice.py` (same seamless rules as below):
