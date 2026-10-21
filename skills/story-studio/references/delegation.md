@@ -33,6 +33,21 @@ STORAGE: df -h ~ before renders; never render to /tmp; run scripts/clean.sh <slu
 SETS: designed in code only (sets.md). No generated images (cardboard format excepted), no image APIs, no AI video.
 ```
 
+### Cardboard variant (the MAIN format) — change these fields
+
+```
+Read references/format-cardboard.md completely (content rules first), then the reference film:
+src/episodes/cobra-cardboard/ (beats.ts, ShotsA–C.tsx, CobraCardboard.tsx, sound.ts) and episodes/cobra-cardboard/
+(brief.md, shots.md, script.tsv, cast.json, sfx.json, music.json, art_catalog.py). Open the library contact sheets
+public/_lib/cardboard/_sheets/*.jpg before planning shots.
+EPISODE: cardboard · slug <slug> · component <Id> · niche <niche> → vibes <from NICHE_VIBE>
+LENGTH: 55–72 s, ≈ 150–180 words, 3rd-grade English, few numbers/names, hook in 2 s, CTA question (format § 1).
+VOICE: Fish narrator from voice.md (sample takes; speed 1.0). ART: library first; a Codex imagegen thread ONLY for
+pieces unique to the story (spec art/briefs/_common.md), built with cardboard_lib.py --film <slug>.
+CHECKPOINTS: (0) brief + script + voice + shot list; (1) stills of every shot; (2) qa.py PASS + frame QA.
+RENDER: only through scripts/stills.sh / render.sh / deliver.sh (the queue); never bypass it.
+```
+
 ## Review rubric (parent)
 
 Open the child's stills sheet and the master's `out/<slug>-qa.jpg` yourself. Send back a short,
@@ -42,7 +57,7 @@ y=600"). Pass only when:
 - characters are staged on the plates (measured), readable, never off-model;
 - every shot moves; no empty/black frames except the planned dip;
 - captions clean; HUD never overlaps captions;
-- qa.py PASS (format, loudness, speech) and the sound table has ≥ 40 cues for 90 s;
+- qa.py PASS (format, loudness, speech) and the sound table has ≈ 0.6 cues/s (≈ 45 for a 72 s cardboard film);
 - the brief shows a real concept (not a reskin of the Last Train).
 Grade each child (A/B/C) with one line on what it did well and what it missed; tell the user
 which model met the bar.

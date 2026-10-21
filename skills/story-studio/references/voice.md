@@ -21,6 +21,39 @@ Find more: `GET https://api.elevenlabs.io/v1/shared-voices?search=…&gender=…
 Audition script from motion-film-studio is a good model if you need a new narrator: measure pace
 (≥ 2.9 w/s), pitch range (≥ 4 st), accuracy (1.0).
 
+## Two providers: ElevenLabs v4 and Fish Audio
+
+`cast.json` picks the engine per role. **Cardboard films use Fish** (the approved cardboard narrator below); stories
+and the older formats use ElevenLabs.
+
+| Role | Engine · voice | id | Why (measured, `episodes/cobra-cardboard/voice-audition.md`) |
+|---|---|---|---|
+| **Cardboard narrator** | Fish `drama-3-preview` · "adam adam — confident, friendly" | `9259a7392c454a1eb6436141abb5a558` | the only voice inside 2.7–3.0 w/s on both audition passages at native speed (2.81 / 3.01), clean, 100 % heard, 12–17 st pitch range; ElevenLabs Michael/Jon rushed the short kid-simple lines (3.3 w/s) |
+
+```json
+{ "N": { "provider": "fish", "model": "drama-3-preview", "voice": "9259a7392c454a1eb6436141abb5a558",
+         "name": "adam adam (Fish)", "temperature": 0.7, "top_p": 0.7 } }
+```
+
+How Fish works in `scripts/voice.py` (same seamless rules as below):
+- The narrator is ONE take (`/v1/tts`, WAV, `model` header, `reference_id` = the voice) at **speed 1.0** (no `speed`
+  key; owner rule). Fish returns no timestamps: word times come from **local faster-whisper** (large-v3-turbo, GPU,
+  under the whisper lock) aligned to the script words (`scripts/align.py`: difflib on the words, then each word's
+  edges refined on the audio energy — pauses ≥ 120 ms split, voicing trimmed). Never pass Whisper a prompt (it
+  garbled a take). The take's tail is trimmed after the last script word (one voice invented a "thank you").
+- Key: `~/.config/motion-film-studio/fish.env` (`FISH_API_KEY`); never print it. API notes:
+  `~/.agents/skills/fish-audio-api/SKILL.md`.
+- **Prosody varies per take.** Sample 4–6 takes and pick by measurement: after each fresh `voice.py <slug>` copy
+  `public/<slug>/vo/raw/narrator.{wav,json}` to `narrator_tN.*`; choose the take whose film length is ≤ 72 s and pace
+  2.7–3.0 w/s; copy it back and run `voice.py <slug> --reuse`. Commas instead of "…" tighten a slow take; never
+  time-stretch.
+- Tags: Fish reads `[intrigued]`, `[amused, low]`, `[ominous]` … like v4 (one per line); stt_check flags spoken tags.
+- New narrator? `.venv/bin/python scripts/voice_audition.py <slug> episodes/<slug>/audition-passage.txt
+  fish:<voice id>:<name> el:<voice id>:<name> …` reads the SAME passage (a real stretch of your script, tags
+  included) with each candidate and writes the measured table (accuracy, pace, YIN pitch range, loudness dynamics,
+  max gap, issues) to `episodes/<slug>/voice-audition.md`. Audition 3–4 Fish voices and 2 ElevenLabs ones on two
+  passages; you can't listen — pick by measurement.
+
 ## The take — seamless (owner rule: "it should feel smooth")
 
 The user heard the old pipeline as "cut, slowed, paused". Causes: each narrator line was cut out
@@ -43,8 +76,8 @@ it. Now:
   on one timeline with the air from the script. Output: `public/<slug>/vo/vo.wav` + `lines.json`.
 - v4 tags: one per line, qualifiers inside one bracket: `[ominous, quiet]`. Tags are never spoken
   (stt_check reports it). Don't put tags mid-sentence.
-- Pace target: 2.8–2.9 words/s while speaking. Faster than 3.1 feels rushed; under 2.6 is the
-  "slow, boring" the user hates.
+- Pace target: 2.8–2.9 words/s while speaking (cardboard, with its very short lines: 2.7–3.0). Faster than 3.1
+  feels rushed; under 2.6 is the "slow, boring" the user hates.
 - `--reuse` re-cuts and re-times from the saved raw take (free) — use it to change air.
 - `--only id,id` regenerates just those cast lines.
 

@@ -52,3 +52,14 @@ text, accidental crops, floating characters, black/static frames, glitches, capt
 | Cough/knock hand flies above the head when crouched | targets used rest hip height | targets are relative to `pose.ph` |
 | Phone visible "on the shoulder" in a back view | prop drawn on top of the actor | for back views draw only the screen glow, behind the actor |
 | Flood/transformer SFX mask the narration (STT drops words) | "hit" cues level to the voice peak | big story sounds as `fx` at −6…−10, re-run stt_check on the mix |
+
+## Cardboard 2.0 (2026-10-21) — full list in format-cardboard.md § 11
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| A beat fires on the wrong word when a word is said twice | `vo.at()` ignores punctuation → finds the first "growing" | `vo.at(id, word, fromIndex)`; print `B` with bun and check repeated words |
+| Puppet-held props nearly invisible | held props were in the hand image's px (fixed in the kit) | `holdR/holdL` children are WORLD px; `upright()` keeps them level |
+| Small action at floor level hidden by captions | feet framed at screen 1550–1800, captions at 1430 | for small things on the ground put the ground line at ≈ 1320 (`camY(groundY, 1320, z)`) |
+| Fast slide transitions look stepped in the master | 4 motion-blur samples = 4 copies of a card moving 70–140 px/frame | cardboard masters use the default 8 samples |
+| A stamp hidden behind people | the set layer is under the cast | put it in the `cast` plane or where nobody overlaps |
+

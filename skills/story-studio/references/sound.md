@@ -42,3 +42,18 @@ voice peak −1), the score sits 17 dB under the voice and ducks 7 dB under spee
 loudnorm to −14 LUFS / −2.2 dBTP target. Then always:
 `.venv/bin/python scripts/stt_check.py <slug> public/<slug>/mix.wav` (≥ 0.97, else trim the cue
 that masks the voice).
+
+## Cardboard films (reference: `src/episodes/cobra-cardboard/sound.ts`)
+
+- **Papery foley for every paper move**: a `swipe` for every slide/push transition (peak mid-move), a `tape` rip for
+  a tape label, `marker` squeaks for hand lettering, a `sticky`/`poster` slap, a `stamp` thump, `pageturn` for a flip,
+  `press` when the maker's hand presses a card; the story's own sounds (hiss, clink, flop, squeak, snip).
+- **One bed per set** (`bed(a, b, "office")` helper: shot start → end, looped with a crossfade): maker's table hum,
+  the place's ambience (bazaar, office, yard at night, street, bank).
+- **Density ≈ 0.6 cues/s**: count the NON-bed cues ÷ duration (the cobra film: 48 cues / 71.9 s = 0.67). One sound per
+  beat, never one for every small thing that moves — the voice leads.
+- **The punchline gets a music drop**: `MUSIC` automation to −16 dB for ~0.8 s around it ("Let them go!"), back up
+  after; the last line gets a plucked `outro` hit.
+- Check the shared library first (`~/.local/share/motion-film-studio/sfx/library.json`: stamp, pageturn, pageflip,
+  scratch, woodblock, zoom, swing, sparkle, tear, pin, paper…). NB library `slide` is a comic slide WHISTLE, not a
+  paper slide — generate a papery `swipe` instead.

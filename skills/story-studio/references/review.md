@@ -25,6 +25,13 @@ Open the sheet with Read. Then fix and re-render only the shots you changed.
 - [ ] No black or empty frames except the deliberate dip after the twist.
 - [ ] Title card and end card are centred and complete.
 
+## Cardboard extra checks
+
+The framing and staging checklist in [format-cardboard.md](format-cardboard.md) § 9 — frame 0 reads the hook; feet on
+floors via `camY`; the caption band (y ≈ 1380–1480) never hides the action; 60 px margins (hands, hats, raised arms);
+bent-elbow arms, no stretched reach; held props visible (world px, `upright`); eyes only on measured anchors; boil
+tiny; props in the same place across cuts; stamps on top of the cast; faces readable in dark vibes.
+
 ## QA gate (master)
 
 `.venv/bin/python scripts/qa.py <slug>`: 1080×1920, 30 fps, H.264 High, AAC; −14 ± 0.7 LUFS;
