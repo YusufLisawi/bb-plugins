@@ -29,6 +29,9 @@ and `bb provider-retry status <thread-id> --json` for pending retries.
 `bb pool thread [thread-id]` shows which accounts a thread may use;
 `--group <name-or-id>` limits it to a group, `--account <id,id>` to specific
 accounts, and `--all` removes the limit. The current thread is the default.
-A limited thread never falls back to accounts outside its selection; a
-provider with no account in the selection keeps using the whole pool.
+A limited thread uses its selection first. When every account in it is paused
+or spent, the request spills over to the pool account with the most room left
+instead of failing, without moving the pool's current account, and returns to
+the selection once one of its accounts recovers. A provider with no account in
+the selection keeps using the whole pool.
 

@@ -520,9 +520,22 @@ export class AccountPoolHub {
       allowed === null
         ? providerAccounts
         : providerAccounts.filter((account) => allowed.has(account.id));
-    const candidateIds = new Set(accounts.map((account) => account.id));
-    const cursorScope =
+    let candidateIds = new Set(accounts.map((account) => account.id));
+    let cursorScope =
       allowed === null ? null : [...allowed].sort().join(",");
+    // Once every account a limited thread may use is spent or paused, the
+    // request spills over to the pool account with the most room left
+    // instead of failing. Spill picks use their own cursor so they never move
+    // the thread's or the pool's current account.
+    let spilled = false;
+    const spill = () => {
+      if (allowed === null || spilled) return false;
+      spilled = true;
+      candidateIds = new Set(providerAccounts.map((account) => account.id));
+      cursorScope = `spill:${cursorScope ?? ""}`;
+      usageRefreshed = false;
+      return true;
+    };
     const parsed = adapter.parseRequest(body, request.headers);
     const family = parsed.family;
     const affinityKey =
@@ -534,7 +547,7 @@ export class AccountPoolHub {
         ? null
         : JSON.stringify([adapter.provider, hostId, parsed.parentAffinityId]);
     try {
-      while (attempted.size < candidateIds.size) {
+      while (attempted.size < candidateIds.size || spill()) {
         signal.throwIfAborted();
         const selected = await this.select(
           adapter.provider,
@@ -547,6 +560,7 @@ export class AccountPoolHub {
           routing,
           signal,
           cursorScope,
+          spilled,
         );
         if (
           !usageRefreshed &&
@@ -565,7 +579,10 @@ export class AccountPoolHub {
           );
           continue;
         }
-        if (selected === null) break;
+        if (selected === null) {
+          if (spill()) continue;
+          break;
+        }
         let pacing: PacingFlight | null = null;
         const heldMs = (selected.quota.heldUntil ?? 0) - this.options.now();
         let activePacing = this.pacingByAccount.get(selected.account.id);
@@ -811,7 +828,11 @@ export class AccountPoolHub {
       signal.throwIfAborted();
       this.recordOutcomes(attempted, null);
       return failure === null
-        ? this.noEligibleResponse(accounts, family, adapter)
+        ? this.noEligibleResponse(
+            providerAccounts.filter((account) => candidateIds.has(account.id)),
+            family,
+            adapter,
+          )
         : adapter.errorResponse(
             failure.status,
             failure.message,
@@ -935,6 +956,7 @@ export class AccountPoolHub {
     routing: RoutingAttempt,
     signal: AbortSignal,
     cursorScope: string | null = null,
+    preferRoom = false,
   ): Promise<SelectedAccount | null> {
     const scopedKey =
       cursorScope === null ? null : JSON.stringify([provider, cursorScope]);
@@ -1032,7 +1054,8 @@ export class AccountPoolHub {
       .find((candidate) => candidate !== undefined);
     // Balanced mode: new conversations, retries and failovers go to the
     // account with the most room; a pin only moves off a nearly full account.
-    const balanced = this.options.getSettings().routingMode === "balanced";
+    const balanced =
+      preferRoom || this.options.getSettings().routingMode === "balanced";
     const balancedPick = balanced
       ? pickBalanced(
           candidates,

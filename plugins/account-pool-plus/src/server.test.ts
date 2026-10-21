@@ -2367,11 +2367,13 @@ describe("Account Pool plugin", () => {
     expect(await send(fixture.key)).toBe(200);
     expect(keys).toEqual(["sk-two", "sk-one", "sk-one", "sk-two"]);
 
-    // A paused group member is not replaced by an account outside the group.
+    // With its only group member paused, the thread spills to the pool.
     await fixture.host.harness.behavior.callRpc("account.disable", { id: second.id });
-    expect(await send(fixture.key)).not.toBe(200);
-    expect(keys).toHaveLength(4);
+    expect(await send(fixture.key)).toBe(200);
+    expect(keys.at(-1)).toBe("sk-one");
     await fixture.host.harness.behavior.callRpc("account.enable", { id: second.id });
+    expect(await send(fixture.key)).toBe(200);
+    expect(keys.at(-1)).toBe("sk-two");
 
     const cleared = await fixture.host.harness.behavior.callRpc("thread.set", {
       threadId: "thread-one",
@@ -2386,11 +2388,77 @@ describe("Account Pool plugin", () => {
       .array(accountSummarySchema)
       .parse(await fixture.host.harness.behavior.callRpc("account.list", null));
     const byId = new Map(listed.map((account) => [account.id, account]));
-    expect(byId.get(fixture.account.id)?.hits).toMatchObject({ ok: 3, movedOn: 0 });
-    expect(byId.get(second.id)?.hits).toMatchObject({ ok: 2, movedOn: 0 });
+    expect(byId.get(fixture.account.id)?.hits).toMatchObject({ ok: 4, movedOn: 0 });
+    expect(byId.get(second.id)?.hits).toMatchObject({ ok: 3, movedOn: 0 });
     expect(byId.get(fixture.account.id)?.hits?.lastOkAt).not.toBeNull();
     expect(byId.get(fixture.account.id)?.current).toBe(true);
     expect(byId.get(second.id)?.current).toBe(false);
+  });
+
+  it("spills a limited thread to the pool account with the most room", async () => {
+    const keys: string[] = [];
+    const reset = String(Math.floor(Date.now() / 1_000) + 3_600);
+    const usage: Record<string, string> = {
+      "sk-one": "0.99",
+      "sk-two": "0.7",
+      "sk-three": "0.2",
+    };
+    const upstream = await startUpstream(async (request, response) => {
+      const key = request.headers["x-api-key"]?.toString() ?? "";
+      keys.push(key);
+      await readRequestBody(request);
+      response.writeHead(200, {
+        "content-type": "application/json",
+        "anthropic-ratelimit-unified-5h-status": "allowed",
+        "anthropic-ratelimit-unified-5h-utilization": usage[key] ?? "0",
+        "anthropic-ratelimit-unified-5h-reset": reset,
+      });
+      response.end("{}");
+    });
+    cleanups.push(upstream.close);
+    const fixture = await createFixture({
+      upstreamUrl: upstream.url,
+      apiKey: "sk-one",
+    });
+    const second = await addApiAccount(fixture, "sk-two", 200);
+    const third = await addApiAccount(fixture, "sk-three", 300);
+    const send = async () => {
+      const response = await fixture.host.harness.behavior.fetchHttp(
+        "POST",
+        "/v1/messages",
+        {
+          headers: authHeaders(fixture.key),
+          body: JSON.stringify({ model: "claude-opus-4-1" }),
+        },
+      );
+      await response.text();
+      return response.status;
+    };
+    const limitTo = async (id: string) => {
+      const limited = await fixture.host.harness.behavior.runCli([
+        "thread", "thread-one", "--account", id,
+      ]);
+      expect(limited.exitCode).toBe(0);
+    };
+    // One answer from each account records its usage.
+    await limitTo(second.id);
+    expect(await send()).toBe(200);
+    await limitTo(third.id);
+    expect(await send()).toBe(200);
+    await limitTo(fixture.account.id);
+    expect(await send()).toBe(200);
+
+    // sk-one is now past the switch threshold, so the thread spills to the
+    // account with the most room rather than the next one in priority order.
+    expect(await send()).toBe(200);
+    expect(await send()).toBe(200);
+    expect(keys).toEqual(["sk-two", "sk-three", "sk-one", "sk-three", "sk-three"]);
+
+    // The pool's own current account did not move to the spill account.
+    const listed = z
+      .array(accountSummarySchema)
+      .parse(await fixture.host.harness.behavior.callRpc("account.list", null));
+    expect(listed.find((account) => account.id === third.id)?.current).toBe(false);
   });
 
   it("balanced mode sends new conversations to the account with the most room", async () => {
