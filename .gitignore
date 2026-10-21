@@ -12,6 +12,8 @@ coverage/
 skills/**/secrets/
 skills/**/.secrets/
 
-# Private client skills (EVA, K-TUIN): kept on this machine only.
+# Private client skills (EVA, K-TUIN, EVA ERP): kept on this machine only.
 skills/eva-*/
 skills/ktuin-*/
+skills/erp-operator-offboarding/
+skills/lead-recycling/
