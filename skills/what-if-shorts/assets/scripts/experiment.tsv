@@ -1,0 +1,18 @@
+# experiment engine — replace every <…> with your line (engines.md § experiment). Then: lint_script.py script.tsv --engine experiment
+# id	speaker	text	air	kw   (speaker N = narrator; air blank = natural, +0.75 = a hold; kw = optional caption keywords, !word = red)
+hook	N	<This guy [does odd thing] every day for a month.>	
+expect	N	<People said it would [prediction].>	
+nope	N	<It didn't.>	
+result	N	<By morning, [the result].>	
+mech1	N	<[Mechanism step 1].>	
+mech2	N	<[Mechanism step 2].>	
+mech3	N	<[Mechanism step 3].>	
+mech4	N	<[Mechanism step 4].>	
+bigger	N	<So he went bigger, [N].>	
+iceberg	N	<Because this [thing] is an iceberg.>	
+roof	N	<The [visible part] is just the roof.>	
+numbers	N	<[The hidden world in 2 numbers].>	
+longterm	N	<And every year, [the long-term effect].>	
+but	N	<But [the catch].>	
+need	N	<[What it really needs].>	
+cliff	N	<[The cliffhanger line].>	

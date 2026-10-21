@@ -1,5 +1,10 @@
 # Format: the "what if" (immersive, sound-led, often no narrator)
 
+> [!NOTE] Not the farm format
+> This file is the immersive, narrator-less "what if" (`trench`). The narrated flat-vector format of the farm film
+> ("If the zombie apocalypse starts while you're on a farm…", fast cuts on words, any niche) has its own skill:
+> `~/Developer/bb-plugins/skills/what-if-shorts/SKILL.md`.
+
 The user on the references: *"this is very nice, it has no speech, just sound effects, and it makes
 you live the situation."* (@cloveranimationns water disappears, 4.4 M; @zenithwhatif every human
 disappears, 8.5 M). Reference episode: **`trench`** (WHAT IF YOU SANK TO THE BOTTOM OF THE OCEAN?,

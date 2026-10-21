@@ -1,0 +1,18 @@
+# pov engine — replace every <…> with your line (engines.md § pov). Then: lint_script.py script.tsv --engine pov
+# id	speaker	text	air	kw   (speaker N = narrator; air blank = natural, +0.75 = a hold; kw = optional caption keywords, !word = red)
+cold1	C1	<[A normal-life line from someone you love].>	
+change	N	<[Every X on Earth] just [stopped / vanished].>	
+except	N	<Except [you / yours].>	
+m1	N	<[Fragment: the first strange consequence].>	
+m2	N	<[Fragment].>	
+h1	N	<[World-scale consequence].>	
+h2	N	<[A darker turn, 3–5 words].>	
+d1	N	<[A day later: what changed].>	
+d2	N	<[Fragment].>	
+intimate	N	<[One personal line].>	
+call	C2	<[A voicemail / call line in another voice].>	
+y1	N	<[Years later: the long cost].>	
+y2	N	<You're [age].>	
+endstate	N	<[The final consequence, ≤ 8 words].>	
+debate	N	<[Option A] or [option B]. Who has it worse?>	
+loop	N	<You'd give anything to go back.>	

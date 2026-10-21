@@ -1,0 +1,19 @@
+# survival engine — replace every <…> with your line (engines.md § survival). Then: lint_script.py script.tsv --engine survival
+# id	speaker	text	air	kw   (speaker N = narrator; air blank = natural, +0.75 = a hold; kw = optional caption keywords, !word = red)
+hook	N	<If [event] starts while you're [everyday place], do not [obvious instinct].>	
+reframe	N	<Without knowing it, you're already in one of the [best/worst] places to survive.>	
+loop	N	<But only if you don't make one very stupid mistake.>	
+instinct	N	<[Hero]'s first instinct is to [obvious move] to [reason].>	
+no	N	<No, [why it kills you, one clause].>	
+clock	N	<Instead, [hero] has about [N minutes] before [system] [fails].>	
+first	N	<First, [resource].>	
+depend	N	<[Source] runs on [X], and when [X] goes, so does [source].>	
+fix	N	<He has a [fix], but [using it] creates a new problem.>	
+rule	N	<[Here], [the fix] can [danger] from [distance] away.>	
+alone	N	<And [hero] doesn't [live alone / have …].>	
+list	N	<[N] [things], [N] [things], [N] [thing], and a [thing] that [funny or dangerous habit].>	
+stakes	N	<[Keeping X] is going to be almost impossible.>	
+montage	N	<So he [action], [action], and [action].>	
+calm	N	<On paper, he could last here for [time].>	
+turn	N	There was just one problem.	+0.75
+reveal	N	<[Someone / Something] was already [inside the X].>	

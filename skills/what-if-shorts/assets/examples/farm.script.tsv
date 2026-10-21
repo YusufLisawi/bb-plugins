@@ -1,0 +1,17 @@
+hook	N	If the zombie apocalypse starts while you're on a farm, do not drive into town.	
+best	N	Without knowing it, you're already in one of the best places to survive.	
+mistake	N	But only if you don't make one very stupid mistake.	
+instinct	N	Jake's first instinct is to jump in his truck and drive to Wichita to see what's going on.	
+no	N	No, that's exactly where everyone is going.	
+instead	N	Instead, Jake has about 30 minutes before the power grid starts failing.	
+water	N	First, water.	
+well	N	His well runs on electricity, and when the power goes out, so does the well.	
+gen	N	He has a generator, but starting it creates a new problem.	
+engine	N	On a quiet farm, an engine can give away your position from hundreds of yards away.	
+alone	N	And Jake doesn't live alone.	
+animals	N	30 chickens, 12 cows, 1 horse, and a dog that barks at absolutely everything.	
+quiet	N	Keeping this farm quiet is going to be almost impossible.	
+gate	N	So he locks the gate, brings the animals closer to the house, and starts counting everything he has.	
+paper	N	On paper, he could last here for weeks.	
+problem	N	There was just one problem.	+0.75
+barn	N	Someone was already inside the barn.	

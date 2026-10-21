@@ -1,0 +1,25 @@
+/**
+ * {{TITLE}} — the sound design, written from the SAME beats as the picture (beats.ts). Exported by
+ * scripts/sound_export.sh {{SLUG}} {{SLUG}} → public/{{SLUG}}/sound.json → scripts/mix.py (levels every cue against the voice;
+ * `db` is a trim). Pattern: src/episodes/farm/sound.ts — one bed per set, a cue on every visible event (≥ 1.2 cues/s),
+ * a sting on each slam, the score shaped by MUSIC. Sounds: public/{{SLUG}}/sfx/<name>.mp3 (see voice-and-sound.md § 4).
+ */
+import { B, CUTS, DUR, vo, ws, we } from "./beats";
+
+export type Cue = { t: number; sfx: string; db?: number; kind: "amb" | "fx" | "hit" | "ui"; align?: "peak" | "attack"; dur?: number; fi?: number; fo?: number; pan?: number; pan2?: number; note?: string };
+const c = (t: number, sfx: string, kind: Cue["kind"], db = 0, more: Partial<Cue> = {}): Cue => ({ t, sfx, kind, db, ...more });
+const bed = (a: number, b: number, sfx: string, db = 0, note = "", fi = 0.3, fo = 0.4): Cue => c(a, sfx, "amb", db, { dur: b - a, fi, fo, note });
+const S = CUTS;
+void B; void ws; void we; void vo; void c; void bed; void S;
+
+export const CUES: Cue[] = [
+  /* beds: one per set, e.g.  bed(0, S.<firstShotOfNextSet>, "room", -3, "indoors: room tone"), */
+  /* actions + HUD + slams, e.g.  c(B.pinWater, "pop", "ui", 0, { note: "WATER" }),  c(ws("reveal", 4), "title_hit", "hit", -8) */
+];
+
+/** score automation [t, dB]: a low bed under the voice (mix.py ducks it 7 dB under speech); −4 in the drop, −6 at the end */
+export const MUSIC: [number, number][] = [
+  [0, 9], [DUR, -6],
+];
+
+export const META = { duration: DUR, slug: "{{SLUG}}" };

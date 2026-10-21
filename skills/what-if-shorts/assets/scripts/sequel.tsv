@@ -1,0 +1,19 @@
+# sequel engine — replace every <…> with your line (engines.md § sequel). Then: lint_script.py script.tsv --engine sequel
+# id	speaker	text	air	kw   (speaker N = narrator; air blank = natural, +0.75 = a hold; kw = optional caption keywords, !word = red)
+recap	N	<[Hero] has [thing], [thing], [thing], and [the cliffhanger item].>	
+callback	N	<Most of you said, [the majority answer].>	
+resolve	N	<[The first beat that pays off the last reveal].>	
+turn1	N	<[A fresh turn, 2–6 words].>	
+meet	N	<[Name], [age], [one fact that matters later].>	
+rule1	N	<[Action that leads to the rule].>	
+rule1b	N	<Rule number [N]. [The rule in ≤ 6 words].>	
+cause1	N	<[The physical cause, one sentence].>	
+steps	N	<[Fragment]. [Fragment]. [Fragment].>	
+payoff	N	<[An old plant pays off].>	
+mistake	N	<Mistake number [N]. [What he does wrong].>	
+cause2	N	<[Why it's a mistake, one sentence].>	
+plant	N	<[The new plant, shown once, nobody comments].>	
+night	N	<[Time stamp]. [The threat moves].>	
+escalate	N	<[The stakes in one line].>	
+choice	N	<[The hard choice in one line].>	
+ask	N	<Would you [verb] [her/him/them]?>	

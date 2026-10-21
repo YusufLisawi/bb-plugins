@@ -1,0 +1,21 @@
+# An ORIGINAL survival-engine script in a new niche (not produced yet): a worked example of the formula, not a template to copy.
+# Facts to re-verify before use: NWS "Turn Around Don't Drown" (a foot of moving water can float most cars); car-escape advice
+# (seatbelt, window, out, children first; a sinking car floats for about a minute); water pressure holds a car door shut.
+# id	speaker	text	air	kw
+hook	N	If your car gets caught in a flood, do not try to drive through.		flood
+reframe	N	Without knowing it, you're sitting in the most dangerous place in the storm.		dangerous
+loop	N	But one simple rule gets you out.		rule
+instinct	N	Maya's first instinct is to keep driving, because the water looks shallow.		shallow
+no	N	No, just one foot of moving water can float her car.		float
+clock	N	Instead, she has about one minute before the water reaches the windows.		minute
+first	N	First, seatbelt.		seatbelt
+depend	N	Her windows run on electricity, and once water floods the car, they can stop.		electricity
+fix	N	She pushes the door, but the water outside holds it shut.		shut
+rule	N	In a sinking car, the window is your way out.		window
+alone	N	And Maya isn't alone.		
+list	N	A baby in the back, a scared dog, and water at her knees.		
+stakes	N	Getting everyone out is going to be almost impossible.		impossible
+montage	N	So she unbuckles, rolls the window down, and passes the baby out first.		baby
+calm	N	On the roof, they finally feel safe.		safe
+turn	N	There was just one problem.	+0.75	
+reveal	N	The car was already floating toward the bridge.		

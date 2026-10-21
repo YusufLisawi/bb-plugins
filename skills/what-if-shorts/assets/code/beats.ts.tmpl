@@ -1,0 +1,63 @@
+/**
+ * {{TITLE}} — timing. Every time in the film comes from the voice (public/{{SLUG}}/vo/lines.json).
+ * Cuts sit on words: cut(line, word, frac) = that word's start + frac of the way to the next word.
+ * Generated from episodes/{{SLUG}}/shots.tsv + script.tsv by new_episode.py — from now on edit THIS file
+ * (re-running `new_episode.py code --force` overwrites it).
+ */
+import { makeVO, type Line } from "../../core/vo";
+import lines from "../../../public/{{SLUG}}/vo/lines.json";
+
+export const vo = makeVO(lines as Line[]);
+const L = (id: string) => vo.L(id);
+
+/** start of word i of a line + frac·(gap to the next word) */
+export const cut = (id: string, i: number, frac = 0) => {
+  const ws = L(id).words;
+  const s = ws[i].s;
+  let next: number;
+  if (i + 1 < ws.length) next = ws[i + 1].s;
+  else {
+    const k = vo.lines.findIndex((l) => l.id === id);
+    next = k + 1 < vo.lines.length ? vo.lines[k + 1].words[0].s : ws[i].e + 0.4;
+  }
+  return s + frac * (next - s);
+};
+/** word start / end */
+export const ws = (id: string, i: number) => L(id).words[i].s;
+export const we = (id: string, i: number) => L(id).words[i].e;
+
+/* ───────── the shots (film order) ───────── */
+const LAST = vo.end(); // the last word ends
+export const CUTS = {
+{{CUTS}}
+};
+export type ShotId = keyof typeof CUTS;
+export type ShotType = "acting" | "closeup" | "ots" | "insert" | "map" | "diagram" | "card" | "slam" | "threat" | "inventory" | "journey" | "end";
+export const TYPES: Record<ShotId, ShotType> = {
+{{TYPES}}
+};
+export const DUR = LAST + {{TAIL}};
+export const SHOTS = (Object.keys(CUTS) as ShotId[]).map((id, k, arr) => ({
+  id,
+  type: TYPES[id],
+  t0: CUTS[id],
+  t1: k + 1 < arr.length ? CUTS[arr[k + 1]] : DUR,
+}));
+export const shotOf = (id: ShotId) => SHOTS.find((s) => s.id === id)!;
+
+/* ───────── captions: chunks of 2–5 words (line, first word, last word, keyword colours) — REVIEW THEM ─────────
+ * orange = the key fact / number (≈ every second chunk), red = danger / negation, all: RED = the turn and the reveal.
+ * Dialogue chunks take the speaker's colour (all: TEAL / LAVENDER). text: overrides the shown words (… or a colon). */
+export const ORANGE = "#f5a623", RED = "#e8372c", TEAL = "#5fd3c6", LAVENDER = "#c7b8ff";
+export type Chunk = { id: string; a: number; b: number; text?: string; kw?: Record<number, string>; all?: string };
+export const CHUNKS: Chunk[] = [
+{{CHUNKS}}
+];
+/** captions hide on slams, on the end card and on anything after the last word (the final threat) */
+export const HIDE: [number, number][] = SHOTS.filter((s) => s.type === "slam" || s.type === "end" || s.t0 >= LAST).map((s) => [s.t0 - 0.05, s.t1 + 0.05]);
+
+/* ───────── story beats (word-anchored): one per visible event, used by the shots AND sound.ts ─────────
+ * e.g.  pinWater: ws("reframe", 6),  rule1: ws("no", 4),  gateShut: ws("montage", 4) */
+export const B = {
+  start: 0,
+};

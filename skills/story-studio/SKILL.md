@@ -65,6 +65,7 @@ and the bar.
 | **Explainer / finance** (chess.history style: bobble-head characters in 2.5D sets) | [references/format-explainer.md](references/format-explainer.md) | `cobra-effect` |
 | **What if** (immersive, one running number, sound-led, often no narrator) | [references/format-whatif.md](references/format-whatif.md) | `trench` |
 | **Crayon picture book** (wax crayon on toothy paper, watercolour wash with white-wax resist; WebGL engine in `src/kit/crayon/`, README there) | [references/format-crayon.md](references/format-crayon.md) | `tern` |
+| **What-If Shorts — the farm format, any niche** (flat-vector 2-D drawn in code, a fast narrator, a cut every ≈ 1.6 s on a word, 2–5-word captions with orange/red keywords, maps, cutaways and HUD cards; kit `src/kit/flat`; survival, build, scale/zoom ladder, POV and experiment engines) | **its own skill: `what-if-shorts`** (`~/Developer/bb-plugins/skills/what-if-shorts/SKILL.md`) | **`farm`** |
 | **HD-2D** (flat pixel sprites in a lit, fogged 3-D diorama through a tilt-shift lens; vertical survival-rules shorts with RPG UI plates, Fish Ethan voice, fully synthesized sound; WebGL engine in `src/kit/hd2d/`, on branch `ep/hollow` until merged) | [references/format-hd2d.md](references/format-hd2d.md) | `hollow` |
 
 The style studies of the 16 reference TikToks the user picked (what each does, frame by

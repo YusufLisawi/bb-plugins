@@ -1,0 +1,6 @@
+# Shot plan — one row per shot, in film order (pacing-and-shots.md § 7). Tab-separated. Lines starting with # are ignored.
+# line + word (0-based) + frac = the cut: that word's start + frac of the gap to the next word. The first row starts at 0 s.
+# Rows after the last word: line END, word = seconds after the last word ends (e.g. 0.62), frac blank.
+# type: acting closeup ots insert map diagram card slam threat inventory journey end
+# Worked example: ~/Developer/bb-plugins/skills/what-if-shorts/assets/examples/farm.shots.tsv
+# id	line	word	frac	type	what	devices

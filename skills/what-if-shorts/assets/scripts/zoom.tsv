@@ -1,0 +1,17 @@
+# zoom engine — replace every <…> with your line (engines.md § zoom). Then: lint_script.py script.tsv --engine zoom
+# id	speaker	text	air	kw   (speaker N = narrator; air blank = natural, +0.75 = a hold; kw = optional caption keywords, !word = red)
+hook	N	<What if you zoomed in until [everyday thing] [touched]?>	
+belief	N	<Looks like [they're touching].>	
+nope	N	<They're not.>	
+l1	N	<[Thing], [one surprising fact].>	
+l2	N	<[Thing], [one surprising fact].>	
+l3	N	<[Thing], [one surprising fact].>	
+l4	N	<[Thing], [one surprising fact].>	
+l5	N	<[Thing], [one surprising fact].>	
+l6	N	<[Thing], [one surprising fact].>	
+m1	N	<[Mechanism, part 1].>	
+m2	N	<[Mechanism, part 2].>	
+m3	N	<The gap stops here, [size].>	
+reframe	N	<That [push] is what you feel as [touch].>	
+blow	N	<You've never [touched anything] in your life.>	
+final	N	<Even now, you're [floating on your chair].>	

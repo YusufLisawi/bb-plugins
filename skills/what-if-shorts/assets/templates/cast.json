@@ -1,0 +1,12 @@
+{
+ "N": {
+  "provider": "fish",
+  "model": "drama-3-preview",
+  "voice": "078eaa5208ca42a1909d2e6fac9c93f7",
+  "name": "Alex American Young male (Fish) — the format's narrator",
+  "temperature": 0.7,
+  "top_p": 0.7,
+  "tags": "strip",
+  "speed": 1.0
+ }
+}

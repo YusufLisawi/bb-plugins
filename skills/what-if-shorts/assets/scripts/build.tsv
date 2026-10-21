@@ -1,0 +1,22 @@
+# build engine — replace every <…> with your line (engines.md § build). Then: lint_script.py script.tsv --engine build
+# id	speaker	text	air	kw   (speaker N = narrator; air blank = natural, +0.75 = a hold; kw = optional caption keywords, !word = red)
+hook	N	<If you [do the naive version], you have a [goal].>	
+fail1	N	<But [specific failure, with a vivid simile].>	
+fix1	N	<So you [specific fix].>	
+spec1	N	<[Threat] tops [N]. Yours is built for [N + margin].>	
+fail2	N	<But after [time], [failure] like a [simile].>	
+fix2	N	<So you [fix].>	
+name2	N	<These are [the part's name].>	
+fail3	N	<But a normal [part] [fails].>	
+fix3	N	<So yours gets tested.>	
+test3	N	<[A rig] fires [N] at [N].>	
+fail4	N	<But sealed in, you [new problem].>	
+fix4	N	<So you add [part].>	
+pair4	N	<[A gets in], [B] doesn't.>	
+payoffA	N	<Up there, [the force].>	
+payoffB	N	<Down here, just [calm].>	
+crazy	N	<Crazy part, [weird true fact].>	
+case	N	<[A real case: place, a number].>	
+outcome	N	<[Outcome in 3 words].>	
+cozy	N	<Add [item], [item], and [a funny last item].>	
+congrats	N	<Congratulations! You just built a [thing].>	

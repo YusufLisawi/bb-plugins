@@ -1,0 +1,13 @@
+# scale engine — replace every <…> with your line (engines.md § scale). Then: lint_script.py script.tsv --engine scale
+# id	speaker	text	air	kw   (speaker N = narrator; air blank = natural, +0.75 = a hold; kw = optional caption keywords, !word = red)
+hook	N	<What if you [repeated action] [N] times?>	
+rule	N	<Every [step] doubles [it].>	
+s1	N	<[N] [steps], it's as tall as you.>	
+s2	N	<[N], taller than [a famous building].>	
+s3	N	<[N] [steps], and it's in space.>	
+s4	N	<[N], it reaches the Moon.>	
+s5	N	<[N], past the Sun.>	
+s6	N	<[N] [steps], wider than our whole galaxy.>	
+s7	N	<[N], past [the next landmark].>	
+final	N	<[N], [the biggest comparison].>	
+anchor	N	<In real life, [the record / the real fact] is [N].>	

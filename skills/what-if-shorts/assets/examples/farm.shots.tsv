@@ -1,0 +1,42 @@
+# The farm film's shot plan (src/episodes/farm/beats.ts CUTS) — a worked example of shots.tsv
+# id	line	word	frac	type	what	devices
+kitchen	hook	0	0	acting	Jake eats cereal at the kitchen table, the red phone buzzes; the dog lies at his feet; blurred bread, juice, bottle in front; slow push	phone glow
+otsPhone	hook	9	0.18	ots	from behind Jake: he holds up the phone, red EMERGENCY ALERT, red glow pulsing on the kitchen	PhonePr alert
+farmWide	hook	14	0.89	map	high wide of the farm (house, barn, shed, pond, crop rows, dirt road), push-in	OutbreakHud@best:0, MapPin×4@best:6/9/10/12
+island	best	12	0.02	map	top-down: the farm as a round island of trees; fields fade in; zoom out to a satellite patchwork, the farm in a dashed circle	MapPin×5
+walkYard	mistake	6	0.14	acting	Jake walks right across the yard with the dog; house and barn behind	
+walkBarn	mistake	8	0.15	acting	3/4 walk past the weathered barn wall, keys swinging in his hand, the dog trots	
+truck	mistake	9	0.91	acting	Jake strides to the blue pickup, takes the handle, steps up into the seat; the dog sits by the wheel	
+road	instinct	7	0.67	threat	the empty road to a dark hazy city with three smoke columns; fence posts slide past	
+cab	instinct	14	0.33	insert	cab POV: wheel, fuel gauge; the hand turns the key… a 3-D red NO. slams in; the hand pulls the key back	NoSlam@no:0
+wichita	no	1	0.06	map	dark regional map: WICHITA tag over a red ring, dots stream in along radial roads; JAKE'S FARM pin	RedTag@no:1, HomePin@no:2, RuleCard#1@no:4
+tub	no	6	0.84	acting	bathroom, white brick tiles: Jake turns the bath tap on, water runs	Countdown@instead:0
+sink	instead	5	0.78	insert	utility sink filling a big pot; pegboard tools	Countdown
+tubFill	instead	10	0.05	insert	the tub filling	WaterCard@instead:11, Countdown
+garage	instead	11	0.93	insert	garage shelves packed with jugs; a hand sets one more on the middle shelf	WaterCard → 73 gal
+section	well	0	0.39	diagram	cross-section: house, power pole, well pipe to the water table, pump; flow climbs; the power cut greys everything	ProcessChips@well:0/1/2/4
+gauge	well	10	0.45	insert	dark: the pressure gauge needle falls to 0, the tap's last drip	
+shed	well	14	0.94	acting	dark shed: the door opens on Jake's silhouette in a shaft of light	
+generator	gen	4	0.25	acting	Jake kneels and yanks the red generator's cord; angry → worried	
+closeup	gen	7	0.19	closeup	close-up: worried brows, wavy mouth; exhaust puffs behind	
+rings	engine	0	0.61	map	top-down farm map, dim, dense canopy; the GENERATOR pin glows; dashed rings ripple out	YardRings@engine:4/5/7
+forest	engine	10	0.41	threat	foggy forest of trunks at four depths; zombie silhouettes turn toward the sound, eyes glowing	RuleCard#2@engine:13
+coop	alone	0	0.29	inventory	the coop: a big rooster mid-frame, hens pecking, a blurred black hen in front	CountChips 30
+cows	animals	1	0.84	inventory	cows grazing by the fence, chewing, tails swishing	CountChips 12
+horse	animals	3	0.92	inventory	a brown horse by the fence, tail and ear flicks	CountChips 1
+dogBird	animals	5	0.84	inventory	the dog sits by a fence post; a bird lands; the dog barks; the bird flies off	
+jakeDone	animals	13	0.26	closeup	Jake, eyes shut, done with it; the dog looks up at him	
+tiltMap	quiet	0	0.2	map	tilted 3-D map of the farm, noise rings over every pen	rings over pens
+impossible	quiet	8	0.28	slam	the map darkens: STAYING QUIET? small, ALMOST IMPOSSIBLE big red	AlmostImpossible@quiet:8 (captions hidden)
+gate	gate	0	0.72	acting	Jake swings the farm gate shut, the dog sits beside it	
+padlock	gate	4	0.69	insert	close-up: a hand clicks a brass padlock, the chain wrapped round the post	
+safeZone	gate	7	0.44	map	top-down: a green SAFE ZONE square around the house; animal icons slide inside	FENCE TO WATCH 755 YD chip
+desk	gate	13	0.36	insert	desk from above: a hand grips the pen and writes the DAY 1 – SUPPLIES list	
+supplies	gate	16	0.45	card	the SUPPLIES – DAY 1 card ticks in row by row, MEDICAL · LOW in red	SuppliesCard
+porch	paper	4	0.12	acting	porch at dawn, warm glow behind the barn: Jake with a mug, smiling; his smile drops	
+dogPorch	problem	3	0.38	acting	the dog on the porch; its head snaps toward the barn, ears up	
+dogClose	problem	4	0.72	closeup	dog close-up: a low growl, lips up	
+jakeShock	barn	1	0.44	closeup	Jake, worried → shocked O, mug in hand	
+otsBarn	barn	3	0.6	ots	over his shoulder at night: the barn doors ajar, a figure in the dark gap	
+barnEyes	END	0.62		threat	two glowing eyes in the gap, one slow blink, a lean back into the dark	captions hidden
+endCard	END	1.78		end	PART 2 · SOMETHING IS IN THE BARN · FOLLOW TO SURVIVE DAY 1	EndCard
