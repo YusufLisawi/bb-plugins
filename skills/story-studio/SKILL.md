@@ -65,6 +65,7 @@ and the bar.
 | **Explainer / finance** (chess.history style: bobble-head characters in 2.5D sets) | [references/format-explainer.md](references/format-explainer.md) | `cobra-effect` |
 | **What if** (immersive, one running number, sound-led, often no narrator) | [references/format-whatif.md](references/format-whatif.md) | `trench` |
 | **Crayon picture book** (wax crayon on toothy paper, watercolour wash with white-wax resist; WebGL engine in `src/kit/crayon/`, README there) | [references/format-crayon.md](references/format-crayon.md) | `tern` |
+| **HD-2D** (flat pixel sprites in a lit, fogged 3-D diorama through a tilt-shift lens; vertical survival-rules shorts with RPG UI plates, Fish Ethan voice, fully synthesized sound; WebGL engine in `src/kit/hd2d/`, on branch `ep/hollow` until merged) | [references/format-hd2d.md](references/format-hd2d.md) | `hollow` |
 
 The style studies of the 16 reference TikToks the user picked (what each does, frame by
 frame) are summarised in [references/style-bible.md](references/style-bible.md).
