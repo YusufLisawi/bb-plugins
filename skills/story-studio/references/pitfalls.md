@@ -64,3 +64,6 @@ text, accidental crops, floating characters, black/static frames, glitches, capt
 | A stamp hidden behind people | the set layer is under the cast | put it in the `cast` plane or where nobody overlaps |
 | Hat brim over the eyes; someone standing on a basket rim; a woman sitting on air | found only by the frame QA | `hatFit`, `byDepth`, a chair for every sitter — format-cardboard.md § 9 |
 
+
+| Upside-down raised hands for kai, lily, nora, rosa, sam (handsUp / armsUp / wave) | their `hand_wave` art was drawn fingers-UP while every other library hand is fingers-DOWN (wrist at the top); the anchors assumed wrist-top | fixed in the library 2026-10-21 (images flipped, anchors recomputed). When adding hands to the library: wrist at the TOP, fingers down, and check a handsUp still per character |
+| A cardboard `Piece` with width 0 renders at natural size | 0 is falsy, so the size fallback kicks in (foam blobs drew huge before they "popped") | don't mount pieces before they appear, or scale them from a small non-zero size |
