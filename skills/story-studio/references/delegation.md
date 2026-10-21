@@ -75,6 +75,15 @@ which model met the bar.
 ### Second round (2026-10-20): cardboard animal facts, Opus 5.5 **medium**
 | Opus 5.5 medium | Sea Otters Hold Hands, Never Upset a Crow | A−, A− | followed the strict eye-anchor procedure (measured anchors + crosshair debug sheet), kept boil tiny, 109–140 cues, found and fixed a real kit bug (stop-motion steps changing mid-frame ghosted under motion blur → `useStepT` reads the output frame) | first passes cropped characters at frame edges and used labels too small for a phone; both fixed after one review |
 
-Recommendation: Opus 5.5 high or Sonnet 5.5 high for premium episodes; Opus 5.5 low for fast
+### Third round (2026-10-21): 12 Cardboard 2.0 films on the shared library + Cobra reference (Opus 5.5 max)
+| Model · effort | Films | Grades | Pattern |
+|---|---|---|---|
+| **Sonnet 5.5 max** | Heather (true crime), Night One (zombie), The Magic Penny (money), The War That Birds Won (history), Your Body at Night (fun facts) | A−, A−, A−, **A**, A− | checks facts against sources and corrects the brief, runs 2–4 frame-QA rounds on its own, finds kit/library bugs and voice-timing issues (ElevenLabs word starts ~0.09 s late; trailing clause ends), richer staging |
+| **Opus 5.5 low** | Closet, Zombies at the Mall, Ice Cream, Prices end in .99, Tickle, Dancing Plague, Octopus | B+, B+, B+, B+, B+, **B**, B+ | follows the guide and the review notes precisely and fast; first passes crop characters at frame edges, use labels too small for a phone, stiff/same-pose acting (the dance), occasionally forgets to commit mix/sfx/music |
+
+Recommendation: **Sonnet 5.5 max** for premium cardboard films (≈ A−); **Opus 5.5 low** for volume with a strict checkpoint-1 review (≈ B+).
+Always: one Codex art thread per film, max 3 agents at once, renders through the queue, the parent merges each branch and regenerates Root.tsx (`scripts/gen_root.py`) — Root.tsx conflicts on every merge are expected.
+
+Recommendation (earlier rounds): Opus 5.5 high or Sonnet 5.5 high for premium episodes; Opus 5.5 low for fast
 volume with a strong review; Haiku 5.5 max only with two review rounds. Every model improved a lot
 from the checkpoint-1 review — never skip it.
