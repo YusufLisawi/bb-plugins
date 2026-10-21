@@ -2,9 +2,8 @@
 # Format: HD-2D — pixel sprites in a lit 3-D diorama (vertical survival-rules shorts)
 
 > [!NOTE] Where the code lives
-> Engine `src/kit/hd2d/`, the reference episode `src/episodes/hollow/` and its docs `episodes/hollow/{brief,shots}.md` are on branch
-> **`ep/hollow`** (worktree `~/Developer/story-studio-wt/hollow`) until the parent merges it. Run `ls ~/Developer/story-studio/src/kit/hd2d`;
-> if it is missing, start your worktree from `ep/hollow`. Delivered master: `~/Videos/story-studio/hollow.mp4` (76.1 s, 1080×1920).
+> Engine `src/kit/hd2d/`, the reference episode `src/episodes/hollow/` and its docs `episodes/hollow/{brief,shots}.md` are on
+> **master** (merged 2026-10-21); start new episodes from master with `scripts/new-worktree.sh`. Delivered master: `~/Videos/story-studio/hollow.mp4` (76.1 s, 1080×1920).
 > Read first: [format-cardboard.md § 1](format-cardboard.md) (owner content rules: short, very easy English, true), then this file, then
 > `episodes/hollow/brief.md` + `shots.md`, then the code in the order of § 5.
 
