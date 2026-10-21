@@ -211,8 +211,9 @@ night + oil lamp (the snake farm), bright day (Hanoi), lab cool (the bank). Add 
 
 **Three clocks.** Puppets and creatures move on **12 fps steps** (`const ts = useStepT()`): poses, walk cycles,
 slithers, blinks. The **camera, light, dust, the maker's hand and the paper MG move continuously** (`useT()`).
-Anything **discrete** — digits, captions, shot switches — uses `useTq()` (snapped to the output frame) so the
-motion-blur master never shows two values at once.
+Anything **discrete** — digits, captions, shot switches, and EVERY switch in a shot (a pose swap, a face change, a prop
+appearing or dropping: `tq >= B.paid ? … : …`) — uses `useTq()` (snapped to the output frame) so the motion-blur master
+never shows two states at once (a switch on `useT()` leaves one frame with a translucent echo of the old state).
 
 **One device per beat** — the MG says the idea of the line, in paper:
 
@@ -391,6 +392,7 @@ export const Offer: React.FC = () => {
 | Symptom | Cause | Fix |
 |---|---|---|
 | Stepped multi-exposure ("8 copies") on slides, pushes, the hand swipe, a fast pull-back | the master averages 8 sub-samples; a card moving ~120 px/frame shows each one | the kit's transitions blur by speed (`hBlur`); cut instead of fast camera moves; pops on `ts` |
+| A translucent echo of a coin / an arm for one frame | a pose or prop switched on `useT()` mid-frame | switch on `useTq()` (`const tq = useTq()` in every shot) |
 | A puppet's eyes vanish under a hat brim | the hat table's default sits too low for that head | `hatFit={{ y: 0.15 }}`; check hatted faces at `SCALE=1`; paper eyes for leads |
 | Someone "stands on" a basket, a snake crosses in front of a man it is behind | JSX order ≠ depth | `byDepth([[footY, el], …])` for everything standing on one floor |
 | A character floats; a seated woman sits on air | different ground lines at one scale; no seat | one ground line per scene; give every sitter a chair/stool (`sets/office/chair`, a bench) |
