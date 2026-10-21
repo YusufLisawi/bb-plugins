@@ -11,3 +11,7 @@ coverage/
 !**/.env.template
 skills/**/secrets/
 skills/**/.secrets/
+
+# Private client skills (EVA, K-TUIN): kept on this machine only.
+skills/eva-*/
+skills/ktuin-*/
