@@ -196,7 +196,7 @@ Mount `<CardDefs />` once at the film root (paper filters). Register the film wi
 | kids, sunny outdoor | `brightDay` | high key, soft shadows |
 | history, "long ago", dusk | `goldenDusk` | low warm sun, long shadows |
 | archive, old photos | `sepiaArchive` | desaturated, paper-toned |
-| true crime, detectives | `noirLamp` | desk lamp + blinds gobo |
+| true crime, detectives | `noirLamp` → `coldNight` | desk lamp + blinds gobo; **the reference is `heather`** (the owner loved its design: noir lamp → cold night, case-file + TRUE STORY stamp, the evidence corkboard with polaroids and a "police believe… (not proven)" sticky, the circled prop, the cut to black on one sound, the flashlight on the open trunk). Copy its structure and devices for every true-crime film |
 | mystery, night | `coldNight` | blue moonlight (add a warm practical: an oil lamp, a window) |
 | horror, zombies | `horrorFlicker` | flicker + red practical |
 | finance, money | `financeSpot` | a spotlight on the subject |
@@ -331,6 +331,17 @@ export const Offer: React.FC = () => {
 </details>
 
 ## 9 · Framing and staging (measured rules — check every still)
+
+> [!IMPORTANT] Owner rules for every puppet (2026-10-21)
+> - **The head is ALWAYS the top layer of the person.** Never let an arm, a hand or a held prop draw over the head or
+>   face. The kit's `Puppet` and `PuppetSide` now draw the head LAST; if you build a custom rig or stack extra pieces
+>   (a prop in front of the chest, a second arm layer, a hat/accessory piece), keep them under the head.
+> - **Hands never flip.** A hand must never appear upside down, mirrored wrong or bent backwards at the wrist:
+>   fingers point away from the wrist, the thumb on the natural side. The kit clamps wrist bends to ±35°; library hand
+>   art is drawn wrist at the TOP, fingers down (new hand art must follow that, or flip it before it enters the
+>   library). To face a puppet the other way use the puppet's own `flip` — never flip a hand or a held prop on its own.
+>   Check a still of every raised-arm pose (`handsUp`, `armsUp`, `wave`) for each character you use.
+
 
 - [ ] **Frame 0 reads the hook** (big subject, no hand or caption covering it).
 - [ ] **Feet on floors**: place people with `camY(feetWorldY, screenY, zoom)`; people's feet at screen ≈ 1550–1800.

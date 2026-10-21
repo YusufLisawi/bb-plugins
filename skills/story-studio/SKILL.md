@@ -52,6 +52,9 @@ and the bar.
 7. **Verified, not assumed.** You look at stills of every shot before the master; STT of the
    final mix ≥ 98 %; −14 LUFS, ≤ −1.5 dBTP; you watch frames of the master.
 
+> [!IMPORTANT] Puppet rules (owner): the head is ALWAYS the top layer of a character (never under an arm, hand or
+> prop), and hands never flip (no upside-down or mirrored hands). True-crime reference: `heather`. See format-cardboard.md § 9.
+
 ## Formats
 
 | Format | Read | Reference |
