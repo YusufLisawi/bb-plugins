@@ -254,11 +254,13 @@ def lint_script(rows, engine, R, lines_json=None):
             R.w(f"{hid}: a {hv:.2f} s hold — ≤ 1.0 s")
     # ending
     endl = good[-1]
-    en = len(endl["words"])
+    # what has to land short is the LAST SENTENCE ("Something was hiding it. Only from us." ends on 3 words)
+    sents_last = [x for x in re.split(r"(?<=[.!?…])\s+", TAG.sub("", endl["text"]).strip()) if x]
+    en = len(sents_last[-1].split()) if sents_last else len(endl["words"])
     if en > 12:
-        R.e(f"last line ({endl['id']}) is {en} words — ≤ 8")
+        R.e(f"last sentence ({endl['id']}) is {en} words — ≤ 8")
     elif en > 8:
-        R.w(f"last line ({endl['id']}) is {en} words — ≤ 8 lands harder")
+        R.w(f"last sentence ({endl['id']}) is {en} words — ≤ 8 lands harder")
     if re.search(r"\b(follow|subscribe|part \d|part two|next part)\b", endl["text"].lower()):
         R.w("the last spoken line asks to follow / names the next part — end on the story (the end card can say FOLLOW …)")
     ending = "question (dilemma/debate)" if endl["text"].rstrip().endswith("?") else "statement (cliffhanger / mind-blow)"
