@@ -54,7 +54,14 @@ and sparse narration (50–150 words), carried by a giant counter.
 7. **Voice:** one seamless take (the owner: "it should feel smooth"; no stitched lines, no slow-downs). Fish Audio is the engine.
    ElevenLabs has had no credits since 2026-10-21, so don't call it until the owner says it's topped up. Never use
    the Fish voice "adam adam".
-8. **Storage and the render queue:** run `df -h ~` before renders (≥ 30 GB free). Only `scripts/stills.sh`,
+8. **Stories are series (owner, 2026-10-21):** every story film is Part 1 of a series. It ends on a cliffhanger
+   that opens Part 2, and it gets a series bible (`episodes/<slug>/series.md`: lore, cast, plants, Part 2 plan)
+   ([references/series.md](references/series.md)).
+9. **Make it feel crucial (owner, 2026-10-21):** when the world breaks, show it breaking. Show the chaos in the
+   systems people depend on (hospitals mid-surgery, roads, planes, water, power), and give the hero a personal
+   mission inside it (twelve babies on oxygen, a little sister). The first draft of "blind" was a quiet list of
+   consequences, and the owner rejected it as not crucial enough.
+10. **Storage and the render queue:** run `df -h ~` before renders (≥ 30 GB free). Only `scripts/stills.sh`,
    `render.sh` and `deliver.sh` render, and `scripts/clean.sh <slug>` runs after delivery. Never render to `/tmp`.
 
 ## Pick the story engine

@@ -88,18 +88,19 @@ shut, flat) · shock (wide eyes, O mouth) · flat. Key them on beat words with
   `holdL`, so the fingers close over it. There is always a contact shadow, and the scale stays the same across cuts
   in one scene.
 
-**New cast (the kit's current limit).** The rig is one person: `Jake` with the `JAKE_COL` palette and always the cap.
-A new character means extending the rig first. Add a `look` prop with the palette, headwear (cap / none / hood /
-helmet) and hair (short / bun / long / grey / bald), plus a height scale. Then render a model sheet at CP0 (the
-`src/episodes/farm-lab/FarmLab.tsx` pattern: front, ¾, side and back views, the expressions, and a walk strip) and get
-it approved before any shot uses the character. Design rules:
+**New cast: looks (`look` prop, added 2026-10-21).** The same rig plays everyone. `look={LOOKS.<name>}` changes outfit and skin
+colours and the headwear: `hat: "cap" | "hair" | "beanie"`, `hair` colour, `fringe` 0..1, `bun`. The presets in `jake.tsx`
+are `LOOKS.jake` (default: olive cap, brown jacket), `nurse` (dark hair, teal scrubs, white sneakers), `rain` (grey
+beanie, yellow raincoat), `dad` (greying hair, grey shirt), `gran` (grey bun, lavender cardigan) and `kid` (dark bun, pink
+jacket; draw her at ≈ 0.6–0.72 × the adult scale). For a new person, add a preset (a few colours plus headwear), render the
+look lab (`src/episodes/looklab/LookLab.tsx`: 4 views per look) and check it before any shot uses them. Owner: "don't
+overdo", so change the headwear and 2–3 outfit colours, not the body. Design rules:
 
 - **Distinct silhouettes:** the hat-or-hair shape, height and outfit colour must tell characters apart in one glance.
-- **One signature colour per person,** used in their caption colour too (Jake: olive cap and brown jacket).
-- **Varied skin tones and ages** (the channel's high-rise cast: a young Black man, an 81-year-old neighbour, a little
-  girl in a yellow raincoat).
-- **Kids** are ≈ 2.7 heads tall with a bigger head. **Older people** have a slight stoop (lean ≈ 0.12), a slower
-  stride (×0.7) and a cane.
+- **One signature colour per person,** used in their caption colour too (Leo: teal; Sam: yellow; Ruth: lavender).
+- **Varied skin tones and ages.**
+- **Background people** (crowds, the blind, the ones in the rain) are soft coloured silhouettes: `<Jake sil silCol=…/>`
+  in 5–6 muted colours, so the hero is the only full-colour figure.
 
 **Animals (`animals.tsx`, `dog.tsx`):** the border collie rig (stand / sit / lie / walk, a hinged jaw for barks,
 ears, tail), chickens (5 looks, peck), cows (graze, chew, tail), a horse, a bird (land, flap, fly), and a zombie.
