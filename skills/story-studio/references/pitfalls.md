@@ -60,6 +60,7 @@ text, accidental crops, floating characters, black/static frames, glitches, capt
 | A beat fires on the wrong word when a word is said twice | `vo.at()` ignores punctuation → finds the first "growing" | `vo.at(id, word, fromIndex)`; print `B` with bun and check repeated words |
 | Puppet-held props nearly invisible | held props were in the hand image's px (fixed in the kit) | `holdR/holdL` children are WORLD px; `upright()` keeps them level |
 | Small action at floor level hidden by captions | feet framed at screen 1550–1800, captions at 1430 | for small things on the ground put the ground line at ≈ 1320 (`camY(groundY, 1320, z)`) |
-| Fast slide transitions look stepped in the master | 4 motion-blur samples = 4 copies of a card moving 70–140 px/frame | cardboard masters use the default 8 samples |
+| Fast slide transitions / camera whips look stepped in the master | N motion-blur samples = N copies of a card moving 70–140 px/frame (even at 8) | 8 samples + the kit's speed-matched transition blur; cut (on `useTq`) instead of a fast camera move |
 | A stamp hidden behind people | the set layer is under the cast | put it in the `cast` plane or where nobody overlaps |
+| Hat brim over the eyes; someone standing on a basket rim; a woman sitting on air | found only by the frame QA | `hatFit`, `byDepth`, a chair for every sitter — format-cardboard.md § 9 |
 

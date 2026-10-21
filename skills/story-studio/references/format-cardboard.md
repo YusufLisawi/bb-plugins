@@ -270,8 +270,37 @@ mkdir -p episodes/<slug> src/episodes/<slug>
 8. **Sound** (§ sound.md): `sfx.json` + `music.json` → `sfx.py`, `music.py` → `sound.ts` → `scripts/sound_export.sh
    <slug> <slug>` → `.venv/bin/python scripts/mix.py <slug> --table` → `stt_check.py <slug> public/<slug>/mix.wav`.
 9. **Render** (§10): `scripts/render.sh <Id> <slug> 44 49` (slice) → look at frames → `scripts/render.sh <Id> <slug>`.
-10. **QA**: frame-by-frame with the `watch-video` skill (harsh-critic focus) → fix → re-render →
-    `.venv/bin/python scripts/qa.py <slug>` (PASS) → `scripts/deliver.sh <slug>` → `scripts/clean.sh <slug>` → commit.
+10. **QA**: `.venv/bin/python scripts/qa.py <slug>` (format, loudness, black/frozen, STT) → frame-by-frame review with
+    the `watch-video` skill: `S=~/.bb/skills/watch-video/scripts; W=$($S/fetch.sh out/<slug>.mp4)`,
+    `$S/frames.py "$W" --max 90 --max-gap 1.0 --min-gap 0.5` (≈ 1 frame/s), `$S/transcribe.sh "$W" en`,
+    `WATCH_VIDEO_MODEL=gpt-6.1-sol WATCH_VIDEO_EFFORT=ultra $S/delegate.sh "$W" "$(cat focus.txt)"` with the
+    harsh-critic focus below; wait for the child (no polling), `$S/collect.sh "$W" <tid>`, read its ranked fixes, fix,
+    re-render, verify the fixed spots on master frames → `scripts/deliver.sh <slug>` → `scripts/clean.sh <slug>` →
+    `$S/cleanup.sh "$W" --all` → commit. The first review of the cobra film found what no still could: stepped
+    copies on fast moves, a hat over the eyes, a man standing on a basket, a floating worker, a woman sitting on air.
+
+<details>
+<summary>The frame-QA focus text (copy into focus.txt)</summary>
+
+```text
+This is the finished master of a <N> s vertical (1080x1920) stop-motion CARDBOARD explainer, "<title>": paper-craft
+dioramas, cut-out paper puppets with drawn eyes, a real hand (the maker's) stepping in, paper motion graphics, karaoke
+captions in the lower third. Be a HARSH critic preparing a premium release; you are hunting defects, not describing
+art. For EVERY frame report:
+1) TEXT: any caption or on-screen text cut off, overlapping, covered, unreadable, misspelled, or covering the key action
+   (captions sit around y=1430 of 1920).
+2) FRAMING: a character, hand, hat or key prop cropped by a frame edge (they need >= 60 px margin unless it is a
+   deliberate close-up); feet floating above or sunk into floors; empty, unbalanced or confusing compositions.
+3) PUPPETS: eyes not exactly on the face or looking odd; arms stiff-straight, stretched, broken at a joint or detached;
+   held props missing, tiny or at a strange angle.
+4) MOTION ARTEFACTS: ghosting / double images, stepped copies of moving cards, smears, flicker, two shots blended.
+5) GLITCHES: black, blank, frozen or half-drawn frames; z-order mistakes; a hand covering a face or an eye; things
+   popping in without animation.
+6) STORY: does the frame clearly show what the narration says at that moment? Is frame 0 an instant hook?
+End with a RANKED list of the 10 most important fixes, each with its timestamp and a concrete suggestion. Say
+"no defect" for clean frames instead of describing them at length.
+```
+</details>
 
 <details>
 <summary>Shot template (from the reference film)</summary>
@@ -318,6 +347,15 @@ export const Offer: React.FC = () => {
       hand-placed eyes. Bigger X eyes for the dead: `st={{ style: "dead", scale: 2.4 }}`.
 - [ ] **Boil** ≤ ±0.4 px / ±0.15°, a new value every 2 steps, puppets only — never camera, sets or text (the kit
       default).
+- [ ] **Depth order**: on a floor, whatever stands lower on screen is nearer and is drawn later — build the cast
+      plane with `byDepth([[footY, el], …])` (cobra `common.tsx`), or people "stand on" the basket in front of them.
+      Everyone in one scene shares one ground line unless they are smaller (further away) — a full-size person
+      standing higher than the table in front of him reads as floating.
+- [ ] **Hats never cover the eyes**: check every hatted face at full size (`SCALE=1` still); raise the hat with
+      `hatFit={{ y }}` (the cobra film's pith helmet needed `y: 0.15`). Main characters get `paper` eyes — `bead`
+      eyes are dots that vanish in a medium shot.
+- [ ] **The first beat shows the thing**: when the line says "It worked!", something visibly works on that word
+      (the first snakes land), not one second later.
 - [ ] **Continuity across cuts**: the same set keeps its props in the same place in every shot (one constant).
 - [ ] **Stamps/labels that must be on top** go in the `cast` plane or where no puppet overlaps (the set layer is
       drawn under the cast).
@@ -338,6 +376,10 @@ export const Offer: React.FC = () => {
   transitions move ~70–140 px per frame, and 4 samples (`SAMPLES=4`) show 4 stepped copies of the incoming card.
   The puppets are stepped anyway (their step clock reads the output frame, so they never ghost). A 72 s cardboard
   master: ≈ 12–14 min on the GPU at 8 samples; a 5 s slice ≈ 30 s.
+- **Fast motion smears into stepped copies** in the master (frame QA): anything crossing more than ~40 px per output
+  frame shows its 8 sub-samples as 8 copies. The kit's transitions add a speed-matched horizontal blur; for the rest:
+  **cut instead of whipping the camera** (switch framings on `useTq()` so a cut lands on a frame boundary — the hook's
+  pull-back became a hard cut), and put pops (lids, creatures rising) on the 12 fps steps (`ts`), where they are crisp.
 - **Stills** at `SCALE=0.4` (default) for review sheets; `SCALE=1` only to inspect a detail.
 - **Storage**: `df -h ~` before renders (> 30 GB), never render to `/tmp`, delete slices and test files, run
   `scripts/clean.sh <slug>` after delivery.
@@ -348,6 +390,10 @@ export const Offer: React.FC = () => {
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| Stepped multi-exposure ("8 copies") on slides, pushes, the hand swipe, a fast pull-back | the master averages 8 sub-samples; a card moving ~120 px/frame shows each one | the kit's transitions blur by speed (`hBlur`); cut instead of fast camera moves; pops on `ts` |
+| A puppet's eyes vanish under a hat brim | the hat table's default sits too low for that head | `hatFit={{ y: 0.15 }}`; check hatted faces at `SCALE=1`; paper eyes for leads |
+| Someone "stands on" a basket, a snake crosses in front of a man it is behind | JSX order ≠ depth | `byDepth([[footY, el], …])` for everything standing on one floor |
+| A character floats; a seated woman sits on air | different ground lines at one scale; no seat | one ground line per scene; give every sitter a chair/stool (`sets/office/chair`, a bench) |
 | Two beats land at the same time; a visual fires on the wrong word | `vo.at()` ignores punctuation, so a word said twice ("growing. And growing.") finds the FIRST one | pass the word index to start from: `at("pile", "growing.", 5)`; print `B` with bun and check every repeated word |
 | Held coin / scissors / bundle nearly invisible | (old kit) held props were sized in the hand image's px | fixed: `holdR/holdL` are WORLD px; size them like any prop |
 | A held trophy lies on its side | held props turn with the hand | `rot={upright(pose, side, deg)}` |
