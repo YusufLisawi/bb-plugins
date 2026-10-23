@@ -178,3 +178,22 @@ uv run --with boto3 scripts/r2_sync.py videos --delete-local   # → R2, gallery
 
 The farm master was 15,665 sub-frames: ≈ 6 min of render plus ≈ 2 min of blend and encode on the GPU lock. Only these
 scripts render or transcribe. Never call `npx remotion render/still` yourself, and never delete a lock.
+
+## Long-form (16:9 YouTube), learned on DEAD QUIET (2026-10-23)
+
+- **Structure:** one sub-episode per chapter (`dq1…dq8`): its own script.tsv, voice take, beats, sound and mix, rendered separately. Then
+  `scripts/longform_concat.py <slug> <chapter mp4s…>` joins them with 0.4 s fades and writes YouTube chapter timestamps. A short
+  Fish take per chapter keeps the voice reliable. Chapters can be built in parallel (one agent per 2 chapters, each in its own worktree).
+- **Frame:** `src/episodes/_dq/Chapter.tsx` (`FrameSize` 1920×1080, title lower-third, subtitles y 958 / size 58), plus `export const SIZE = [1920, 1080]` in the
+  component so gen_root registers it at 16:9. `Sky`/`GrassField` default to the 1080-wide vertical frame: pass `x0`/`w`/`x1`.
+  `deliver.sh` keeps 16:9 for the 720p copy; the gallery shows `"wide": true` entries as a double-width card.
+- **Pitfalls that cost re-renders:**
+  - A prop drawn in a HoldFn (`holdR`/`holdL`) is in RIG-LOCAL units (the head is about 1). CBRadio at s 0.38 there covered the whole frame as
+    "grey diagonal bands". Use about 0.0045.
+  - `stand(0)` (yaw exactly 0) can draw nothing. Use ±0.18.
+  - Draw the dead ONLY with the kit `Zombie` (grey-green, two small eyes); hand-drawn black cut-outs broke continuity.
+  - Stage boundaries explicitly (yard vs road): the story says the dead walk PAST the farm, so not one inside the fence.
+  - Never queue two renders in one worktree before render.sh had its per-run bundle (`-$$`); the race corrupted masters (caption ghosts).
+  - `new_episode.py code` lints for shorts. For long-form, bypass only its lint in-process.
+- **Review every master from the mp4** (`ffmpeg -vf "fps=1/7,scale=480:-2,tile=5x4"`) before accepting it. Several masters passed qa.py and were still wrong
+  (continuity: halved supplies, the dead in the yard, a double Jake, unwritten names).
