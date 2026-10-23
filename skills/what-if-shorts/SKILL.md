@@ -117,6 +117,10 @@ python3 $SK/scripts/new_episode.py docs <slug> <Component> --engine survival   #
    frame-difference scan, frame QA in 2 passes, and `qa.py` ([qa.md](references/qa.md) § 3–5).
    **CHECKPOINT 2:** `qa.py` PASS, the QA sheet and the fix log. On approval: `scripts/deliver.sh <slug>`,
    `scripts/clean.sh <slug>`, then commit (with `public/<slug>/{mix.wav,sfx,music,vo}`).
+9. **Cover (every episode).** A designed 9:16 + 16:9 cover in the episode's look: the hook image, a big stroked title,
+   a short question line, and a part pill for series (one design per series, with props per part, e.g.
+   `src/episodes/burn-thumb`). Render it with `scripts/cover.sh <TallComp> <WideComp> <slug> '<props>'` before
+   `r2_sync.py videos`. The gallery shows it as the card image with download links (story-studio SKILL.md step 12).
 
 A 1:1 clone of a reference video follows [references/clone.md](references/clone.md) at steps 1, 5 and 6.
 A sequel follows [references/series.md](references/series.md) at steps 1–2 and uses `--engine sequel`.

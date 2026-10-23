@@ -172,6 +172,7 @@ FPS=60 scripts/render.sh <Component> <slug>                    # the master → 
 .venv/bin/python $SK/scripts/diffscan.py out/<slug>.mp4      # every spike must be a cut or an intended flash
 .venv/bin/python scripts/qa.py <slug>                          # run it plain (it takes the whisper lock itself)
 scripts/deliver.sh <slug> && scripts/clean.sh <slug>
+scripts/cover.sh <Series>Thumb <Series>ThumbWide <slug> '{"part":"PART 2","sub":"…"}'   # the cover (9:16 + 16:9), every episode
 # add the episode (with "niche") to ~/Videos/story-studio/episodes.json and its post info to meta.json, then:
 uv run --with boto3 scripts/r2_sync.py videos --delete-local   # → R2, gallery at faceless.clipaf.com/story-studio/index.html
 ```

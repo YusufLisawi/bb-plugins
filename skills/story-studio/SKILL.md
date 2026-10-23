@@ -113,6 +113,14 @@ df -h ~                                # ≥ 30 GB free before anything heavy
 11. **QA + deliver** (no-narrator episodes: `lines.json` = `[]`, silent `vo.wav`; mix and QA adapt) `.venv/bin/python scripts/qa.py <slug>` (format, loudness, black/frozen
     frames, speech) → `scripts/deliver.sh <slug>` (copies to `~/Videos/story-studio/`, poster,
     contact sheet) → `scripts/clean.sh <slug>` → commit.
+12. **Cover (every episode, no exceptions).** A designed, high-quality cover ships with every video: 9:16
+    (1080×1920) and 16:9 (1920×1080). Draw it in the episode's own look: the hook image (the threat, the face, the
+    twist), a big title in a stroked display font, a short question line, and a part pill for series. One design per
+    series (a `<series>-thumb` component with `part`/`sub` props, e.g. `src/episodes/burn-thumb`), and each part only
+    changes the props. Review the still at full size and at phone size (≈ 200 px wide). The title must read and the
+    face must show. `scripts/cover.sh <TallComp> <WideComp> <slug> '<props>'` →
+    `~/Videos/story-studio/<slug>-cover.jpg` + `-cover-wide.jpg`. `r2_sync.py videos` uploads them with the video,
+    and the gallery uses the cover as the card image with download links. `deliver.sh` warns when it's missing.
 
 ## Kit (src/kit) — use it, extend it, don't fight it
 
