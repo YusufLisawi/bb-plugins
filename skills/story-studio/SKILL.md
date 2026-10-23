@@ -78,6 +78,9 @@ cd ~/Developer/story-studio            # or your worktree: ~/Developer/story-stu
 df -h ~                                # ≥ 30 GB free before anything heavy
 ```
 
+0. **Story** — for any story, series part or long-form: follow [references/story-writing.md](references/story-writing.md)
+   (the vendored Writers Room engine + series bible). Read `episodes/_series/<series>/bible.md` first, write the
+   story doc, and **get it approved before step 2**. Update the bible after approval.
 1. **Concept** (write `episodes/<slug>/brief.md`): one-sentence premise, the setting's
    built-in "why it's safe/unsafe", the hero, 3 rules/facts, the escalation, the twist line,
    the next part's title. Sketch 3 premises, pick the strongest, say why. → format file.

@@ -1,5 +1,7 @@
 # Writing — how these stories are written
 
+> [!IMPORTANT] Before line craft, make the story work: use the story-studio skill's `references/story-writing.md` (Writers Room engine: protagonist engine, therefore/but beats, world rules as pressure, plot-hole Q&A) and the series bible `episodes/_series/<series>/bible.md`, so canon never breaks across parts. The story doc must be approved before any voice or build.
+
 The script is the film's skeleton. Every cut, caption, sound and graphic hangs on a spoken word, so a weak line can't
 be saved by drawing. Write it first, lint it, then build.
 
