@@ -30,6 +30,21 @@ Create it with Part 1 and update it at every delivery. A sequel's agent reads it
 | 7 | Escalation at night | a time stamp ("3:12 AM.") → the threat moves → a hard choice | red-light grade and silhouettes ([look.md](look.md) § 4) |
 | 8 | Ending | a dilemma about a character: "Would you [go get her / tell Jake / let her stay / turn her in]?" | it seeds the next part's callback |
 
+### Building the recap-hook (as in the @what_if_space farm Part 3, rebuilt for THE BURN Part 2, 2026-10-23)
+- **Cold open (0–3 s):** an extreme close-up of the hero in trouble, graded one strong colour (red `Wash` with
+  `mode="color"`). There's a small series pill at the top, and a `WordSlam` "PART N" with the captions hidden for it.
+- **The photo stack (3–12 s):** one polaroid per recap line, landing on the line's first word. Each flies in rotated
+  with a whoosh, lands with a paper tap and a soft white flash, and leaves the earlier photos dimmed behind it. The
+  photos are the **last part's real shots rendered live** inside the frame (import its `SHOTS_A` and `shotOf`, render the
+  shot at a chosen time, and let it play slowly). There's a hand-written "Part 1" on the strip. The last photo is the
+  cliffhanger, drawn bigger.
+- **A clock pill starts during the recap and stays all part:** "THEY REACH THE BARN 9:00" in the reference, a draining
+  "MOM'S PHONE" battery in THE BURN 2. It should pay off a plant (the battery dies on "Then her phone dies").
+- **The hand-off:** a close-up of the cliffhanger prop (a key in a fist, knuckles on the trunk), then the new story.
+- **Voice:** record the intro as its own small episode (`episodes/<ep>-intro`) with the same narrator, then
+  `scripts/splice_intro.py <ep> <ep>-intro <first kept line>`. That keeps an approved take and shifts every beat
+  automatically. Code: `src/episodes/burn2/shotsIntro.tsx`.
+
 ## Sequel line craft (what changes from Part 1)
 
 - **More fragments and time stamps.** Procedures become 1–3-word beats ("Good light, six feet away. Hands. Neck.
