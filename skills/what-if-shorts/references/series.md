@@ -21,7 +21,7 @@ Create it with Part 1 and update it at every delivery. A sequel's agent reads it
 
 | # | Beat | Template | Notes |
 |---|---|---|---|
-| 1 | Recap-hook (0–5 s) | a list of 3–4 things the hero has, ending on the cliffhanger item: "Jake has water, food, a locked gate, and someone in his barn." | **Don't speak the series name or "Part N"** (owner). The recap IS the hook. Show it on Polaroid-style photos of the last part's frames, labelled PART 1 |
+| 1 | **Recap-hook (0–12 s), REQUIRED in every Part 2+** | a premise line ("What if sunlight burned everyone?"), then 3–4 short recap lines (the rule, what the hero did, where everyone is), ending on the cliffhanger: "And a man is walking in the sun." Then the prop close-up that starts this part | **Don't speak the series name or "Part N"** (owner): PART N is on screen only. The recap IS the hook. Build it exactly as in § "Building the recap-hook" with `src/kit/flat/recap.tsx` |
 | 2 | Audience callback (optional) | "Most of you said, [answer]." | only when the last part ended on a question; show a comment bubble with a like count |
 | 3 | The cliffhanger resolved | the first 10–15 s pay off the last reveal, with a fresh turn ("Wait! I'm not one of them!") | the new character gets a nameplate |
 | 4 | Rule beats (2–3) | action → "Rule number [N]. [≤ 6 words]." or "Mistake number [N]." → the cause in one sentence → what the hero does | the count continues from the bible. Each rule gets a card, a diagram or a tip pill |
@@ -43,6 +43,12 @@ Create it with Part 1 and update it at every delivery. A sequel's agent reads it
 - **A clock pill starts during the recap and stays all part:** "THEY REACH THE BARN 9:00" in the reference, a draining
   "MOM'S PHONE" battery in THE BURN 2. It should pay off a plant (the battery dies on "Then her phone dies").
 - **The hand-off:** a close-up of the cliffhanger prop (a key in a fist, knuckles on the trunk), then the new story.
+- **Kit:** `src/kit/flat/recap.tsx`. `RecapStack` + `RecapPhoto` are the live polaroids (pass the last part's shot
+  component, its t0/t1, a crop centre, the landing spot and the landing word). `SeriesPill` is the top pill, and
+  `ClockPill` is the pressure pill (a `level` bar with `icon="phone"` for batteries and fuel, or a `value` like "8:59").
+  Lay the photos out between y 450 and 1150 so they clear the pills and the captions (y ≈ 1300).
+- **Checklist:** premise line → PART N slam (silent beat) → one photo per line, the last = the cliffhanger → clock
+  pill on → prop close-up → the new story by ≈ 15 s. Every recap fact must be CANON in the bible.
 - **Voice:** record the intro as its own small episode (`episodes/<ep>-intro`) with the same narrator, then
   `scripts/splice_intro.py <ep> <ep>-intro <first kept line>`. That keeps an approved take and shifts every beat
   automatically. Code: `src/episodes/burn2/shotsIntro.tsx`.

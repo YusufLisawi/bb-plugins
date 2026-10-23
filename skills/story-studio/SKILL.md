@@ -38,6 +38,9 @@ and the bar.
 2. **It's a show, not a clip — but no series branding.** Hook → named hero in an everyday
    situation → rules shown as actions → escalation → a twist line → a CTA question that begs
    for comments. **Never** a top series bar, show name or "PART 1" label (owner rule, 2026-10-20).
+   **The one exception is a series' Part 2+ recap-hook** (owner request, 2026-10-23). For its first ≈ 12 s it shows a
+   small series pill and a silent PART N slam, then the polaroid recap of the last part. The narrator still never
+   says the part. Build: what-if-shorts references/series.md § "Building the recap-hook", `src/kit/flat/recap.tsx`.
    Easy English, relatable situations. Character dialogue in their own voices.
 3. **The voice is the clock.** Every beat is keyed to a spoken word (`vo.at(line, word)`),
    never to a typed time. Re-voicing re-times the whole film.
@@ -80,7 +83,9 @@ df -h ~                                # ≥ 30 GB free before anything heavy
 
 0. **Story** — for any story, series part or long-form: follow [references/story-writing.md](references/story-writing.md)
    (the vendored Writers Room engine + series bible). Read `episodes/_series/<series>/bible.md` first, write the
-   story doc, and **get it approved before step 2**. Update the bible after approval.
+   story doc, and **get it approved before step 2**. Update the bible after approval. A Part 2+ story doc starts
+   with its recap-hook lines (premise, 3–4 recap facts from the bible's CANON, the cliffhanger, the prop that starts
+   this part).
 1. **Concept** (write `episodes/<slug>/brief.md`): one-sentence premise, the setting's
    built-in "why it's safe/unsafe", the hero, 3 rules/facts, the escalation, the twist line,
    the next part's title. Sketch 3 premises, pick the strongest, say why. → format file.

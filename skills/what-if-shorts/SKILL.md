@@ -122,7 +122,11 @@ python3 $SK/scripts/new_episode.py docs <slug> <Component> --engine survival   #
    (story-studio SKILL.md step 12).
 
 A 1:1 clone of a reference video follows [references/clone.md](references/clone.md) at steps 1, 5 and 6.
-A sequel follows [references/series.md](references/series.md) at steps 1–2 and uses `--engine sequel`.
+A sequel follows [references/series.md](references/series.md) at steps 1–2 and uses `--engine sequel`. **Every Part 2+
+opens with the recap-hook:** a red cold open with the premise line and a silent PART N slam, then polaroids of the last
+part's real shots landing one per recap line (the last one is the cliffhanger), a clock pill that runs all part, and the
+prop close-up that starts the new story. Use `src/kit/flat/recap.tsx` and `scripts/splice_intro.py`
+([series.md](references/series.md) § "Building the recap-hook"; example `src/episodes/burn2/shotsIntro.tsx`).
 
 ## What to read
 
