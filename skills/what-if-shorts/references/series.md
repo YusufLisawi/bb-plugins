@@ -32,7 +32,9 @@ Create it with Part 1 and update it at every delivery. A sequel's agent reads it
 
 ### Building the recap-hook (as in the @what_if_space farm Part 3, rebuilt for THE BURN Part 2, 2026-10-23)
 - **Cold open (0–3 s):** an extreme close-up of the hero in trouble, graded one strong colour (red `Wash` with
-  `mode="color"`). There's a small series pill at the top, and a `WordSlam` "PART N" with the captions hidden for it.
+  `mode="color"`). There's a small series pill at the top, and a `WordSlam` "PART N" with the captions hidden for it. PART N is
+  **on screen only, never spoken** (owner rule, re-confirmed 2026-10-23). It lands in a held beat after the first line
+  (`+0.9` in the intro script's air column), with a hit in the score.
 - **The photo stack (3–12 s):** one polaroid per recap line, landing on the line's first word. Each flies in rotated
   with a whoosh, lands with a paper tap and a soft white flash, and leaves the earlier photos dimmed behind it. The
   photos are the **last part's real shots rendered live** inside the frame (import its `SHOTS_A` and `shotOf`, render the
