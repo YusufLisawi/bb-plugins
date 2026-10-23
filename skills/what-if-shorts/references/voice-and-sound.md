@@ -108,13 +108,44 @@ export const META = { duration: DUR, slug: "<slug>" };
 | `hit` | slams and the reveal: `title_hit`, `silence_hit`, `stinger` | farm and other episodes |
 
 - **Density:** farm has 158 cues (26 beds + 132 fx / ui / hits = 2.0 per second). Aim for at least 1.2 per second.
-- **Search the R2 sound library first.** 948 unique sounds from every episode, deduped and sorted into 13 folders
-  (ambience, ui-and-graphics, transitions, impacts, music-stings, people, animals, household, vehicles-and-machines,
-  nature-and-water, paper-and-craft, horror, misc). The index is `public/_sfx_index.json` in story-studio, also at
-  https://faceless.clipaf.com/story-studio/sfx/index.json, as `{name, category, url, prompt, dur, loop, episodes}`.
-  A name with `--<episode>` is a different take of the same idea. Search the names and prompts, then
-  `curl -so public/<slug>/sfx/<name>.mp3 <url>`. Generate only what isn't there, then run
-  `uv run --with boto3 scripts/r2_sync.py sounds` so the next episode can reuse it. Music scores are in `story-studio/music/<episode>/`.
+### Reuse sounds; generate only when you must
+
+> [!IMPORTANT] Hard rule
+> Every sound comes from the shared library unless no library sound fits. Generating is the exception, and every new
+> sound joins the library automatically.
+
+The library holds about 950 unique sounds from every episode, deduped and sorted into 13 folders: ambience,
+ui-and-graphics, transitions, impacts, music-stings, people, animals, household, vehicles-and-machines,
+nature-and-water, paper-and-craft, horror and misc. Humans can browse it at
+https://faceless.clipaf.com/story-studio/sounds.html. Agents use the index (`public/_sfx_index.json`, refreshed from R2
+with `--remote`).
+
+1. **Search for every cue you need** before writing any prompt:
+   ```bash
+   python3 scripts/find_sfx.py door creak            # name, category, length, loop, prompt
+   python3 scripts/find_sfx.py rain night --cat ambience -n 20
+   ```
+   Try two or three wordings (`steps`, `footsteps`, `walk`). A name ending in `--<episode>` is another take of the same idea, so listen to both.
+2. **Reuse:** in `episodes/<slug>/sfx.json`, map your cue name to the library name. You can rename it for this episode:
+   ```json
+   {"creak": {"lib": "barn_creak"}, "rain": {"lib": "rain_street"}, "hit": {"lib": "title_hit--deep-shift"}}
+   ```
+3. **Generate only when it is truly necessary.** That means either:
+   - nothing in the library is close enough to fit this exact moment (wrong material, length, mood or perspective, and trimming, pitching or layering won't fix it), or
+   - it's a genuinely new sound the library lacks (a new animal, machine or place).
+
+   Such an entry needs `"why"`:
+   ```json
+   {"sheep_bleat": {"prompt": "a single sheep bleating, close, outdoors", "dur": 1.5,
+                    "why": "no sheep in the library (find_sfx: sheep, bleat, lamb → 0)"}}
+   ```
+   `scripts/sfx.py` refuses any prompt without `why`, prints the closest library sounds instead, and never regenerates a file that already exists.
+4. **Run `.venv/bin/python scripts/sfx.py <slug>`.** `lib` sounds download from R2. New sounds are generated, then
+   **added to the library automatically** (`r2_sync.py sounds` dedupes, files them in a folder, adds them to the index, and the
+   gallery's Sounds page is rebuilt). Write good prompts, because they become the library's search text. `--no-share` skips this, but only for throwaway tests.
+
+Music scores from past episodes are in `story-studio/music/<episode>/score.mp3`.
+
 - **Sources, in order:** copy what exists (`episodes/farm/sfx_pick.py` pattern: the shared library
   `~/.local/share/motion-film-studio/sfx/` + other episodes' `public/<ep>/sfx/`). Synthesize what's missing
   (`episodes/farm/synth_sfx.py`: source-filter animals, modal metal and wood, each checked by measured duration,
