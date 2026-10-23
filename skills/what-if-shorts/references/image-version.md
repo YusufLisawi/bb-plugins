@@ -44,3 +44,11 @@ Example: `src/episodes/burn3img/TheBurn3Img.tsx` (THE BURN Part 3, 2026-10-23).
   clear of the iPhone notch and the TikTok/Instagram top UI.
 - **Characters speak:** the narrator carries the story, but key lines get short in-voice quotes inside the narration, and the
   still on screen is the person saying it (a close-up, mouth open, the right expression).
+
+## Owner notes from THE BURN Part 4 (2026-10-24)
+- **Pace:** 2.8–3.0 words a second while speaking (Alex, drama-3, tags kept, speed ≈ 1.07). Faster felt rushed.
+- **Clocks are logical:** a countdown ticks in real time and fast-forwards (▶▶ "HOURS LATER") only where the narration says time passes.
+- **Monsters are people:** the Burned are normal-sized burned people, vicious, never big ogres.
+- **Hits:** at most about 3 "dum" hits per part. Everything else is real foley and room tone.
+- **The cold open is code:** the first scene is drawn and animated in code, after the AI still (e.g. `ColdOpen` in `src/episodes/burn4/TheBurn4.tsx`).
+- **The CTA:** a theory question about the part's mystery, plus what the next part will reveal ("Part 5 shows what happens to Mom").
