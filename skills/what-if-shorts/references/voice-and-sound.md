@@ -108,6 +108,13 @@ export const META = { duration: DUR, slug: "<slug>" };
 | `hit` | slams and the reveal: `title_hit`, `silence_hit`, `stinger` | farm and other episodes |
 
 - **Density:** farm has 158 cues (26 beds + 132 fx / ui / hits = 2.0 per second). Aim for at least 1.2 per second.
+- **Search the R2 sound library first.** 948 unique sounds from every episode, deduped and sorted into 13 folders
+  (ambience, ui-and-graphics, transitions, impacts, music-stings, people, animals, household, vehicles-and-machines,
+  nature-and-water, paper-and-craft, horror, misc). The index is `public/_sfx_index.json` in story-studio, also at
+  https://faceless.clipaf.com/story-studio/sfx/index.json, as `{name, category, url, prompt, dur, loop, episodes}`.
+  A name with `--<episode>` is a different take of the same idea. Search the names and prompts, then
+  `curl -so public/<slug>/sfx/<name>.mp3 <url>`. Generate only what isn't there, then run
+  `uv run --with boto3 scripts/r2_sync.py sounds` so the next episode can reuse it. Music scores are in `story-studio/music/<episode>/`.
 - **Sources, in order:** copy what exists (`episodes/farm/sfx_pick.py` pattern: the shared library
   `~/.local/share/motion-film-studio/sfx/` + other episodes' `public/<ep>/sfx/`). Synthesize what's missing
   (`episodes/farm/synth_sfx.py`: source-filter animals, modal metal and wood, each checked by measured duration,

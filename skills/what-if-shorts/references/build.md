@@ -172,6 +172,8 @@ FPS=60 scripts/render.sh <Component> <slug>                    # the master → 
 .venv/bin/python $SK/scripts/diffscan.py out/<slug>.mp4      # every spike must be a cut or an intended flash
 .venv/bin/python scripts/qa.py <slug>                          # run it plain (it takes the whisper lock itself)
 scripts/deliver.sh <slug> && scripts/clean.sh <slug>
+# add the episode (with "niche") to ~/Videos/story-studio/episodes.json and its post info to meta.json, then:
+uv run --with boto3 scripts/r2_sync.py videos --delete-local   # → R2, gallery at faceless.clipaf.com/story-studio/index.html
 ```
 
 The farm master was 15,665 sub-frames: ≈ 6 min of render plus ≈ 2 min of blend and encode on the GPU lock. Only these
