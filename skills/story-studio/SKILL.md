@@ -113,14 +113,18 @@ df -h ~                                # ≥ 30 GB free before anything heavy
 11. **QA + deliver** (no-narrator episodes: `lines.json` = `[]`, silent `vo.wav`; mix and QA adapt) `.venv/bin/python scripts/qa.py <slug>` (format, loudness, black/frozen
     frames, speech) → `scripts/deliver.sh <slug>` (copies to `~/Videos/story-studio/`, poster,
     contact sheet) → `scripts/clean.sh <slug>` → commit.
-12. **Cover (every episode, no exceptions).** A designed, high-quality cover ships with every video: 9:16
-    (1080×1920) and 16:9 (1920×1080). Draw it in the episode's own look: the hook image (the threat, the face, the
-    twist), a big title in a stroked display font, a short question line, and a part pill for series. One design per
-    series (a `<series>-thumb` component with `part`/`sub` props, e.g. `src/episodes/burn-thumb`), and each part only
-    changes the props. Review the still at full size and at phone size (≈ 200 px wide). The title must read and the
-    face must show. `scripts/cover.sh <TallComp> <WideComp> <slug> '<props>'` →
-    `~/Videos/story-studio/<slug>-cover.jpg` + `-cover-wide.jpg`. `r2_sync.py videos` uploads them with the video,
-    and the gallery uses the cover as the card image with download links. `deliver.sh` warns when it's missing.
+12. **Cover (every episode, no exceptions).** A high-quality 9:16 (1080×1920) + 16:9 (1920×1080) cover ships with
+    every video. It has two layers:
+    - **Art:** a text-free image in `public/covers/<art>/{tall,wide}.jpg`, one per series (all its parts share it) or
+      per standalone episode. It shows the hook image (the threat, the face, the twist), with the lower third left calm
+      for the text. You can draw it in code in the episode's look (e.g. `src/episodes/burn-thumb` →
+      `scripts/cover_art.sh BurnArt BurnArtWide the-burn`) or drop in any image.
+    - **Text, always in code:** title, question line, part pill. Add the episode to `public/covers/covers.json`
+      (`art`, `title`, `question`, `part`, `sub`, optional `fire` gradient / `pill` colour / `align` / `titleSize`).
+      Then run `scripts/cover.sh <slug>` → `~/Videos/story-studio/<slug>-cover.jpg` + `-cover-wide.jpg`. Never bake text
+      into the art; edits are a JSON change and a re-run.
+    Check it at phone size (≈ 200 px wide): the title must read and the face must show. `r2_sync.py videos` uploads the
+    covers, the gallery uses them as the card image with download links, and `deliver.sh` warns when one is missing.
 
 ## Kit (src/kit) — use it, extend it, don't fight it
 
