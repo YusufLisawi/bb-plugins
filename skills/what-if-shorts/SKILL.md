@@ -112,7 +112,8 @@ python3 $SK/scripts/new_episode.py docs <slug> <Component> --engine survival   #
 7. **Sound.** Write the score synth, the foley cues in `sound.ts` (driven by the same beats as the picture), and the
    mix, then run STT on the mix ([voice-and-sound.md](references/voice-and-sound.md)). **Reuse library sounds**
    (`scripts/find_sfx.py <words>`, then `{"lib": "<name>"}` in sfx.json). Generate one only when nothing fits or it's
-   genuinely new (needs a `"why"`). `sfx.py` adds every new sound to the shared library automatically.
+   genuinely new (needs a `"why"`). New sounds are generated on the **local GPU with Sony Woosh** (the default engine; the ElevenLabs API only
+   with `"engine": "elevenlabs"`), and `sfx.py` adds every new sound to the shared library automatically.
 8. **Master and QA.** Run motion-test slices, then `FPS=60 scripts/render.sh <Component> <slug>`. After that, the
    frame-difference scan, frame QA in 2 passes, and `qa.py` ([qa.md](references/qa.md) § 3–5).
    **CHECKPOINT 2:** `qa.py` PASS, the QA sheet and the fix log. On approval: `scripts/deliver.sh <slug>`,
