@@ -136,6 +136,7 @@ prop close-up that starts the new story. Use `src/kit/flat/recap.tsx` and `scrip
 | following an engine's beat sheet (timings, line templates, shot mix, ending) | [references/engines.md](references/engines.md) |
 | looking for premise ideas in a niche | [references/niches.md](references/niches.md) |
 | writing Part 2+ of a series | [references/series.md](references/series.md) |
+| an image version (AI stills + motion graphics) | [references/image-version.md](references/image-version.md) |
 | planning shots, cuts, camera, captions, HUD devices | [references/pacing-and-shots.md](references/pacing-and-shots.md) |
 | drawing sets, colour, light, characters, animals, a new niche's world | [references/look.md](references/look.md) |
 | building in the project (files, kit API, commands, 60 fps rules) | [references/build.md](references/build.md) |
