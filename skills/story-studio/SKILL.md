@@ -92,7 +92,8 @@ df -h ~                                # ≥ 30 GB free before anything heavy
    [references/sets.md](references/sets.md). Build each set as SVG
    parallax planes in `src/episodes/<slug>/sets.tsx` using `src/kit/sets.tsx` (perspective,
    light pools, glows, window holes). Render stills of every set before adding characters.
-5. **Sound**: `episodes/<slug>/sfx.json` → `.venv/bin/python scripts/sfx.py <slug>`;
+5. **Sound**: reuse library sounds first (`python3 scripts/find_sfx.py <words>` → `{"lib": "<name>"}` in sfx.json).
+   Generate only with a `"why"`; new sounds join the shared library automatically. `episodes/<slug>/sfx.json` → `.venv/bin/python scripts/sfx.py <slug>`;
    `episodes/<slug>/music.json` → `.venv/bin/python scripts/music.py <slug>`. → [references/sound.md](references/sound.md)
 6. **Picture** `src/episodes/<slug>/{beats.ts,<Id>.tsx,sound.ts}`; register in `src/Root.tsx`.
    Build shot by shot from the kit (§ Kit). Derive character anchors (floors, seat tops) from

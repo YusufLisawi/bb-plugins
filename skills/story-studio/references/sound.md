@@ -5,19 +5,31 @@ the score stays soft under the voice.
 
 ## Effects (`episodes/<slug>/sfx.json` → `scripts/sfx.py <slug>`)
 
-```json
-{ "_library": ["impact","whoosh","riser","suck","heartbeat","glitch","buzz","clock","hum","gasp","crowd","swell","zoom","spark","tick"],
-  "rails": {"prompt": "steady rhythmic clickety-clack of train wheels … constant speed", "dur": 12, "loop": true, "influence": 0.6},
-  "stinger": {"prompt": "horror film stinger, sudden dissonant orchestral hit with metallic screech, then silence", "dur": 3} }
+> [!IMPORTANT] Reuse first. Generate only when you must.
+> The shared library has about 950 sounds from every episode (browse: https://faceless.clipaf.com/story-studio/sounds.html).
+> Search it for every cue. Generate a sound only when nothing fits that exact moment, or when it's genuinely new.
+> Every generated sound joins the library automatically.
+
+```bash
+python3 scripts/find_sfx.py train horn            # name · category · length · loop · prompt
+python3 scripts/find_sfx.py rain night --cat ambience -n 20
 ```
-- `_library` copies generic effects from `~/.local/share/motion-film-studio/sfx/` (whooshes,
-  impacts, risers, ticks, heartbeat, glitch…).
-- Bespoke effects: describe the source, the space and the distance ("muffled through train
-  windows", "close microphone"). `dur` 0.5–22 s, `loop: true` for beds.
-- Typical bespoke set for a story: 1–2 ambience beds (loop), the setting's signature sound (horn,
-  bell, siren), the inciting sound (phones/alarm), crowd/impacts, door slam + lock, a creature
-  sound, breath/shiver, a stinger, a title hit, HUD typing, a stamp, a sub-drop to silence.
-- `sfx.py <slug> --force a,b` regenerates those.
+```json
+{ "_library": ["impact","whoosh","riser","tick"],
+  "rails":   {"lib": "rails"},
+  "stinger": {"lib": "stinger--last-train"},
+  "bleat":   {"prompt": "a single sheep bleating, close, outdoors", "dur": 1.5,
+              "why": "no sheep in the library (find_sfx: sheep, bleat, lamb → 0)"} }
+```
+- `{"lib": "<library name>"}` downloads that sound from R2. Your cue name can differ from the library name. A name ending
+  in `--<episode>` is another take of the same idea.
+- `_library` copies generic effects from `~/.local/share/motion-film-studio/sfx/`. These are in the R2 library too.
+- A `prompt` entry needs `"why"`. Without one, `sfx.py` refuses it and prints the closest library sounds.
+  Try two or three wordings in find_sfx before deciding nothing fits. Trimming, pitching, layering or a different `db` usually beats a new sound.
+- For a sound you do generate: describe the source, the space and the distance ("muffled through train windows",
+  "close microphone"). Use `dur` 0.5–22 s, and `loop: true` for beds. The prompt becomes the library's search text, so be specific.
+- After generating, `sfx.py` runs `r2_sync.py sounds`: it dedupes, files the sound in a folder, adds it to the index and rebuilds
+  the gallery's Sounds page. `--no-share` skips this, for throwaway tests only. `sfx.py <slug> --force a,b` regenerates those.
 
 ## Cue sheet (`src/episodes/<slug>/sound.ts`)
 
