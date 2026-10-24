@@ -76,9 +76,13 @@ Example: `src/episodes/burn3img/TheBurn3Img.tsx` (THE BURN Part 3, 2026-10-23).
   (bash reads scripts as it goes); the bundle copies all of `public/` (~5 GB), so never overlap two renders on a tight disk.
 
 ## Long-form films from a season (16:9, YouTube)
-- `scripts/film_build.py <film>` assembles the film from the parts' **own takes and mixes** (cut on the story lines: no recap,
-  no PART slam, no question), plus the film's own narration (title, Chapter 1 retold or "the story so far", the outro), chapter
-  cards and YouTube chapter timestamps. Same voice, same sound, no plot drift.
+- `scripts/film_build.py <film>` assembles the film from the parts' **own takes** and **film mixes** (`scripts/film_nohit.py` +
+  `scripts/mix.py <ep> --film`: no hits, no stingers, the score's hits silenced), cut on the story lines (no recap, no PART
+  slam, no question), plus the film's own narration and YouTube chapter timestamps. Same voice, same story, no plot drift.
+- **Owner notes (2026-10-24):** open with a **direct narrated question hook** ("What if sunlight burned everyone?…") over a
+  strong visual, then a **silent title card**, then the story from its real start. Never open with lines cut from later in
+  the season. **No "dum" anywhere in a film** (no hit on chapter or title cards either). A series with an earlier long-form
+  plays it first as part of one film (Dead Quiet: long-form 1's chapters, then the season), never two films.
 - `src/episodes/_film/film.tsx` lays every shot out again in 16:9: a slow full-bleed pan, a framed card over its own blurred
   backdrop, a three-panel strip; graphics in a lit panel; iso maps full frame; older parts (not on the engine) as their original
   film in a frame. Every layout keeps moving (a held still for 5 s reads as a freeze).
