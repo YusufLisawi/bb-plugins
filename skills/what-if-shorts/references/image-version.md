@@ -52,3 +52,37 @@ Example: `src/episodes/burn3img/TheBurn3Img.tsx` (THE BURN Part 3, 2026-10-23).
 - **Hits:** at most about 3 "dum" hits per part. Everything else is real foley and room tone.
 - **The cold open is code:** the first scene is drawn and animated in code, after the AI still (e.g. `ColdOpen` in `src/episodes/burn4/TheBurn4.tsx`).
 - **The CTA:** a theory question about the part's mystery, plus what the next part will reveal ("Part 5 shows what happens to Mom").
+
+## Building a whole season at once (THE LONG NIGHT, GREEN RAIN, DEAD QUIET S1, 2026-10-24)
+- **Narration (owner):** Horror Rules (`1625a0fcc6eb4b2695275ab638fc34a0`), drama-3, tags kept, speed **1.1** = ~3.0 words a second
+  while speaking. Write **calm, connected sentences** ("so", "but", "because"), not fragments; split long sentences across lines
+  only to cut shots (the take is one continuous read, so the split doesn't change the voice).
+- **One file per series** (`episodes/_series/<series>/s1.py`): every part's lines with one shot each (`I:` still or `G:` graphic),
+  written by `scripts/s1_write.py` into script.tsv, cast.json, shots.json and an art brief. Line ids must be unique and must
+  never reuse `open`, `r1`–`r3` or `ask` (a story line called "open" became a second cold open).
+- **The engine** (`src/episodes/_s1/engine.tsx`) takes `slug`, `spec.pill`, `spec.kw` (caption colours), weather cold opens
+  (`closeup:<look>:snow|rain`, `street:snow|rain`, `door`), a stat pill (`clock.steps`: OUTSIDE −38°C, DAYS OF WATER 2.5,
+  LILY'S BODY 34°C), a countdown with `off`, and shared graphics in `gfx.tsx` / `gfx2.tsx`: iso maps of each world, steps,
+  bars, thermometer, timer, light/noise radius, layers, CO, rocket stove, ice, the dark sun, distilling, water filter, hand
+  signals, humming, flood level, tide. Check new graphics in the `S1Lab` composition before using them.
+- **Art at scale:** a cast sheet + 3-shot pilot per series first (approve it), then threads of 2–3 parts each with the sheet and
+  pilot as references. **At most 5 Codex threads at once**: each holds 0.5–0.8 GB, and with 13 the machine ran out of RAM and
+  earlyoom killed both the Codex servers and a render's ffmpeg. Spawn with `--environment <project checkout>` or they stop after
+  switching folders. Finish briefs list only the missing stills (`scripts/s1_finish.py`). Review every part as a labelled
+  contact sheet (`scripts/s1_sheet.py`) and approve it (`art/<ep>/raw/.approved`).
+- **The queue** (`scripts/s1_run.py`): prep (frames, wrapper, Root, sound design `s1_sound2.py`, mix) → render → QA → deliver
+  → cover → R2, one part at a time, only approved parts. Image versions render at **30 fps without motion blur**
+  (SAMPLES=1, CRF 18): they're slow pans and pops, and the 4-sample blur cost 2.5× the time. Never edit `render.sh` while it runs
+  (bash reads scripts as it goes); the bundle copies all of `public/` (~5 GB), so never overlap two renders on a tight disk.
+
+## Long-form films from a season (16:9, YouTube)
+- `scripts/film_build.py <film>` assembles the film from the parts' **own takes and mixes** (cut on the story lines: no recap,
+  no PART slam, no question), plus the film's own narration (title, Chapter 1 retold or "the story so far", the outro), chapter
+  cards and YouTube chapter timestamps. Same voice, same sound, no plot drift.
+- `src/episodes/_film/film.tsx` lays every shot out again in 16:9: a slow full-bleed pan, a framed card over its own blurred
+  backdrop, a three-panel strip; graphics in a lit panel; iso maps full frame; older parts (not on the engine) as their original
+  film in a frame. Every layout keeps moving (a held still for 5 s reads as a freeze).
+- **three.js, a few times per film** (`src/kit/three/scenes.tsx`): Globe (night with the lit Moon / the burning day line / green
+  clouds), Terrain (the herd pulled by a siren), SunRing (the ring of shapes, or the dark ring), Sea (the glowing sea).
+- Wide Codex art (1536×1024, cropped to 16:9 by `scripts/film_fit.py`): one per chapter card + the scenes the new narration
+  needs. Render films at 30 fps (`tools/film_ship.sh`).
