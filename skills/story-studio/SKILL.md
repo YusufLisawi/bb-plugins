@@ -128,6 +128,9 @@ df -h ~                                # ≥ 30 GB free before anything heavy
       (`art`, `title`, `question`, `part`, `sub`, optional `fire` gradient / `pill` colour / `align` / `titleSize`).
       Then run `scripts/cover.sh <slug>` → `~/Videos/story-studio/<slug>-cover.jpg` + `-cover-wide.jpg`. Never bake text
       into the art; edits are a JSON change and a re-run.
+    A series part gets a big **part-number block** (PART 4 / FINALE 12) at the bottom-left, beside the title. It's automatic
+    from `part` in covers.json, and it sits inside every profile grid's crop (TikTok 3:4, Instagram 4:5), so the order reads from
+    the profile (owner, 2026-10-24).
     Check it at phone size (≈ 200 px wide): the title must read and the face must show. `r2_sync.py videos` uploads the
     covers, the gallery uses them as the card image with download links, and `deliver.sh` warns when one is missing.
 
