@@ -54,7 +54,17 @@ Layer 2 (`fx2.tsx`, added for FLIGHT DELAYED Part 1 v2; all draw on / pop / type
 | `note` | x, y, w, lines [{text, at, strike, col}], rot | a taped paper note whose lines type themselves and get struck out |
 | `bars` | x, y, w, title, items [[label, n]] | a small growing bar chart on a paper pill (THE DEAD · SMARTER: day 1, 2, 3) |
 | `led` | x, y, at, col, r | a status light that turns on and pulses (badge reader) |
-Screen-space by default (not moved by the camera): `counter`, `clock`, `pulse`, `bars`; override with `"fixed": false|true`.
+
+Layer 2, added for FLIGHT DELAYED Part 2 (`fx2.tsx`):
+| kind | args | use |
+|---|---|---|
+| `phoneapp` | app `dial` / `download` / `map` / `translate`, x, y, w, ar, rot, at, … | an app on a drawn phone's BLANK screen (measure the screen with `scripts/find_screen.py`). `dial`: `digits` typed at `cps`, then `callAt` → a calling screen. `download`: `rows [{label, at, to}]` bars fill between the narrator's words, the Wi-Fi icon dies at `dieAt` (with `rows: []` a big Wi-Fi icon + `label` typed at `labelAt`). `map`: a street map + terminal, a dot and a route that draws at `routeAt`, `label` at `labelAt`. `translate`: a camera view of Korean `ko` + the English `en` typed at `enAt`, `label` at `labelAt`. Several shots can carry the SAME download fx (progress is a function of time): the phone just has to sit at the same place |
+| `cctv` | at, to, tint, time, timeAt | a security-camera look over the WHOLE picture, screen-space: grayscale + green (blend modes), scanlines, noise, a rolling band, corner brackets, a pulsing red dot, an optional typed time. Draw the picture clean from a high corner (normal colours); the code makes it footage |
+| `kicker` | text, at, to, x, y | a small screen-space pill whose words type: PREVIOUSLY (the recap's first three pictures) |
+| `pips` | + `r` | the dot radius (fraction of the short side; 0.016 for nine small bottles in a row) |
+Cards added: `stages` (title, titleAt, n, stiff, stiffAt, label, labelAt, offAt: a week of boxes, the first ones fill with stiff figures "RIGOR MORTIS / TWO DAYS", then they wear off and the rest ask "?"); `ledger` rows may carry `ats` (one anchor per row) and `noteAt`; CTA option icons `door` (barricade) and `up` (climb) next to `stairs` / `run`.
+
+Screen-space by default (not moved by the camera): `counter`, `clock`, `pulse`, `bars`, `cctv`, `kicker`; override with `"fixed": false|true`.
 A **HUD** list in plan.json (`{"fx": {...}, "from": a, "to": b}`) lives across several shots and hides behind full-frame cards
 (`"onCards": true` on the fx keeps it). Use it for a counter that spans a cut (NOISE 94 → 31 dB); **not for a heartbeat meter** (removed in round 2).
 

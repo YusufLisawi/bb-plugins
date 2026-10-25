@@ -87,6 +87,7 @@ one is approved. Continuity notes (props, wounds, clothes, time of day) go into 
 - `references/bug-review.md`: the picture bug checklist (what the owner rejected) and how to run it.
 - `references/motion-and-sound.md`: camera moves, every fx and card (with args), the HUD, sound cues and beds, local sounds, the mix.
 - `references/cta-end-card.md`: the animated end card and its plan entry.
+- `references/series-workflow.md`: Parts 2-6 of a series: script budget, voice + `trim_take.py`, gates, brief assembly, fx coordinates (`find_screen.py`, `frame_grid.py`), the two-pass audit and its false alarms.
 - `references/build-and-qa.md`: render, peek, QA, upload, gallery, covers, disk and thread limits, known traps.
 
 ## Done means
