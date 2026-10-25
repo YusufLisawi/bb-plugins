@@ -60,6 +60,11 @@ and the bar.
 
 ## Formats
 
+> [!IMPORTANT] House style since 2026-10-25: **STORYBOOK STILLS** (skill `storybook-stills`): every action its own AI
+> illustration in the Beanie Survives / Melvin inked-stickman look, brought alive by camera moves, hits, place states, code motion
+> graphics and foley (engine `src/kit/stills`, reference `beanie4`). Use it for new story videos unless the owner asks for another format.
+
+
 | Format | Read | Reference |
 |---|---|---|
 | **CARDBOARD 2.0 — the MAIN format, any niche** (paper-craft dioramas, cut-out puppets with measured eyes on 12 fps steps, the maker's hand, paper motion graphics; shared library `public/_lib/cardboard` + kit `src/kit/cardboard`; the ONLY format with generated assets) | [references/format-cardboard.md](references/format-cardboard.md) | **`cobra-cardboard`** |

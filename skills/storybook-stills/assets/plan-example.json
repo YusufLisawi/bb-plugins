@@ -1,0 +1,40 @@
+{
+ "slug": "beanie4",
+ "size": "16:9",
+ "art": "art/beanie4/raw",
+ "tail": 2.1,
+ "shots": [
+  {"img": "01_sleep", "at": 0, "z": [1.0, 1.08], "o": [45, 70], "fx": [{"kind": "zzz", "x": 0.33, "y": 0.56}]},
+  {"img": "02_wake", "at": "crash", "z": [1.06, 1.1], "o": [50, 55], "hits": ["crash.crash"], "fx": [{"kind": "burst", "at": "crash.crash", "x": 0.85, "y": 0.35, "s": 0.8}]},
+  {"img": "03_barricade", "at": "crash.the", "z": [1.02, 1.1], "o": [60, 50], "hits": ["crash.barricade", "crash.moving"], "fx": [{"kind": "burst", "at": "crash.barricade", "x": 0.56, "y": 0.36}, {"kind": "burst", "at": "crash.moving", "x": 0.6, "y": 0.5, "s": 0.8}]},
+  {"img": "04_call", "at": "call", "z": [1.0, 1.06], "o": [50, 40]},
+  {"img": "05_phone", "at": "call.it", "z": [1.02, 1.07], "o": [50, 50], "fx": [{"kind": "phone", "x": 0.53, "y": 0.46, "w": 0.17, "rot": 5, "title": "CALLING", "big": "911", "failAt": "call.answers"}]},
+  {"img": "06_bag", "at": "call.end+0.6", "z": [1.08, 1.02], "o": [50, 50]},
+  {"img": "07_stairs", "at": "run.and", "z": [1.08, 1.12], "o": [50, 50], "x": [0.02, -0.02], "y": [0.03, -0.03]},
+  {"card": {"kind": "climb", "floors": 30, "them": "them, slow"}, "at": "floors"},
+  {"img": "08_roof", "at": "roof", "z": [1.0, 1.05], "o": [30, 70]},
+  {"img": "09_burst", "at": "roof.bursts", "z": [1.08, 1.04], "o": [30, 60], "hits": ["roof.bursts"], "fx": [{"kind": "burst", "at": "roof.bursts", "x": 0.09, "y": 0.45, "s": 0.8}]},
+  {"img": "10_zombie", "at": "roof.you", "z": [1.0, 1.06], "o": [35, 60]},
+  {"img": "11_pipe", "at": "swing", "z": [1.02, 1.08], "o": [60, 70]},
+  {"img": "12_swing", "at": "swing.pipe-0.08", "z": [1.1, 1.04], "o": [45, 45], "hits": ["swing.pipe"], "fx": [{"kind": "burst", "at": "swing.pipe", "x": 0.29, "y": 0.44, "s": 0.7}]},
+  {"img": "13_down", "at": "swing.end+0.8", "z": [1.0, 1.05], "o": [50, 75]},
+  {"img": "14_lena", "at": "voice.tank", "z": [1.0, 1.1], "o": [85, 60]},
+  {"img": "15_hug", "at": "voice.alive-0.2", "z": [1.04, 1.08], "o": [50, 50]},
+  {"img": "16_dawn", "at": "dawn-0.8", "z": [1.12, 1.0], "o": [50, 45], "fx": [{"kind": "rays", "x": 0.75, "y": 0.52}]}
+ ],
+ "sound": [
+  {"amb": "night_city", "from": 0, "to": "run.and", "db": -16, "fi": 0.3, "fo": 0.4},
+  {"amb": "snore", "from": 0.2, "to": "crash-0.1", "db": -16, "fi": 0.6, "fo": 0.3},
+  {"sfx": "crash", "at": "crash.crash", "db": -2}, {"sfx": "breath_fast", "at": "crash.crash+0.25", "db": -10},
+  {"sfx": "door_bang", "at": "crash.barricade", "db": -4}, {"sfx": "door_bang", "at": "crash.moving", "db": -6},
+  {"sfx": "dial", "at": "call", "db": -12}, {"sfx": "phone_ring", "at": "call.rings", "db": -10}, {"sfx": "phone_ring", "at": "call.rings#2", "db": -11}, {"sfx": "phone_lock", "at": "call.answers", "db": -10},
+  {"sfx": "whoosh", "at": "call.end+0.6", "db": -12}, {"sfx": "bag_thud", "at": "run.bag", "db": -8},
+  {"amb": "shaft_wind", "from": "run.and", "to": "floors", "db": -14}, {"sfx": "stairs_up", "at": "run.and", "db": -6},
+  {"sfx": "softwhoosh", "at": "floors", "db": -12}, {"amb": "heartbeat", "from": "floors", "to": "roof", "db": -16, "fi": 0.3, "fo": 0.4},
+  {"amb": "nightwind", "from": "roof", "to": "dawn-0.8", "db": -12, "fi": 0.3, "fo": 0.8}, {"sfx": "run", "at": "roof", "db": -8},
+  {"sfx": "door_bang", "at": "roof.bursts", "db": -2}, {"sfx": "zombie_groan", "at": "roof.bursts+0.4", "db": -8}, {"sfx": "groan2", "at": "swing.neighbour", "db": -10},
+  {"sfx": "swing", "at": "swing.pipe-0.6", "db": -6}, {"sfx": "impact", "at": "swing.pipe", "db": -2}, {"sfx": "thud", "at": "swing.pipe+0.3", "db": -4},
+  {"sfx": "rustle", "at": "voice.alive", "db": -12}, {"sfx": "breath", "at": "voice.alive+0.2", "db": -12},
+  {"amb": "birds", "from": "dawn-0.8", "to": "end", "db": -16, "fi": 1.2, "fo": 1.0}, {"amb": "wind_dusk", "from": "dawn-0.8", "to": "end", "db": -18, "fi": 1.0, "fo": 1.0}
+ ]
+}
