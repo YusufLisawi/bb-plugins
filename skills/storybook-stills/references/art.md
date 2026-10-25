@@ -8,7 +8,8 @@ bb thread spawn --project proj_kax9max22t --parent-self --provider codex --envir
 ```
 - Use the project checkout environment (`env_nji25bvwcj`), not a worktree, so files land in the main checkout and no 1.5 GB
   worktree is left behind. At most 5 Codex threads at once (each holds 0.5–0.8 GB of RAM).
-- ~16–20 pictures per thread. Split a long film by place or by act so continuity stays inside one thread.
+- ~10–12 pictures per thread for a dense film (60–70 pictures = 5–6 threads, ~25 min each in parallel). Split by place or by act so
+  continuity stays inside one thread; give every thread the SAME header (style, cast, places, bug checklist).
 - Start from `assets/brief-template.md` (the style block, cast, places, rules, one line per picture). Every picture line says:
   the place and its state, who does what, where they look, the expression, what they carry.
 
@@ -19,7 +20,7 @@ bb thread spawn --project proj_kax9max22t --parent-self --provider codex --envir
 3. **Review** each batch as a contact sheet (`python3 scripts/stills_build.py <slug> --sheet --no-mix` or ffmpeg tile) and send
    back only the failures, by name, with the exact fix (move the old file to `art/<slug>/old/` first).
 
-## Review checklist (reject on any)
+## Review checklist (reject on any): the full version with the failure stories is `bug-review.md`
 - Same faces, hats, clothes and colours as the cast sheet; same character count; no extra hands or limbs.
 - A returning place has the same framing and furniture; a state change changed ONLY what the line says (we rejected a room_a
   whose window moved and whose couch became an armchair).
@@ -28,8 +29,15 @@ bb thread spawn --project proj_kax9max22t --parent-self --provider codex --envir
 - No text, letters or numbers; no gore; nothing important in the crop zones.
 - One readable action; the face big enough to read on a phone.
 
+## Fixing one picture
+Send the exact fix to the SAME art thread that drew it (`bb thread tell <thread> --message-file fix.md`; it keeps the style context):
+name the file, say "EDIT TARGET: change ONLY <the stray hand at about x=270..420, y=500..690 of the 1536×1024 picture>", say what must
+be there instead, and ask it to back the old file up to `art/<slug>/old/<name>-v1.png` first. Regenerating re-rolls every other flaw.
+Measure where a flaw sits with `python3 scripts/art_sheet.py` (tile coordinates ×1.536 = art pixels) or a PIL crop.
+
 ## Crop and sizes
-- 16:9 episodes: ask for 1536×1024; the build crops to 1920×1080 by cutting ~9% from the top and the bottom.
+- 16:9 episodes: ask for 1536×1024; the build crops to 1920×1080 by cutting ~9% from the top and the bottom. Frame fraction of an
+  art point: `frame_x = art_x / 1536`, `frame_y = (art_y − 80) / 864`: use it to place fx.
 - 9:16 episodes: ask for 1024×1536; the build crops to 1080×1920 (left/right trim). Keep faces out of 62–74% height if captions
   are added.
 - Prop cut-outs for `prop` fx or cards: the prop alone on flat magenta #FF00FF, then

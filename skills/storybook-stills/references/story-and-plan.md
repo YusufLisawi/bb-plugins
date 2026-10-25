@@ -21,6 +21,10 @@
 - Put the facts in cards and cutaways, not in pictures: rule cards, day cards, supplies ledgers, tallies, the climb cutaway.
 - Check logic before writing the brief: where everyone is, what they carry, what is broken, what time it is, where the light is.
 
+Dense films: write the plan as code (`episodes/<slug>/plan.py`, example `assets/plan-example-v2.py`) and read `density-and-plan.md`
+(pictures every 2–3 s, graphics on most beats, art numbered in story order). The narration does not have to change to get richer:
+FLIGHT DELAYED v2 kept v1's script and voice take (`voice.py <slug> --reuse` after copying `public/<old>/vo/raw`), so the timings stayed.
+
 ## plan.json
 ```json
 { "slug": "beanie4", "size": "16:9", "art": "art/beanie4/raw", "tail": 2.1,
@@ -33,6 +37,8 @@
 - A shot runs from its `at` to the next shot's `at`; `img` = a picture name in the art folder (no extension), or `card` = a
   full-frame card (see motion-and-sound.md). `z` [start, end] zoom, `o` [x%, y%] zoom origin, optional `x` / `y` drift in
   fractions of the frame; leave them out and the build cycles varied presets.
+- `"hud": [{"fx": {...}, "from": a, "to": b}]` screen-space overlays that live across shots (a heartbeat meter, a counter); keys that are
+  times (`at`, `to`, `from`, `thenAt`, `strike`, `commentAt`, `partAt`, `hookAt`, `followAt`) take anchors.
 - **Anchors** (any `at`, `failAt`, `from`, `to`, every `hits` entry): seconds, `"line"` (its first word), `"line.end"`,
   `"line.word"` (first match, case/punctuation ignored), `"line.word#2"`, `"end"`, plus an offset `"+0.3"` / `"-0.2"`.
   Cut pictures on the word that names the action ("swing.pipe-0.08"); land hits on the word itself.

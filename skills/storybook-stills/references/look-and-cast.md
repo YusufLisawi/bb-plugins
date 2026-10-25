@@ -28,7 +28,9 @@ and `plate-apartment.jpg` / `plate-garden.jpg` (the two reference channels).
 | every scene with its characters, props, damage, light | camera push / pan / settle / shake |
 | each STATE of a place (normal → barricaded → door cracked) | impact bursts, flashes, Zzz, weather, embers, sun rays |
 | close-up inserts (a hand holding a phone, a pipe on the gravel) | all text: phone screens, counters, labels, day / rule / supplies cards |
-| prop cut-outs on flat magenta when a prop must pop in by itself | diagrams: the climb cutaway, tallies, maps |
+| prop cut-outs on flat magenta when a prop must pop in by itself | diagrams: the climb cutaway, tallies, floor plans with the crowd flow, the crush gauge, the arms-up pictogram |
+| blank phone screens, boards, signs, passports, banknotes | what is on them: phone UI, split-flap board, invented foreign script, the passport page, stamps |
+| foreign-language announcements as a sound only | a translation bubble of invented script that turns into "???" |
 
 The hybrid (AI parts on code stick limbs) exists in `src/kit/stick/` and `src/episodes/hybrid4/`. The owner preferred these
 drawn pictures: use the hybrid only if asked.

@@ -11,6 +11,16 @@ PUBLIC_ONLY="<slug>" MIN_FREE_GB=4 SAMPLES=1 CRF1=18 scripts/render.sh <Comp> <s
 - Check stills before a full render: bundle once, then `npx remotion still <bundle> <Comp> /tmp/x.png --frame=<n> --scale=0.4
   --props='{"audio":false}'` for a few frames, tile them, look.
 
+## Looking before rendering
+```bash
+python3 scripts/stills_build.py <slug> --placeholders        # grey stand-in frames for art that does not exist yet: check timing + graphics while Codex draws
+scripts/peek.sh <slug> <Comp> 12.5,14.3,20 0.5 3             # bundle once, render stills at those seconds, tile them → /tmp/peek-<slug>.jpg (~30 s)
+GRID=1 scripts/peek.sh <slug> <Comp> 43.0,56.3 0.5 2         # + a labelled 10 % grid: read fx x/y fractions off the picture
+python3 scripts/art_sheet.py art/<slug>/raw 12 13 14 --cols 1 --w 1000   # review sheet of the art (prefixes work)
+ffmpeg -ss 130 -i out/<slug>.mp4 -frames:v 1 …               # frames of the FINAL video: check every graphic in context before upload
+```
+A 163 s film renders in ~2.5 min (CONC=4) + ~1.7 min encode; `peek.sh` is the loop for fx placement (about ten iterations on the first cut).
+
 ## QA (must pass)
 `.venv/bin/python scripts/qa.py <slug>`: format PASS, loudness PASS (−14 LUFS), picture 0 freezes (a freeze = a held frame
 ≥ 1.5 s: add motion), speech PASS (≥ 0.97 of words heard). The speech check knows plates read letter by letter, digit-by-digit
