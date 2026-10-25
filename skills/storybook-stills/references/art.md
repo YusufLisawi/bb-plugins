@@ -29,6 +29,11 @@ bb thread spawn --project proj_kax9max22t --parent-self --provider codex --envir
 - No text, letters or numbers; no gore; nothing important in the crop zones.
 - One readable action; the face big enough to read on a phone.
 
+## Extra pictures for a hook / a fix pass
+A hook may need 1–3 NEW pictures (the zombie close-up with hollow eyes and a reaching bandaged hand; the hero walking out of arrivals). One small Codex thread,
+header + the same checklist; the first version of a "zombie" read as a worried man: say what makes a face read in 2 seconds (hollow solid-black eye ovals, heavy
+down-slanting brows, a slack open mouth, tilted head, arms stiffly forward) and send it back as an EDIT if it does not.
+
 ## Fixing one picture
 Send the exact fix to the SAME art thread that drew it (`bb thread tell <thread> --message-file fix.md`; it keeps the style context):
 name the file, say "EDIT TARGET: change ONLY <the stray hand at about x=270..420, y=500..690 of the 1536×1024 picture>", say what must

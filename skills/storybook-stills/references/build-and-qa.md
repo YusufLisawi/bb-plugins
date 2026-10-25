@@ -19,16 +19,24 @@ GRID=1 scripts/peek.sh <slug> <Comp> 43.0,56.3 0.5 2         # + a labelled 10 %
 python3 scripts/art_sheet.py art/<slug>/raw 12 13 14 --cols 1 --w 1000   # review sheet of the art (prefixes work)
 ffmpeg -ss 130 -i out/<slug>.mp4 -frames:v 1 …               # frames of the FINAL video: check every graphic in context before upload
 ```
-A 163 s film renders in ~2.5 min (CONC=4) + ~1.7 min encode; `peek.sh` is the loop for fx placement (about ten iterations on the first cut).
+A 178 s film renders in ~2.8 min (CONC=4) + ~2 min encode (never touch `public/<slug>/mix.wav` while it runs: the encode reads it at the end); `peek.sh` is the loop for fx placement (about ten iterations on the first cut).
+
+## Before a render (30 s, catches what the eye misses)
+```bash
+python3 scripts/check_fx.py                    # every declared fx / card kind has a render case; every plan uses known kinds (a switch with a missing case renders NOTHING)
+python3 scripts/sync_audit.py <slug>           # every beat vs the narrator's words + each card's hold vs read-aloud + 1 s (pacing-and-sync.md)
+npx tsc --noEmit -p .
+```
 
 ## QA (must pass)
 `.venv/bin/python scripts/qa.py <slug>`: format PASS, loudness PASS (−14 LUFS), picture 0 freezes (a freeze = a held frame
-≥ 1.5 s: add motion), speech PASS (≥ 0.97 of words heard). The speech check knows plates read letter by letter, digit-by-digit
+≥ 1.5 s: add motion; a card that waits for the narrator needs the engine's slow drift, which is built in), speech PASS (≥ 0.97 of words heard). The speech check knows plates read letter by letter, digit-by-digit
 numbers after a plate, 911, 2001–2009 and a few name spellings; a FAIL that's only spelling is a false alarm: run
 `scripts/stt_check.py <slug> <wav>` to see the mismatches before re-rendering.
 Then look at `out/<slug>-qa.jpg`.
 
 ## Delivery
+- **A re-uploaded R2 object keeps being served from Cloudflare's cache** (cf-cache-status HIT, no purge token): a FIXED clip gets a NEW key (`flight-hook-b2.mp4`, `…-p1-v3.mp4`); verify with a plain `curl -sI` (200, content-length = the local file) and check `cf-cache-status`.
 - Test cuts: upload to R2 for the owner (`story-studio/tests/<name>.mp4` on https://faceless.clipaf.com) and share the link;
   delete the local mp4 after the upload is verified.
 - Series parts / films: covers (`public/covers/covers.json` + `scripts/cover.sh`, top PART banner), gallery entry

@@ -20,20 +20,22 @@ Layer 1 (`Stills.tsx`):
 | `zzz` · `flash` · `rain` · `snow` · `embers` · `rays` | see Stills.tsx | sleeping, lightning / explosion flash (any colour), weather, sun rays |
 | `waves` | x, y | arcs from a speaker / alarm (prefer `ripple`) |
 | `prop` | src, x, y, w, at | an AI prop cut-out popping in and bobbing |
-| `board` | x, y, w, h, rows [[city, status]…], flip, at, step, rot | a split-flap board: each row's status flips to `flip` one by one |
+| `board` | x, y, w, h, rows [[city, status]…], flip, at, step, rot, ats [t…], tickAt, tickStep | a split-flap board: each row's status flips to `flip` one by one (`step`), or each row at its own time (`ats`: the narrator's "Cancelled." ×3, two rows per word); from `tickAt` the rows clack one after another until they flip ("flips, line by line") |
 
 Layer 2 (`fx2.tsx`, added for FLIGHT DELAYED Part 1 v2; all draw on / pop / type, nothing appears static):
 | kind | args | use |
 |---|---|---|
-| `circle` | x, y, rx, ry, at, to, col, label, lx, ly | a pen ring that draws itself around a thing + an arrow + a typed hand-written label (offset lx/ly from the ring; the label is clamped inside the frame) |
-| `arrow` | x1, y1, x2, y2, at, col, label, bend | a curved arrow that draws itself, label typed at its middle |
-| `stamp` | x, y, text, sub, at, rot, col, size | a rubber stamp slammed on (overshoot, speckle, ink spatter): WRONG MONEY, CANCELLED |
-| `bubble` | x, y, w, text \| glyphs, rows, at, to, then, thenAt, tx, ty | speech / translation bubble with a tail to (tx,ty): typed text, or invented script (`glyphs`) that swaps to `then` ("???") |
+| `circle` | x, y, rx, ry, at, dur=0.7, hold=2.2, labelAt, col, label, lx, ly | a TEACHING highlight: a pen ring draws on in 0.7 s, its arrow + typed hand-written label follow (`labelAt` = the word), it stays 2.2 s and fades; the label is fitted and clamped inside the visible frame. Use rarely (`pacing-and-sync.md`) |
+| `arrow` | x1, y1, x2, y2, at, dur=0.8, hold=2.2, col, label, bend | a curved arrow that draws itself (0.8 s), holds, fades; label typed at its middle |
+| `stamp` | x, y, text, sub, at, rot, col, size, maxW | a rubber stamp slammed on (overshoot, speckle, ink spatter): WRONG MONEY, ZOMBIE OUTBREAK; text + sub fitted (2 lines max), box from the measured text, clamped inside the frame |
+| `bubble` | x, y, w, text \| glyphs, ko, sub, subAt, rows, at, to, then, thenAt, tx, ty, cps | speech bubble with a tail to (tx,ty): typed text (`ko: true` = Korean font), a translation line `sub` (typed at `subAt`), invented script (`glyphs`), or a swap to `then` ("???"); sized from the largest content it will hold, never grows while typing |
 | `glyphs` | x, y, w, h, rows, at, dur, col, rot, ink | invented foreign script writing itself onto a BLANK sign (never a real alphabet) |
 | `phoneui` | x, y, w, ar, rot, at, time, rows [[icon, text]] | a phone screen on a drawn phone: signal bars crossing out, "No service", offline rows with red ✕ (icons: warn, globe, pin, coin) |
-| `pulse` | x, y, w, bpm, bpmTo \| keys [[t, bpm]…], at, to, label, throb | heartbeat / stress meter: ECG sweep + BPM, beating heart, red frame throb above ~125 BPM. One HUD across the film with a `keys` schedule |
+| `pulse` | x, y, w, bpm, bpmTo \| keys [[t, bpm]…], at, to, label, throb | heartbeat / BPM meter (ECG + beating heart + red frame throb). **Not used in the film since round 2** (the owner: unnecessary); a subtle heartbeat SOUND is the replacement |
+| `pips` | items [{x, y, n, at}], to, col | numbered ink dots dropping onto things one after another (counting "ten people ahead", three per word); the last one is red (the man) |
+| `signtext` | x, y, w, h, text, ko, at, cps, col, align | REAL text typed into a blank sign / panel of the picture (Korean airport signs: 출구 입국심사 수하물 계단), fitted to the rectangle |
 | `clock` | x, y, min, minTo, at, dur, label | a time pill (minutes since midnight: 1082 = 6:02 PM) that ticks |
-| `tag` | x, y, text, sub, tx, ty, at | a taped name tag with a leader line and a red dot on the person |
+| `tag` | x, y, text, sub, subAt, sub2, sub2At, tx, ty, at, maxW | a taped name tag with a leader line and a red dot on the person; `sub` types at `subAt`, `sub2` is appended at `sub2At` (LEO · 27 · CHICAGO word by word); text wraps / shrinks in the tag, tag clamped inside the frame |
 | `loupe` | x, y, r, zoom, lx, ly, at | a magnifier: the picture's own pixels at (x,y) zoomed in a ring at (lx,ly), tied to the spot |
 | `crack` | x, y, at, len, seed | a spider-web crack spreading across glass |
 | `speed` | dir, o, n, at | speed lines streaking (dir −1 left, +1 right) |
@@ -44,23 +46,26 @@ Layer 2 (`fx2.tsx`, added for FLIGHT DELAYED Part 1 v2; all draw on / pop / type
 | `led` | x, y, at, col, r | a status light that turns on and pulses (badge reader) |
 Screen-space by default (not moved by the camera): `counter`, `clock`, `pulse`, `bars`; override with `"fixed": false|true`.
 A **HUD** list in plan.json (`{"fx": {...}, "from": a, "to": b}`) lives across several shots and hides behind full-frame cards
-(`"onCards": true` on the fx keeps it). Use it for the heartbeat and any counter that spans a cut.
+(`"onCards": true` on the fx keeps it). Use it for a counter that spans a cut (NOISE 94 → 31 dB); **not for a heartbeat meter** (removed in round 2).
 
 ## cards (full frame; `{"card": {...}, "at": …}`)
 | kind | args | look |
 |---|---|---|
-| `day` | text, sub, clock [from, to?] | "DAY 1" on charcoal, optional ticking time pill (chapter break) |
-| `rule` | n, title, text | RULE 1 · Don't fight the flow. (on notebook paper) |
+| `day` | text, sub, subAt, clock [from, to?], clockAt | "DAY 1" on charcoal, optional ticking time pill (chapter break); title fitted to one line. Not used in v3 (unspoken) |
+| `rule` | n, title, text?, textFirst, nAt, titleAt, titleTo, textAt, textTo | RULE 1 · Don't fight the flow. on notebook paper: the number pops on "Rule", the title TYPES from `titleAt` to `titleTo` (the first and last word of the phrase), optional small text above (`textFirst`) or below it; title ≤ 2 lines, text ≤ 3, all fitted |
 | `ledger` | title, rows [[label, value]], note | SUPPLIES · DAY 5: Water 36 gal … (the note in red) |
 | `tally` | title, items [[label, n]], note | bars over time (IN THE HALLWAY 1 · 2 · 4 · 9) |
 | `climb` | floors, from, label, them | the tower cutaway: your dot climbs, theirs crawl |
 | `prop` | src, bg | one AI prop, big, squash-and-bob, over a blurred picture |
-| `flight` | flight, status, time, from, to, skip | a plane flies a dotted arc from HOME to a "?" country and a boarding pass lands (FLIGHT 218 · LANDED · 6:02 PM) |
+| `flight` | fromLabel, toLabel, sub, fromAt, flyAt, toAt, subAt | two pins on paper and a plane on a dotted arc: CHICAGO → SEOUL · SOUTH KOREA, each label typed on its word, the plane lands exactly on `toAt` (the destination word) |
+| `ago` | text, sub, minutes, spinAt, typeAt, subAt | the rewind: a clock whose hands spin BACKWARD with the words typed under it (20 MINUTES AGO / SEOUL, SOUTH KOREA); layout from the content, never below the frame |
 | `plan` | title, floor, walls, boxes, crowd, paths, marks, texts, skip | a floor plan from above: walls (glass = blue), booths, a CROWD of dots streaming to a point, drawn-on arrows / dashed routes with typed labels, marks (you, ✕, door, exit) that can TRAVEL along a path (`mv`). Rule 1 "cut across the flow" and rule 3 "two ways out" are both this card (`skip` restarts it mid-animation on the second use) |
-| `gauge` | from, to, note | people per m²: a square metre filling with top-down people + a gauge needle swinging FREE → TIGHT → PACKED → CRUSH (red frame) |
-| `guard` | title, note | the arms-up pictogram: crowds push in from both sides, an air-pocket ring around the chest, a breathing lung, a green tick |
-| `passport` | name, stamp, stampSub | an open passport: photo, the name typed in, a rubber stamp (use a TRUE stamp: Leo never reached the booth → NOT STAMPED) |
-| `cta` | question, hi, options, comment, partAt, part, title, hook, img, bg, followAt, follow | the end card; see `cta-end-card.md` |
+| `gauge` | from, to, sweep, bare, zones, zoneAt, title, note | people per m²: a square metre filling with top-down people + a needle swinging FREE → TIGHT → PACKED → CRUSH (red frame). `bare: true` = only the zone words you list (`zones: ["CRUSH"]` typed at `zoneAt`) |
+| `guard` | bare, armsLabel, armsAt, breatheLabel, breatheAt, title, note | the arms-up pictogram: crowds push in from both sides, an air-pocket ring, a breathing lung, a green tick. `bare: true` = only ARMS UP / BREATHE typed on their words |
+| `passport` | name, nameAt, bare, stamp, stampSub | an open passport: photo, the name typed on its word; `bare: true` = no field labels, no stamp; a stamp only when TRUE (Leo never reached the booth → NOT STAMPED) |
+| `cta` | question, hi, questionAt, questionTo, options, comment, partAt, part, title, titleAt, partSub, partSubAt, hook?, img, bg, followAt, follow | the end card; see `cta-end-card.md` (v3: the question types from "Would" to "exit?", the options pop on "hidden" / "run", the polaroid caption types the narrator's "in a country that isn't yours") |
+
+**Every card drifts slowly while it holds** (engine `cardDrift`: ≈ 16 px/s up, 3 % ease, centred on the middle of the hold; the CTA / climb / prop opt out): without it a rule card waiting for the narrator is a frozen frame (qa.py freeze ≥ 1.5 s) and feels dead.
 See them all: `episodes/stillslab/plan.json` (layer 1) and `episodes/fx2lab/plan.json` (layer 2): `assets/cards-and-fx-v2.jpg`.
 New graphics go into `src/kit/stills/` (`fx2.tsx`, `cards2.tsx`, helpers in `draw.tsx`: `Draw` / `DashDraw` draw-on strokes, `ring`,
 `arrowPath`, `Glyphs`, `typed`, `PaperLines`, `Tape`) so every episode can use them. Pure functions of time; sizes in fractions of the short side.
@@ -82,6 +87,6 @@ New graphics go into `src/kit/stills/` (`fx2.tsx`, `cards2.tsx`, helpers in `dra
   - Beds: 5-s loops (`loop: true`); the mixer crossfades them. A bed per place, quiet.
 - Owner rules: no "dum" hits or stingers, nothing loud in the hook, no beeps / whooshes on every graphic. Real foley only, at the moment
   of the action (a rubber stamp thump on a stamp graphic is foley; a "ding" on a counter is not). Music is optional and soft.
-- Sync a sound to a graphic's rhythm in code: the heartbeat cues are computed from the SAME BPM schedule as the HUD's ECG
-  (`beat_times()` in `episodes/flight1v2/plan.py` mirrors `bpmAt()` in fx2.tsx), so every thump lands on a peak of the drawn trace.
+- A subtle heartbeat under one tense beat is fine: `{"sfx": "heartbeat", "at": "bite.bites+0.2", "db": -16}` every 0.9 s for 5 beats (v3: under the bite and under the man getting up). No meter, no
+  sound computed from a drawn trace any more.
 - `scripts/mix.py <slug>` (run by the build) ducks beds under the voice and masters to −14 LUFS; `--table` prints every cue's gain.

@@ -27,7 +27,13 @@ RULES
   damage stays damaged; light matches the time of day; nothing floating; the character faces what they react to.
 - One clear action per picture, readable in one second; the character big enough to read the face.
 
-BUG CHECKLIST (the owner rejected an earlier cut for exactly these; review EVERY picture against it before you save it, fix until clean):
+BUG CHECKLIST (the owner rejected earlier cuts for exactly these; review EVERY picture against it before you save it, fix until clean):
+0. HARD RULE: MAX TWO ARMS AND TWO LEGS PER PERSON, EVERY HAND TRACED TO ITS OWN SHOULDER. Before you save, take each person in the picture (also the ones
+   who only grab, hug, bite or are bitten) and trace every sleeve from a SHOULDER to its hand: a person has exactly two shoulders, so at most two sleeves
+   leave a torso and at most two hands belong to it. A hand that grips someone else must be attached by a visible sleeve to the GRABBER's own shoulder, never
+   to the person it grips; a hand you cannot trace is an extra arm and the picture fails. Two people touching (a bite, a grab, a hug, a hand-hold, a carry)
+   are the usual place where a third arm appears: after drawing them, count the arms of EACH person separately, out loud, in your reply. A raised or
+   wrapped-around arm may disappear behind a head or a body, but it never gets a second copy. No arm hangs off the edge of the frame unless its shoulder is visible.
 1. COUNT: every person has exactly ONE head, TWO arms, TWO hands (one per arm), TWO legs, TWO shoes where those parts are visible. No
    duplicated or extra hands, no third arm, no hand floating without an arm (trace every hand to its sleeve), no merged limbs or heads.
 2. FULL BODIES: when the action needs legs (leaning, kneeling, running, standing, climbing) the legs and shoes are drawn and touch the
@@ -39,7 +45,7 @@ BUG CHECKLIST (the owner rejected an earlier cut for exactly these; review EVERY
 5. PLACE LOGIC: the same layout, furniture and light direction whenever a place returns; nobody stands inside a wall.
 6. NO TEXT anywhere: signs, screens, boards, badges, passports, banknotes stay BLANK (simple pictograms are allowed).
 7. SAFE CROP and 8. READABLE as above.
-Reply with the saved paths and ONE line per picture: how many hands / legs you counted on each person, props checked, text none, crop ok.
+Reply with the saved paths and ONE line per picture: for EACH person the arms you traced (shoulder -> hand), the legs, props checked, text none, crop ok.
 If a picture cannot be made clean, say which and why. (A later FIX message names one file and says "EDIT TARGET: change ONLY …".)
 
 PICTURES → art/<slug>/raw/<NN>_<id>.png   (number them 01…NN in STORY ORDER across all threads; refs name the reference images to attach)

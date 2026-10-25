@@ -6,6 +6,13 @@ picture is reviewed against this list BEFORE it goes into a plan; failures go ba
 pasted into every art brief (`scripts/stills_brief_template.md`) so the artist self-checks first and reports one line per picture.
 
 ## The checklist
+0. **HARD RULE: MAX TWO ARMS AND TWO LEGS PER PERSON, EVERY HAND TRACED TO ITS OWN SHOULDER.** Checked FIRST, on every person, also on the ones
+   who only grab, hug, bite or are bitten. Trace each sleeve from a shoulder to its hand: a torso has two shoulders, so at most two sleeves and two
+   hands. A hand that grips someone else must connect by a visible sleeve to the GRABBER's own shoulder. Where two people touch (a bite, a grab, a hug,
+   a hand-hold, a carry) a third arm is most likely: count each person's arms separately. Real failure (2026-10-25): in the bite picture the officer
+   had THREE arms (one pressing the zombie's head, one bitten, and a sleeve hanging off the right edge); we passed it twice because we counted
+   *hands*, not *shoulders*. The fix that worked: an exact EDIT request naming the extra sleeve's bounding box and the shoulder every remaining
+   sleeve must come from (a far-side arm may pass BEHIND the head: it is allowed to hide, never to duplicate).
 1. **COUNT**: one head, two arms, two hands (one per arm), two legs, two shoes per person *where those parts are visible*. No
    duplicated or extra hands, no third arm, no hand floating without an arm, no merged limbs or heads. Crowd figures are whole people.
    Two hands that belong to two *different* people near each other (a grip, a hand-hold) are fine: trace each hand to its sleeve.
@@ -25,7 +32,18 @@ pasted into every art brief (`scripts/stills_brief_template.md`) so the artist s
    of the 1536×1024 art. Background figures may touch the margins.
 8. **READABLE**: one clear action per picture, understood in one second; faces big enough to read on a phone.
 
+Second round (same day): the independent Codex audit of all 68 pictures returned 0 FAIL / 5 UNSURE; every UNSURE was the same motif, a white mitten with NO
+sleeve next to a carried child's backpack (Leo carries Kit: his far arm is hidden behind her, but the artist drew its hand outside her coat, 37_lift, 50_silence,
+51_climb), plus a hanging sleeve that ends in a stump (44_shout) and an orphan hand at a bag (31_barrier). They were fixed by EDIT requests to the owning threads
+("remove the loose hand at box x0,y0,x1,y1; the far arm stays hidden behind <person>"). Rule of thumb: **a hand you cannot trace to a sleeve is an extra arm, even
+when the story explains it**; an unseen arm is simply not drawn.
+
 ## How to run it (fast)
+Two independent passes: (1) you, at 1000+ px, two pictures per sheet, tracing shoulders for every person (the arms audit is the slow part: zoom with a
+PIL crop on every grab / hug / carry / bite / crowd-foreground picture); (2) a separate read-only Codex REVIEW thread (`--reasoning-level high`) that
+audits all pictures and writes `art/<slug>/review/arms-audit-codex.md` (a table: picture, person, arms traced, verdict, bounding box). Fix every FAIL
+and UNSURE, then re-run both on the changed pictures. Never rely on the art thread's own "hands counted" line: it said "officer 2 hands" about a
+three-arm picture.
 ```bash
 python3 scripts/art_sheet.py art/<slug>/raw 15_leans 19_arm -o /tmp/p.jpg --cols 1 --w 1100   # 2 per sheet, hands readable
 python3 scripts/art_sheet.py art/<slug>/raw 01 02 03 04 --cols 4 --w 480                      # overview (prefixes work)
