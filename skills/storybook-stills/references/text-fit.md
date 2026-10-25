@@ -12,7 +12,7 @@ the measured text, never guessed. A box also stays inside the VISIBLE frame (the
 | `fit(txt, font, maxW, {maxLines, minScale, maxH})` → `{lines, size, lh, w, h}` | one line at the nominal size, then wrapped (≤ maxLines), then smaller down to 28 %; **never returns a line wider than maxW** |
 | `fit1(txt, font, maxW)` → `{text, size, w}` | ONE line that must stay one line (a title, a button, a status): shrinks to 30 %, only a pathological string ends in "…" |
 | `fitAll(texts, font, maxW)` | several texts that share ONE size (the lines of a note, the rows of a card): the smallest size any needs |
-| `typedLines(lines, n)` | the first n characters of already-wrapped lines: a typewriter that never re-wraps (so a box never grows while it types) |
+| `typedLines(lines, n)` | the first n characters of already-wrapped lines: whole words of already-wrapped lines (wordCut: never letters), never re-wraps, so a box never grows while it reveals |
 | `typedN(len, t, at, to, cps)` | characters typed at time t: linear `at → to` (finishes with the narrator's phrase) or `cps` from `at` |
 | `safeRect(cam, W, H)` / `keepInside(cx, cy, w, h, rect, rot)` | the part of the frame still visible under the shot's zoom / origin / drift, and a box slid inside it (rotation aware) |
 

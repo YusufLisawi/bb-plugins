@@ -1,6 +1,6 @@
 ---
 name: storybook-stills
-description: "The Story Studio house style (locked 2026-10-25): narrated survival / mystery / crime stories told in the Beanie Survives and Melvin inked-stickman look, where every action is its own AI illustration (Codex imagegen) with the characters drawn in, brought to life by camera moves, hits, place states, code motion graphics (cutaways, floor plans, phone screens, counters, heartbeat HUD, stamps, rule and day cards, an animated CTA end card) and one foley sound per action. Use for any new story video, series part or long-form in ~/Developer/story-studio unless the user asks for another format, and when the user mentions the Beanie / Melvin style, \"version B\", storybook stills or the preferred style."
+description: "The Story Studio house style (locked 2026-10-25): narrated survival / mystery / crime stories told in the Beanie Survives and Melvin inked-stickman look, where every action is its own AI illustration (Codex imagegen) with the characters drawn in, brought to life by camera moves, hits, place states, code motion graphics (cutaways, floor plans, phone screens, counters, stamps, rule and day cards, an animated CTA end card) and one foley sound per action. Use for any new story video, series part or long-form in ~/Developer/story-studio unless the user asks for another format, and when the user mentions the Beanie / Melvin style, \"version B\", storybook stills or the preferred style."
 ---
 
 # Storybook Stills: the house style
@@ -11,8 +11,9 @@ rival build (AI head/torso parts on code-animated stick limbs, `src/kit/stick/`)
 never break anatomy or logic. Don't animate characters in this style unless the owner asks.
 
 Reference episodes: **Beanie4** (45 s, `episodes/beanie4/plan.json`, https://faceless.clipaf.com/story-studio/tests/beanie4-B.mp4),
-**FLIGHT DELAYED Part 1 v2** (dense, bug-free, 2:43: `episodes/flight1v2/`, …/flight-delayed-p1-v2.mp4) and **v3** (the paced, word-synced, text-fitted film with the
-owner's hook: `episodes/flight1v3/`, …/flight-delayed-p1-v3.mp4; hooks A / B / C: `episodes/flighthooks/`). Frames: `assets/reference-frames.jpg`,
+**FLIGHT DELAYED Part 1 v2** (dense, bug-free, 2:43: `episodes/flight1v2/`, …/flight-delayed-p1-v2.mp4) and **v3c2 = THE LOCKED REFERENCE** (2:36.5, the owner's
+hook C, word-by-word text, no dead air, text-fitted: `episodes/flight1v3/`, composition `FlightDelayed1v3`,
+https://faceless.clipaf.com/story-studio/tests/flight-delayed-p1-v3c2.mp4; hooks A / B / C: `episodes/flighthooks/`). Series bible: `episodes/_series/flight-delayed/season-1.md`. Frames: `assets/reference-frames.jpg`,
 `assets/flight1v2-frames.jpg`, `assets/flight1v3-frames.jpg`. The owner's verdicts on the first two FLIGHT DELAYED cuts (22 pictures and plain end; then rushed
 cards, unsynced beats, needless circles, overflowing text) are why the next sections exist.
 
@@ -31,19 +32,21 @@ cards, unsynced beats, needless circles, overflowing text) are why the next sect
    burst open, dawn) is a new STATE drawn by editing the previous image.
 5. **Nothing holds still.** Every shot gets its own push or pan and a small settle on the cut; hits shake the frame with an impact burst;
    code motion graphics carry the facts and the feelings (rings and arrows that draw themselves, a phone with No service, a translation
-   bubble, a crowd-flow floor plan, the crush gauge, a heartbeat HUD, rubber stamps, a magnifier, a split-flap board). A graphic that sits
+   bubble, a crowd-flow floor plan, the crush gauge, rubber stamps, a magnifier, a split-flap board). A graphic that sits
    for more than ~1.5 s without moving reads as a freeze.
 6. **Sound makes it animated.** One real foley cue per action (crash, door, ring, footsteps, swing, impact), a bed per place. No "dum"
    stingers, no beeps on graphics, no music under the hook. New sounds from the local GPU model, library first.
-7. **A real end card.** Series parts end on a code-animated CTA (the cliffhanger question typed big, two answers to comment, the next
+7. **A real end card.** Series parts end on a code-animated CTA (the cliffhanger question revealed word by word, big, two answers to comment, the next
    part's polaroid and hook, FOLLOW): `references/cta-end-card.md`.
 8. **Nothing rushed, everything on its word** (`references/pacing-and-sync.md`). A card is on screen ≥ the time to read it aloud + 1 s and the narration waits
    for it (air in script.tsv; long rules split in two); every beat starts ON the word it shows (cuts 0.08 s before it); a highlight is rare, teaches something,
    draws on in 0.7 s and holds 2.2 s; `scripts/sync_audit.py` proves it. Every card drifts slowly while it holds (no frozen frames).
-9. **On-screen text = what is spoken** (no unspoken clocks, labels, BPM meters; Korean signs are in-world) and **it never overflows**: every boxed text measures
+9. **Words, not letters; no dead air.** Every text reveals one whole word at a time (`wordCut` in `fit.ts`), never a typewriter, no caret. Silence only where an
+   action, a sound or a diagram needs the time: `air` holds only on those lines, and `join_take.py` trims each narrator pause to 0.25 s (v3c2: 2:57.7 → 2:36.5).
+10. **On-screen text = what is spoken** (no unspoken clocks, labels, BPM meters; Korean signs are in-world) and **it never overflows**: every boxed text measures
    itself with the real font, wraps / shrinks, and stays inside the visible frame (`references/text-fit.md`, `src/kit/stills/fit.ts`, the FitLab stress test).
-10. **Three hooks first.** The first 2 s must say what it is ("a zombie just bit the passport officer"); the hero's name, age, origin and location come inside the
-    first ~10 s. Three genuinely different openings, each its own composition and short clip, the owner picks, then the fix pass.
+11. **Three hooks first; the OWNER picks.** The first 2 s must say what it is ("a zombie just bit the passport officer"); the hero's name, age, origin and location come inside the
+    first ~10 s. Three genuinely different openings, each its own composition and short clip; never choose one for the owner (they picked hook C after an agent shipped B).
 
 ## The pipeline (all in ~/Developer/story-studio)
 
@@ -65,6 +68,12 @@ python3 scripts/gen_root.py && PUBLIC_ONLY="<slug>" MIN_FREE_GB=4 SAMPLES=1 CRF1
 The engine is `src/kit/stills/` (`Stills.tsx` shots + camera + layer-1 fx / cards, `fx2.tsx` + `cards2.tsx` + `draw.tsx` layer 2).
 `episodes/stillslab/plan.json` (`StillsLab`) and `episodes/fx2lab/plan.json` (`Fx2Lab`) show every card and fx type:
 `assets/cards-and-fx.jpg`, `assets/cards-and-fx-v2.jpg`.
+
+## A series (Parts 2+)
+
+Write the season bible first (cast with an arc each, the evolving threat on a clock, per part: real rules, a twist inside, a cliffhanger), get it
+approved, then build ONE PART AT A TIME: each part goes to the dev player and waits for review before the next; render all parts only after the last
+one is approved. Continuity notes (props, wounds, clothes, time of day) go into every art brief.
 
 ## Read next, as needed
 

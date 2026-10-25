@@ -29,7 +29,7 @@ C({"kind": "cta", "question": ["WOULD YOU HIDE UPSTAIRS", "OR RUN FOR THE EXIT?"
 picture blurred behind everything (the last story picture). Both are art names (no extension). `icon`: `stairs` | `run`.
 
 ## Rules
-- The question is the narrator's last question, shortened to two lines of ≤ 24 characters (the typewriter is sized for that).
+- The question is the narrator's last question, shortened to two lines of ≤ 24 characters (the word-by-word reveal is sized for that).
 - Two answers only, numbered, one word each; the viewer answers with "1" or "2" (fast to type = more comments).
 - The teaser is a *situation* (locked doors, dead phones, they are getting smarter), never a spoiler of the answer.
 - Narration for the last line: question, then "Part two: <title>" and a silent tail of ≥ 3 s (`tail` in the plan) so FOLLOW has time to land.
