@@ -10,7 +10,8 @@ immersive and visualized". The v2 cut (same narration, same voice) has **66 pict
 | shot length | 1.0–3.3 s; nothing over ~4 s unless a card or a moving graphic carries it (the board flip, the CTA) |
 | motion graphics | on **most** beats: ≥ 70 % of picture shots carry at least one fx; every rule / fact beat gets a card |
 | cards | ~1 per 13 s: day, flight, plan (floor plan), gauge, guard, passport, rule ×3, CTA |
-| graphics never idle | everything pops / draws on / counts / types; nothing static for more than ~1.5 s |
+| graphics never idle | everything pops / draws on / counts / reveals word by word; nothing static for more than ~1.5 s |
+| dead air after a line | none: the breath is ~0.25 s; a hold only where an action, a sound, a diagram or a 2 s highlight needs it (see "No dead air") |
 
 ## Picture types to plan per sentence (the vocabulary of "visualized")
 A sentence usually gets 2–3 of these in a row, each on the word that names it:
@@ -20,6 +21,14 @@ A sentence usually gets 2–3 of these in a row, each on the word that names it:
   stampede, the door open / shut) · **cutaway** (a map, a gauge, a diagram: a code card).
 - Numbers and counts become counters / tags ("10th in line", "PEOPLE 200", "FLIGHTS UP 2", "NOISE 94 → 31 dB").
 - Every rule gets: the rule card → a picture of the wrong way → a diagram card (plan / gauge / guard) → a picture of the right way.
+
+## No dead air: the narration runs straight through
+After a line there is only the breath (~0.25 s). A hold is added only where something needs the time:
+1. **Air = a hold, and only for a reason.** The air column of `script.tsv` (`+x`) adds x s on top of the breath. Use it for an action, a sound that plays out, a diagram that draws, or a highlight that must hold 2 s. FLIGHT DELAYED v3c2 holds: the fall +0.2, the bite +0.4, the crush +0.3, the lift +0.6, the passport card +0.6, the man getting up +0.4, the escape diagram after rule 1 +1.0 and after rule 3 +0.8, the bandage ring +0.5, the YOU tag +0.4, the loupe +0.6, the Dani line +0.4. Every other line: no air.
+2. **Trim the take's own pauses first.** A narrator take has its own pauses of 0.3–0.9 s between sentences, so an empty air column still leaves ~0.6 s of silence. `episodes/flight1v3/join_take.py` trims each pause to `TIGHT` (0.25 s) at its quietest point, with 20 ms fades: speech and text are untouched, so `scripts/voice.py <slug> --reuse` still accepts the take. A new episode needs the same step before its holds are added.
+3. **Cards stay up while the narrator talks.** Never hold silence for a card. Move the next picture to a later word of the next line instead: rule 1's flow picture comes on "with", not after "flow.".
+4. **Anchor on words, never on offsets.** An anchor like `"rule2a.end+1.35"` was a pause in disguise: without the silence it lands inside the next line. Use the word, e.g. `"rule2b.arms-0.08"`.
+5. **Check it.** `stills_build.py` refuses a shot that would start before the one before it (an offset anchor that moved into the next line); `sync_audit.py` lists every card with its time on screen and flags shots under 0.9 s. Fix a flash by moving a cut to a later word, not by adding air.
 
 ## Writing the plan as code (episodes/<slug>/plan.py)
 200+ lines of JSON by hand is where timing mistakes hide. Write `plan.py` with tiny helpers and a comment per narration line

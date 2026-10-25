@@ -8,6 +8,16 @@
 - A push crops: with origin `o` and zoom `z` the visible span is `[o − o/z, o + (100 − o)/z]` %. Use it to keep a flaw or an
   unfinished edge out of frame, never to hide a bug in the final cut (fix the art, `bug-review.md`).
 
+## Text reveal: word by word, never letter by letter
+Every text that appears over time reveals one whole word at a time, the same way everywhere: a `rule` title, `note` lines, `tag` subs, `bubble` and `signtext`, the `flight` / `ago` / `plan` labels, the `cta` question and caption, a `passport` name. The engine is `wordCut(text, k)` in `src/kit/stills/fit.ts` (used by `typedLines`, by `typed` in `draw.tsx`, by the sign and bubble text in `fx2.tsx` and by the CTA question in `cards2.tsx`): a word is shown in full as soon as its first letter would have been typed. Since FLIGHT DELAYED v3c2 there is no typewriter: no letter-by-letter motion and no blinking caret.
+- The `cps` / window argument only sets the pace. At 14 characters a second a five-word title lands one word every ~0.25–0.4 s.
+- Spoken text takes the narrator's own words as its window (`titleAt: "rule1a.Don't"`, `titleTo: "rule1a.end"`), so each word lands on or just before the word it is. Check it on a frame during the reveal: the words already said are there, the next one is not yet.
+- A single word (a name, a city, a Korean sign row without spaces) appears whole on its word. Never split a word across two frames.
+
+## Holds and readability (cards and highlights)
+- A card is read while the narrator reads it. It stays on screen for its own words (about words ÷ 2.8 s) plus ~0.3 s, and the next picture is cut on a later word of the next line. Never add silence for a card (see `density-and-plan.md`, "No dead air"). `sync_audit.py` prints a stricter `need` of words ÷ 2.8 + 1 s: say in the notes which bar a film was checked against.
+- A highlight (`circle`, `tag`, `loupe`, `path`, `led`) draws on in ~0.7 s and holds ≥ 2 s. When the narration is tight, give that line a hold rather than shortening the highlight.
+
 ## fx (drawn over a picture, inside its camera layer, so they push and pan with it; x/y/w are fractions of the frame)
 Layer 1 (`Stills.tsx`):
 | kind | args | use |
@@ -52,7 +62,7 @@ A **HUD** list in plan.json (`{"fx": {...}, "from": a, "to": b}`) lives across s
 | kind | args | look |
 |---|---|---|
 | `day` | text, sub, subAt, clock [from, to?], clockAt | "DAY 1" on charcoal, optional ticking time pill (chapter break); title fitted to one line. Not used in v3 (unspoken) |
-| `rule` | n, title, text?, textFirst, nAt, titleAt, titleTo, textAt, textTo | RULE 1 · Don't fight the flow. on notebook paper: the number pops on "Rule", the title TYPES from `titleAt` to `titleTo` (the first and last word of the phrase), optional small text above (`textFirst`) or below it; title ≤ 2 lines, text ≤ 3, all fitted |
+| `rule` | n, title, text?, textFirst, nAt, titleAt, titleTo, textAt, textTo | RULE 1 · Don't fight the flow. on notebook paper: the number pops on "Rule", the title REVEALS word by word from `titleAt` to `titleTo` (the first and last word of the phrase), optional small text above (`textFirst`) or below it; title ≤ 2 lines, text ≤ 3, all fitted |
 | `ledger` | title, rows [[label, value]], note | SUPPLIES · DAY 5: Water 36 gal … (the note in red) |
 | `tally` | title, items [[label, n]], note | bars over time (IN THE HALLWAY 1 · 2 · 4 · 9) |
 | `climb` | floors, from, label, them | the tower cutaway: your dot climbs, theirs crawl |
@@ -63,7 +73,7 @@ A **HUD** list in plan.json (`{"fx": {...}, "from": a, "to": b}`) lives across s
 | `gauge` | from, to, sweep, bare, zones, zoneAt, title, note | people per m²: a square metre filling with top-down people + a needle swinging FREE → TIGHT → PACKED → CRUSH (red frame). `bare: true` = only the zone words you list (`zones: ["CRUSH"]` typed at `zoneAt`) |
 | `guard` | bare, armsLabel, armsAt, breatheLabel, breatheAt, title, note | the arms-up pictogram: crowds push in from both sides, an air-pocket ring, a breathing lung, a green tick. `bare: true` = only ARMS UP / BREATHE typed on their words |
 | `passport` | name, nameAt, bare, stamp, stampSub | an open passport: photo, the name typed on its word; `bare: true` = no field labels, no stamp; a stamp only when TRUE (Leo never reached the booth → NOT STAMPED) |
-| `cta` | question, hi, questionAt, questionTo, options, comment, partAt, part, title, titleAt, partSub, partSubAt, hook?, img, bg, followAt, follow | the end card; see `cta-end-card.md` (v3: the question types from "Would" to "exit?", the options pop on "hidden" / "run", the polaroid caption types the narrator's "in a country that isn't yours") |
+| `cta` | question, hi, questionAt, questionTo, options, comment, partAt, part, title, titleAt, partSub, partSubAt, hook?, img, bg, followAt, follow | the end card; see `cta-end-card.md` (v3: the question reveals word by word from "Would" to "exit?", the options pop on "hidden" / "run", the polaroid caption reveals the narrator's "in a country that isn't yours") |
 
 **Every card drifts slowly while it holds** (engine `cardDrift`: ≈ 16 px/s up, 3 % ease, centred on the middle of the hold; the CTA / climb / prop opt out): without it a rule card waiting for the narrator is a frozen frame (qa.py freeze ≥ 1.5 s) and feels dead.
 See them all: `episodes/stillslab/plan.json` (layer 1) and `episodes/fx2lab/plan.json` (layer 2): `assets/cards-and-fx-v2.jpg`.
