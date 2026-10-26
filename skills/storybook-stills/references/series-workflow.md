@@ -29,3 +29,9 @@ A dead woman in a plum coat (reads as Grace's red coat), a sunset behind a night
 - Queue the next part's scene threads with a small watcher script that spawns a thread whenever fewer than 5 Codex threads are active (the fix threads of the previous part and the new threads share the limit).
 - Two dev players side by side: `scripts/devplayer.sh FlightDelayed3 3124 p3` serves /_player-p3/ next to /_player/.
 - Re-voicing: a fresh `voice.py` (no --reuse) re-rolls the WHOLE take; to change one line use `splice_line.py`. trim_take.py takes a fresh take as its new untrimmed source.
+
+## Part 4 notes
+- A SEEDED secret (Voss's bite) lives only in pictures: the owner's brief names the seeds (jacket on in the heat, sweat, a flinch and the LEFT sleeve pulled down, a declined first-aid box) and allows at most one neutral narration line; the audit brief lists them as deliberate so they are not reported as defects.
+- The audit found real anatomy / continuity bugs in the small details again: a THIRD shoe on a crouching principal (13_dead_closing), backpack straps still worn while the pack stands on the floor, living faces among the dead pursuers (hollow eyes and a grey-green head are what make the dead read), a logo-like emblem on a tiny truck. Principals crouching in a row are where a third leg appears.
+- A new picture the plan needs (a countdown beat, a second POV of a phone) is requested from the SAME art thread as one new picture; list every picture the plan uses against `ls art/<slug>/raw` before the build (`stills_build.py` names the missing ones).
+- A ring / label only fits a shot that outlasts its 2.2 s hold: a 3 s shot that starts the ring 1.7 s in cannot hold it, so the door that IS the picture got no ring.
