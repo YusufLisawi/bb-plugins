@@ -40,6 +40,9 @@ when the story explains it**; an unseen arm is simply not drawn.
 
 9. **COLOUR CLUES** (FLIGHT DELAYED, Part 2 review): a colour that is a plot clue belongs to ONE person (Grace's red coat): no dead person or crowd extra in red / crimson / maroon / burgundy / plum, in any picture (scan with a hue mask, then look: a plum coat reads as red). **TIME OF DAY**: a night scene has a dark window (a sunset behind a 3 a.m. line was found only by the owner); a window that the story covered stays covered in every later picture. Stiffness is a pose: a stiff dead person has locked knees and a dragged foot, never a hand on the rail and a high step.
 
+10. **GROUP PORTRAITS / PHOTOS-IN-PICTURES**: arms around shoulders produce mittens with no sleeve (an extra arm in the audit): pose a group with every hand on its own prop (a helmet under the arm, a hat in both hands), never a hand on a neighbour's shoulder unless its sleeve is visible all the way.
+11. **EVERY RECURRING ACCESSORY IN EVERY PICTURE**: Kit's orange lanyard, the helmet's star after the sticker scene: the audits catch a missing lanyard on an exposed chest; list them in the audit brief.
+
 ## How to run it (fast)
 Two independent passes: (1) you, at 1000+ px, two pictures per sheet, tracing shoulders for every person (the arms audit is the slow part: zoom with a
 PIL crop on every grab / hug / carry / bite / crowd-foreground picture); (2) a separate read-only Codex REVIEW thread (`--reasoning-level high`) that

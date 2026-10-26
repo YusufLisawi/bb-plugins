@@ -23,3 +23,9 @@ The recipe that produced Part 2 (`episodes/flight2`, 66 pictures, 8 cards, 2:58.
 
 ## Owner review of Part 2 (what he caught that the audits did not)
 A dead woman in a plum coat (reads as Grace's red coat), a sunset behind a night line, a plot hole (a phone number nobody calls), a stiff dead woman drawn climbing like an athlete. Check colour clues, time of day, loose plot threads and the pose of the dead before the audit, not after.
+
+## Part 3 notes
+- Four audit threads of ~12 pictures each (≤ 5 Codex threads in all, art + audit) finished in ~15 min and found: rose / mauve clothing on dead crowd extras (the colour rule needs an explicit line in every audit brief and a hue-mask scan), a missing lanyard, floating mittens in a group photo, letter-like loops on a zipper, writing-like blocks on a tiny bumper plate. Zoom on every flag; fix only the real ones by EDIT to the same art thread.
+- Queue the next part's scene threads with a small watcher script that spawns a thread whenever fewer than 5 Codex threads are active (the fix threads of the previous part and the new threads share the limit).
+- Two dev players side by side: `scripts/devplayer.sh FlightDelayed3 3124 p3` serves /_player-p3/ next to /_player/.
+- Re-voicing: a fresh `voice.py` (no --reuse) re-rolls the WHOLE take; to change one line use `splice_line.py`. trim_take.py takes a fresh take as its new untrimmed source.
