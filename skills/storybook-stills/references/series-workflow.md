@@ -35,3 +35,9 @@ A dead woman in a plum coat (reads as Grace's red coat), a sunset behind a night
 - The audit found real anatomy / continuity bugs in the small details again: a THIRD shoe on a crouching principal (13_dead_closing), backpack straps still worn while the pack stands on the floor, living faces among the dead pursuers (hollow eyes and a grey-green head are what make the dead read), a logo-like emblem on a tiny truck. Principals crouching in a row are where a third leg appears.
 - A new picture the plan needs (a countdown beat, a second POV of a phone) is requested from the SAME art thread as one new picture; list every picture the plan uses against `ls art/<slug>/raw` before the build (`stills_build.py` names the missing ones).
 - A ring / label only fits a shot that outlasts its 2.2 s hold: a 3 s shot that starts the ring 1.7 s in cannot hold it, so the door that IS the picture got no ring.
+
+## Part 5 notes
+- A rescue / mission part is mostly places: draw the gate (6 plates: baggage hall, Arrivals at dawn, the shop front, the staff corridor, the garage at night and the same view in the morning) FIRST; the night / morning pair of one view makes the cliffhanger readable (the barricade, then the cart shoved aside).
+- A 'before / after' wound: say in the brief and in the audit brief from which picture the bandage exists (the cut at 35, the cloth in 36-38, gauze after); the audit then checks continuity instead of reporting the forearm.
+- The audit brief must say what time of day each range of pictures is (dawn is not night: ten false 'sunset' FAILs in one audit); list the deliberate states (a dusk return, a lamp-lit garage).
+- Pictures the plan cannot use (spares) are listed in plan.py's docstring; the art threads over-deliver, and unused rule pictures (40-42) were cheaper than a rewritten script.
