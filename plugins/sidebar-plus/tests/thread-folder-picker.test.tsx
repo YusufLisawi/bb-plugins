@@ -73,6 +73,7 @@ vi.mock("@get-bb/plugin-sdk/app", () => {
     experimental_useSidebarThreadSplit: () => ({ splitProps: {} }),
     useRpc: () => rpc,
     useRealtime: () => {},
+    useSdk: () => ({ threads: { update: vi.fn() }, threadSections: { create: vi.fn(), update: vi.fn(), delete: vi.fn() } }),
   };
 });
 vi.mock("../src/useLayout", async () => {

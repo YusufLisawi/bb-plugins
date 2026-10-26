@@ -7,10 +7,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import {
+  useRealtime,
+  useRpc,
+  type PluginSidebarProject,
+} from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract } from "../server";
 import type { FolderPlacement } from "./threadFolders";
+import type { PinGroup } from "./pinGroups";
 
 export type PinMode = "global" | "project" | "none";
 interface Preferences {
@@ -18,6 +23,8 @@ interface Preferences {
   exemptThreadIds: string[];
   autoArchiveAvailable: boolean;
   folderPlacements: FolderPlacement[];
+  projectLabels: Record<string, string>;
+  pinGroups: PinGroup[];
 }
 interface Value {
   projectPinnedIds: ReadonlySet<string>;
@@ -29,6 +36,22 @@ interface Value {
   setThreadFolder: (threadId: string, projectId: string) => Promise<boolean>;
   setPinMode: (threadId: string, mode: PinMode) => void;
   setAutoArchiveExempt: (threadId: string, exempt: boolean) => void;
+  /** The folder's sidebar label, else bb's project name. */
+  projectName: (project: Pick<PluginSidebarProject, "id" | "name">) => string;
+  /** Null or bb's own name returns the folder to bb's name. */
+  setProjectLabel: (projectId: string, label: string | null) => void;
+  pinGroups: readonly PinGroup[];
+  createPinGroup: (
+    projectId: string,
+    name: string,
+    threadId?: string,
+  ) => Promise<boolean>;
+  setThreadPinGroup: (
+    threadId: string,
+    groupId: string | null,
+  ) => Promise<boolean>;
+  renamePinGroup: (groupId: string, name: string) => void;
+  deletePinGroup: (groupId: string) => void;
 }
 const Context = createContext<Value | null>(null);
 
@@ -135,6 +158,29 @@ export function ThreadPreferencesProvider({
         setAutoArchiveExempt: (threadId, exempt) =>
           mutate(threadId, () =>
             rpc.call("setAutoArchiveExempt", { threadId, exempt }),
+          ),
+        projectName: (project) =>
+          preferences?.projectLabels?.[project.id] ?? project.name,
+        setProjectLabel: (projectId, label) =>
+          void mutate(`project:${projectId}`, () =>
+            rpc.call("setProjectLabel", { projectId, label }),
+          ),
+        pinGroups: preferences?.pinGroups ?? [],
+        createPinGroup: (projectId, name, threadId) =>
+          mutate(threadId ?? `project:${projectId}`, () =>
+            rpc.call("createPinGroup", { projectId, name, threadId }),
+          ),
+        setThreadPinGroup: (threadId, groupId) =>
+          mutate(threadId, () =>
+            rpc.call("setThreadPinGroup", { threadId, groupId }),
+          ),
+        renamePinGroup: (groupId, name) =>
+          void mutate(`group:${groupId}`, () =>
+            rpc.call("renamePinGroup", { groupId, name }),
+          ),
+        deletePinGroup: (groupId) =>
+          void mutate(`group:${groupId}`, () =>
+            rpc.call("deletePinGroup", { groupId }),
           ),
       }}
     >

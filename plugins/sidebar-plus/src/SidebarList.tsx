@@ -14,6 +14,15 @@ import { LayoutEditor } from "./LayoutEditor";
 import { Section } from "./Section";
 import { statusDotClass } from "./StatusGlyph";
 import { ThreadRow } from "./ThreadRow";
+import { ThreadTree, type TreeExpansion } from "./ThreadTree";
+import { buildTree } from "./folderThreads";
+import {
+  ancestorsOf,
+  groupUnderAncestors,
+  subtree,
+  treeIds,
+  type TreeNode,
+} from "./familyTree";
 import type { SectionId } from "./layout";
 import {
   ThreadPreferencesProvider,
@@ -25,6 +34,7 @@ import { useNavGrid } from "./navGrid";
 import { matchesQuery, threadStatus } from "./status";
 import { moveVisibleProjectOrder, orderProjects } from "./projectOrder";
 import { ThreadFolderPickerProvider } from "./ThreadFolderPicker";
+import { ProjectSectionsProvider } from "./ProjectSections";
 import { threadFolderId } from "./threadFolders";
 import type { FolderPlacement } from "./threadFolders";
 
@@ -37,7 +47,14 @@ interface UiState {
   openFolders: string[];
   /** Folders the user closed while they were auto-opened. */
   closedFolders: string[];
+  /** Thread families the user opened, as `${scope}:${threadId}`. */
+  openThreads: string[];
+  /** Thread families the user closed, as `${scope}:${threadId}`. */
+  closedThreads: string[];
 }
+
+/** Remembered family choices; the oldest are forgotten past this many. */
+const MAX_THREAD_CHOICES = 500;
 
 function readUiState(): UiState {
   try {
@@ -51,9 +68,17 @@ function readUiState(): UiState {
       collapsedSections: arr(parsed.collapsedSections),
       openFolders: arr(parsed.openFolders),
       closedFolders: arr(parsed.closedFolders),
+      openThreads: arr(parsed.openThreads),
+      closedThreads: arr(parsed.closedThreads),
     };
   } catch {
-    return { collapsedSections: [], openFolders: [], closedFolders: [] };
+    return {
+      collapsedSections: [],
+      openFolders: [],
+      closedFolders: [],
+      openThreads: [],
+      closedThreads: [],
+    };
   }
 }
 
@@ -106,7 +131,27 @@ function useUiState() {
       })),
     [commit],
   );
-  return { state, toggleSection, setFolderOpen, showProjectFolder };
+  const setThreadOpen = useCallback(
+    (key: string, open: boolean) =>
+      commit((c) => {
+        const without = (list: string[]) => list.filter((x) => x !== key);
+        const add = (list: string[]) =>
+          [...without(list), key].slice(-MAX_THREAD_CHOICES);
+        return {
+          ...c,
+          openThreads: open ? add(c.openThreads) : without(c.openThreads),
+          closedThreads: open ? without(c.closedThreads) : add(c.closedThreads),
+        };
+      }),
+    [commit],
+  );
+  return {
+    state,
+    toggleSection,
+    setFolderOpen,
+    showProjectFolder,
+    setThreadOpen,
+  };
 }
 
 export function SidebarList(props: PluginThreadListProps) {
@@ -142,7 +187,17 @@ function SidebarListContent({
     toggleSection,
     setFolderOpen,
     showProjectFolder,
+    setThreadOpen,
   } = useUiState();
+  const expansion = useMemo<TreeExpansion>(() => {
+    const opened = new Set(ui.openThreads);
+    const closed = new Set(ui.closedThreads);
+    return {
+      isOpen: (key, autoOpen) =>
+        opened.has(key) || (autoOpen && !closed.has(key)),
+      setOpen: setThreadOpen,
+    };
+  }, [ui.openThreads, ui.closedThreads, setThreadOpen]);
   const previousPlacements = useRef<ReadonlyMap<
     string,
     FolderPlacement
@@ -228,8 +283,31 @@ function SidebarListContent({
     [projects],
   );
   const projectIds = new Set(projectById.keys());
+  const byId = new Map(visible.map((thread) => [thread.id, thread]));
+  const { childrenOf } = buildTree(
+    [...visible].sort((a, b) => b.updatedAt - a.updatedAt),
+  );
+  const isProjectPin = (thread: PluginSidebarThread) =>
+    thread.isPinned && projectPinnedIds.has(thread.id);
+  // A pin carries its whole family; a pin nested under another pin travels
+  // with the outer one.
+  const pinHeads = visible.filter(
+    (thread) =>
+      thread.isPinned &&
+      !ancestorsOf(thread, byId).some((ancestor) => ancestor.isPinned),
+  );
+  // A project-pinned family sits in its pin's folder, even when a child was
+  // started in another project.
+  const projectPinHead = new Map<string, PluginSidebarThread>();
+  for (const head of pinHeads.filter(isProjectPin))
+    for (const id of treeIds([subtree(head, childrenOf)]))
+      projectPinHead.set(id, head);
   const folderId = (thread: PluginSidebarThread) =>
-    threadFolderId(thread, folderPlacements, projectIds);
+    threadFolderId(
+      projectPinHead.get(thread.id) ?? thread,
+      folderPlacements,
+      projectIds,
+    );
   const placedAt = new Map(
     [...folderPlacements.values()]
       .filter((placement) => projectIds.has(placement.projectId))
@@ -279,9 +357,7 @@ function SidebarListContent({
       : 0;
   const byUpdated = (a: PluginSidebarThread, b: PluginSidebarThread) =>
     b.updatedAt - a.updatedAt;
-  const smartThreads = visible.filter(
-    (thread) => !thread.isPinned || !projectPinnedIds.has(thread.id),
-  );
+  const smartThreads = visible.filter((thread) => !isProjectPin(thread));
   const attention = smartThreads
     .filter((t) => {
       const s = threadStatus(t);
@@ -294,11 +370,13 @@ function SidebarListContent({
   const done = smartThreads
     .filter((t) => threadStatus(t) === "done" && t.updatedAt >= windowStart)
     .sort(byUpdated);
-  const pinned = smartThreads.filter((t) => t.isPinned).sort(byUpdated);
+  const pinned = pinHeads.filter((t) => !isProjectPin(t)).sort(byUpdated);
+  const pinnedFamilies = pinned.map((thread) => subtree(thread, childrenOf));
 
   // Threads visibly listed in an OPEN smart section above. A collapsed or
   // disabled section does not claim its threads, so folding "In progress"
   // makes those threads reappear in their folders instead of vanishing.
+  // Pinned claims each pin's whole family.
   const listed = new Set<string>();
   const enabledSections = layout.sections.filter((s) => s.enabled);
   for (const section of enabledSections) {
@@ -310,22 +388,36 @@ function SidebarListContent({
           ? running
           : section.id === "done"
             ? done
-            : section.id === "pinned"
-              ? pinned
-              : [];
+            : [];
     for (const thread of source) listed.add(thread.id);
+    if (section.id === "pinned")
+      for (const id of treeIds(pinnedFamilies)) listed.add(id);
   }
 
+  // Dedupe hides what a section above already lists, but a parent stays
+  // while any of its children remain, so no child loses its place in the
+  // tree. Moved threads and project-pinned families always stay.
+  const shownAbove = (thread: PluginSidebarThread) =>
+    layout.dedupeFolders &&
+    listed.has(thread.id) &&
+    !projectPinHead.has(thread.id) &&
+    !(
+      folderPlacements.has(thread.id) &&
+      (!thread.isPinned || projectPinnedIds.has(thread.id))
+    );
+  const inFolder = new Set<string>();
+  for (const thread of visible) {
+    if (shownAbove(thread)) continue;
+    inFolder.add(thread.id);
+    const folder = folderId(thread);
+    for (const ancestor of ancestorsOf(thread, byId)) {
+      if (inFolder.has(ancestor.id) || folderId(ancestor) !== folder) break;
+      inFolder.add(ancestor.id);
+    }
+  }
   const threadsByProject = new Map<string, PluginSidebarThread[]>();
   for (const thread of visible) {
-    const explicitlyPlaced =
-      folderPlacements.has(thread.id) &&
-      (!thread.isPinned || projectPinnedIds.has(thread.id));
-    if (layout.dedupeFolders && listed.has(thread.id) && !explicitlyPlaced) {
-      // Keep a child visible if its parent is in the folder; the folder tree
-      // needs the parent to place it. Simplest rule: hide only root threads.
-      if (!thread.parentThreadId) continue;
-    }
+    if (!inFolder.has(thread.id)) continue;
     const projectId = folderId(thread);
     const list = threadsByProject.get(projectId) ?? [];
     list.push(thread);
@@ -342,13 +434,19 @@ function SidebarListContent({
     layout.projectOrder,
   ).filter((project) => !hiddenProjects.has(project.id));
 
+  // Rows show their project; a child only when it differs from its parent's.
+  const projectHint = (node: TreeNode, parent: TreeNode | null) => {
+    const projectId = folderId(node.thread);
+    if (parent && folderId(parent.thread) === projectId) return null;
+    return projectById.get(projectId)?.name ?? null;
+  };
+
   const renderSmart = (
     id: SectionId,
     list: PluginSidebarThread[],
     accent: string | null,
   ) => {
-    if (list.length === 0 && id !== "pinned") return null;
-    if (id === "pinned" && list.length === 0) return null;
+    if (list.length === 0) return null;
     const label =
       id === "attention"
         ? "Needs attention"
@@ -357,6 +455,10 @@ function SidebarListContent({
           : id === "done"
             ? "Done"
             : "Pinned";
+    // A pin brings its family; a status section nests each match under its
+    // parent, so a running child of an idle parent still reads as its child.
+    const nodes =
+      id === "pinned" ? pinnedFamilies : groupUnderAncestors(list, byId);
     return (
       <Section
         key={id}
@@ -367,24 +469,20 @@ function SidebarListContent({
         accent={accent}
       >
         <ul className="space-y-px">
-          {list.map((thread) => (
-            <ThreadRow
-              key={thread.id}
-              thread={thread}
-              isActive={thread.id === activeThreadId}
-              isFollowUp={followUpThreadIds.has(thread.id)}
-              onToggleFollowUp={(marked) =>
-                void setFollowUpMarked(thread.id, marked)
-              }
-              colored={layout.statusColors}
-              hint={
-                layout.showProjectHint
-                  ? (projectById.get(folderId(thread))?.name ?? null)
-                  : null
-              }
-              onNavigate={onNavigate}
-            />
-          ))}
+          <ThreadTree
+            nodes={nodes}
+            scope={id === "pinned" ? "tree" : id}
+            defaultOpen={id === "pinned" ? "auto" : "always"}
+            expansion={expansion}
+            activeThreadId={activeThreadId}
+            followUpThreadIds={followUpThreadIds}
+            onSetFollowUp={(threadId, marked) =>
+              void setFollowUpMarked(threadId, marked)
+            }
+            colored={layout.statusColors}
+            hint={layout.showProjectHint ? projectHint : undefined}
+            onNavigate={onNavigate}
+          />
         </ul>
       </Section>
     );
@@ -457,6 +555,12 @@ function SidebarListContent({
     : null;
 
   return (
+    <ProjectSectionsProvider
+      childrenOf={childrenOf}
+      threadsByProject={threadsByProject}
+      folderIdOf={folderId}
+      isCompactViewport={isCompactViewport}
+    >
     <div className="flex min-h-0 flex-1 flex-col">
       {extensionsButton}
       {chromeHost ? (
@@ -519,6 +623,7 @@ function SidebarListContent({
                           project={project}
                           threads={threadsByProject.get(project.id) ?? []}
                           placedAt={placedAt}
+                          expansion={expansion}
                           open={open}
                           onToggle={() => setFolderOpen(project.id, !open)}
                           activeThreadId={activeThreadId}
@@ -569,6 +674,7 @@ function SidebarListContent({
         )}
       </div>
     </div>
+    </ProjectSectionsProvider>
   );
 }
 

@@ -8,17 +8,20 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { StatusCluster } from "./StatusGlyph";
-import { ThreadRow } from "./ThreadRow";
+import { ThreadTree, type TreeExpansion } from "./ThreadTree";
 import { usePortalScopeProps } from "@/lib/portal-scope";
 import { useThreadPreferences } from "./ThreadPreferences";
-import { buildTree, folderThreads, FOLDER_PAGE_SIZE } from "./folderThreads";
+import { folderThreads, FOLDER_PAGE_SIZE } from "./folderThreads";
 import { countStatuses } from "./status";
 import type { ProjectMove } from "./projectOrder";
+import { useProjectSections } from "./ProjectSections";
+import { partitionBySection } from "./sectionFolders";
+import { SectionFolder } from "./SectionFolder";
 
 /**
  * A project drawn as a folder: a header row with the folder glyph, the name,
  * a status cluster, and a count; open it to see the project's threads as a
- * tree (children indented under their parent).
+ * tree (children nested under their parent).
  */
 export function Folder({
   project,
@@ -35,6 +38,7 @@ export function Folder({
   canMoveUp = false,
   canMoveDown = false,
   placedAt,
+  expansion,
 }: {
   project: PluginSidebarProject;
   threads: readonly PluginSidebarThread[];
@@ -51,6 +55,7 @@ export function Folder({
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   placedAt?: ReadonlyMap<string, number>;
+  expansion: TreeExpansion;
 }) {
   const actions = useSidebarThreadActions();
   const [visibleCount, setVisibleCount] = useState(FOLDER_PAGE_SIZE);
@@ -61,68 +66,34 @@ export function Folder({
     actions.openNewThread({ projectId: project.id, focusPrompt: true });
     onNavigate();
   };
-  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(
-    () => new Set(),
+  const sections = useProjectSections();
+  const folders = useMemo(
+    () => sections?.foldersIn(project.id) ?? [],
+    [sections, project.id],
+  );
+  const { bySection, loose } = useMemo(
+    () => partitionBySection(threads, folders),
+    [threads, folders],
   );
   const counts = useMemo(() => countStatuses(threads), [threads]);
   const { pinned, page, hiddenCount } = useMemo(
-    () => folderThreads(threads, projectPinnedIds, visibleCount, placedAt),
-    [threads, projectPinnedIds, visibleCount, placedAt],
+    () => folderThreads(loose, projectPinnedIds, visibleCount, placedAt),
+    [loose, projectPinnedIds, visibleCount, placedAt],
   );
-  const tree = useMemo(() => buildTree(page), [page]);
   const isActiveHere =
     activeThreadId !== null && threads.some((t) => t.id === activeThreadId);
-
-  const rows: React.ReactNode[] = [];
-  const walk = (thread: PluginSidebarThread, depth: number) => {
-    const children = tree.childrenOf.get(thread.id) ?? [];
-    const hasChildren = children.length > 0;
-    const isCollapsed = collapsedParents.has(thread.id);
-    rows.push(
-      <ThreadRow
-        key={thread.id}
-        thread={thread}
-        depth={depth}
-        bgInset={14}
-        isActive={thread.id === activeThreadId}
-        isFollowUp={followUpThreadIds.has(thread.id)}
-        onToggleFollowUp={(marked) => onSetFollowUp(thread.id, marked)}
-        colored={colored}
-        onNavigate={onNavigate}
-        leading={
-          hasChildren ? (
-            <button
-              type="button"
-              aria-label={isCollapsed ? "Expand children" : "Collapse children"}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setCollapsedParents((current) => {
-                  const next = new Set(current);
-                  if (next.has(thread.id)) next.delete(thread.id);
-                  else next.add(thread.id);
-                  return next;
-                });
-              }}
-              className="-ml-1 flex size-4 items-center justify-center rounded text-subtle-foreground hover:text-foreground"
-            >
-              <Icon
-                name="ChevronRight"
-                className={cn(
-                  "size-3 transition-transform",
-                  !isCollapsed && "rotate-90",
-                )}
-              />
-            </button>
-          ) : undefined
-        }
-      />,
-    );
-    if (hasChildren && !isCollapsed) {
-      for (const child of children) walk(child, depth + 1);
-    }
-  };
-  for (const root of tree.roots) walk(root, 1);
+  const treeProps = {
+    scope: "tree",
+    defaultOpen: "auto",
+    expansion,
+    depth: 1,
+    bgInset: 14,
+    activeThreadId,
+    followUpThreadIds,
+    onSetFollowUp,
+    colored,
+    onNavigate,
+  } as const;
 
   return (
     <div className="mb-px" data-sbp-project-id={project.id}>
@@ -190,6 +161,15 @@ export function Folder({
               <Icon name="Plus" className="size-3.5" /> Start new thread in this
               project
             </ContextMenu.Item>
+            <ContextMenu.Item
+              disabled={!sections?.ready}
+              onSelect={() =>
+                window.setTimeout(() => sections?.openCreate(project.id), 0)
+              }
+              className="sbp-menu-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground"
+            >
+              <Icon name="FolderPlus" className="size-3.5" /> New folder…
+            </ContextMenu.Item>
             {onMove ? (
               <>
                 <ContextMenu.Separator className="my-1 h-px bg-border" />
@@ -239,27 +219,24 @@ export function Folder({
             "before:pointer-events-none before:absolute before:bottom-0 before:left-[7px] before:top-0 before:z-10 before:w-px before:bg-border-hairline before:opacity-70 before:content-['']",
           )}
         >
-          {pinned.length > 0 ? (
-            <>
-              {pinned.map((thread) => (
-                <ThreadRow
-                  key={thread.id}
-                  thread={thread}
-                  depth={1}
-                  bgInset={14}
-                  isActive={thread.id === activeThreadId}
-                  isFollowUp={followUpThreadIds.has(thread.id)}
-                  onToggleFollowUp={(marked) =>
-                    onSetFollowUp(thread.id, marked)
-                  }
-                  colored={colored}
-                  onNavigate={onNavigate}
-                />
-              ))}
-            </>
-          ) : null}
-          {rows}
-          {rows.length === 0 && pinned.length === 0 ? (
+          {folders.map((section) => (
+            <SectionFolder
+              key={section.id}
+              projectId={project.id}
+              section={section}
+              threads={bySection.get(section.id) ?? []}
+              expansion={expansion}
+              activeThreadId={activeThreadId}
+              followUpThreadIds={followUpThreadIds}
+              onSetFollowUp={onSetFollowUp}
+              colored={colored}
+              onNavigate={onNavigate}
+              placedAt={placedAt}
+            />
+          ))}
+          <ThreadTree nodes={pinned} {...treeProps} />
+          <ThreadTree nodes={page} {...treeProps} />
+          {page.length === 0 && pinned.length === 0 && folders.length === 0 ? (
             <li className="py-1 pl-6 text-xs text-muted-foreground/60">
               No threads
             </li>

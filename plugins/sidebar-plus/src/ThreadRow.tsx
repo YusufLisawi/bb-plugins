@@ -11,8 +11,11 @@ import { cn } from "@/lib/utils";
 import { usePortalScopeProps } from "@/lib/portal-scope";
 import { useThreadPreferences } from "./ThreadPreferences";
 import { useThreadFolderPicker } from "./ThreadFolderPicker";
+import { usePinGroupPicker } from "./PinGroupPicker";
 import { StatusGlyph } from "./StatusGlyph";
 import { threadDisplayTitle } from "./status";
+import { useProjectSections } from "./ProjectSections";
+import { subthreadCleanupPlan } from "./subthreadCleanup";
 
 export const ROW_CLASS =
   "group/row relative flex h-7 w-full items-center gap-2 rounded-md pr-1 text-sm transition-colors";
@@ -33,6 +36,8 @@ export function ThreadRow({
   hint,
   onNavigate,
   leading,
+  context = false,
+  badge,
 }: {
   thread: PluginSidebarThread;
   isActive: boolean;
@@ -51,6 +56,10 @@ export function ThreadRow({
   onNavigate: () => void;
   /** Optional leading control (a collapse chevron for parents). */
   leading?: ReactNode;
+  /** A parent shown only to place a matching child under it: muted title. */
+  context?: boolean;
+  /** Trailing summary, e.g. a collapsed parent's hidden children. */
+  badge?: ReactNode;
 }) {
   const actions = useSidebarThreadActions();
   const { splitProps } = useSidebarThreadSplit(thread.id);
@@ -59,6 +68,7 @@ export function ThreadRow({
   const [contextOpen, setContextOpen] = useState(false);
   const preferences = useThreadPreferences();
   const openFolderPicker = useThreadFolderPicker();
+  const openPinGroupPicker = usePinGroupPicker();
   const isProjectPinned =
     thread.isPinned && preferences.projectPinnedIds.has(thread.id);
   const title = threadDisplayTitle(thread);
@@ -144,15 +154,21 @@ export function ThreadRow({
                 className={cn(
                   "min-w-0 truncate",
                   thread.isUnread && "font-medium",
+                  context && !isActive && "text-muted-foreground",
                 )}
                 title={title}
               >
                 {title}
               </span>
             )}
-            {hint && !isEditing ? (
-              <span className="ml-auto shrink-0 truncate pl-1 text-2xs text-muted-foreground/60 group-hover/row:hidden">
-                {hint}
+            {(hint || badge) && !isEditing ? (
+              <span className="ml-auto flex shrink-0 items-center gap-1.5 pl-1 group-hover/row:hidden">
+                {badge}
+                {hint ? (
+                  <span className="truncate text-2xs text-muted-foreground/60">
+                    {hint}
+                  </span>
+                ) : null}
               </span>
             ) : null}
           </span>
@@ -204,6 +220,11 @@ export function ThreadRow({
                         ? () => openFolderPicker(thread)
                         : undefined
                     }
+                    onPinToGroup={
+                      openPinGroupPicker
+                        ? () => openPinGroupPicker(thread)
+                        : undefined
+                    }
                     surface="dropdown"
                   />
                 </DropdownMenu.Content>
@@ -226,6 +247,9 @@ export function ThreadRow({
             onMoveFolder={
               openFolderPicker ? () => openFolderPicker(thread) : undefined
             }
+            onPinToGroup={
+              openPinGroupPicker ? () => openPinGroupPicker(thread) : undefined
+            }
             surface="context"
           />
         </ContextMenu.Content>
@@ -245,6 +269,7 @@ function MenuItems({
   onToggleFollowUp,
   onRename,
   onMoveFolder,
+  onPinToGroup,
   surface,
 }: {
   thread: PluginSidebarThread;
@@ -252,6 +277,8 @@ function MenuItems({
   onToggleFollowUp: (marked: boolean) => void;
   onRename: () => void;
   onMoveFolder?: () => void;
+  /** Pin in the project and file the thread in a named group. */
+  onPinToGroup?: () => void;
   surface: "context" | "dropdown";
 }) {
   const actions = useSidebarThreadActions();
@@ -261,6 +288,13 @@ function MenuItems({
   const isExempt = preferences.exemptIds.has(thread.id);
   const pending = preferences.pendingIds.has(thread.id);
   const M = surface === "context" ? ContextMenu : DropdownMenu;
+  const sections = useProjectSections();
+  const portalScopeProps = usePortalScopeProps();
+  const projectId = sections ? sections.folderIdOf(thread) : thread.projectId;
+  const folders = sections && !thread.parentThreadId ? sections.foldersIn(projectId) : [];
+  const currentFolder = folders.find((folder) => folder.id === thread.sectionId) ?? null;
+  const cleanup = sections ? subthreadCleanupPlan(thread.id, sections.childrenOf) : null;
+  const hasSubthreads = (sections?.childrenOf.get(thread.id)?.length ?? 0) > 0;
   const Item = ({
     children,
     destructive,
@@ -296,6 +330,44 @@ function MenuItems({
         >
           <Icon name="Folder" className="size-3.5" /> Move to project folder…
         </Item>
+      ) : null}
+      {sections && !thread.parentThreadId ? (
+        <M.Sub>
+          <M.SubTrigger className={ITEM_CLASS} disabled={!sections.ready}>
+            <Icon name="FolderOpen" className="size-3.5" /> Move to folder
+            <Icon name="ChevronRight" className="ml-auto size-3" />
+          </M.SubTrigger>
+          <M.Portal>
+            <M.SubContent
+              {...portalScopeProps}
+              collisionPadding={8}
+              className="sbp-menu z-50 min-w-44 max-w-64 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+            >
+              {folders.map((folder) => (
+                <Item
+                  key={folder.id}
+                  disabled={folder.id === currentFolder?.id}
+                  onSelect={() => void sections.moveThread(thread, folder)}
+                >
+                  <Icon name="Folder" className="size-3.5" />
+                  <span className="min-w-0 truncate">{folder.name}</span>
+                  {folder.id === currentFolder?.id ? (
+                    <span className="ml-auto text-xs text-muted-foreground">Current</span>
+                  ) : null}
+                </Item>
+              ))}
+              {folders.length > 0 ? <Sep /> : null}
+              <Item onSelect={() => deferMenuAction(() => sections.openCreate(projectId, thread))}>
+                <Icon name="FolderPlus" className="size-3.5" /> New folder…
+              </Item>
+              {currentFolder ? (
+                <Item onSelect={() => void sections.moveThread(thread, null)}>
+                  <Icon name="FolderOpen" className="size-3.5" /> Remove from folder
+                </Item>
+              ) : null}
+            </M.SubContent>
+          </M.Portal>
+        </M.Sub>
       ) : null}
       <Sep />
       <Item onSelect={() => void actions.setRead(thread.id, thread.isUnread)}>
@@ -340,6 +412,18 @@ function MenuItems({
           <Icon name="Folder" className="size-3.5" /> Pin in project
         </Item>
       )}
+      {onPinToGroup ? (
+        <Item
+          disabled={!preferences.ready || pending}
+          onSelect={() => deferMenuAction(onPinToGroup)}
+        >
+          <Icon name="Layers" className="size-3.5" />
+          {isProjectPinned &&
+          preferences.pinGroups.some((g) => g.threadIds.includes(thread.id))
+            ? "Change group…"
+            : "Pin to group…"}
+        </Item>
+      ) : null}
       <Item
         disabled={
           thread.isPinned || !preferences.autoArchiveAvailable || pending
@@ -362,6 +446,19 @@ function MenuItems({
         {isFollowUp ? "Clear follow-up mark" : "Mark for follow-up"}
       </Item>
       <Sep />
+      {cleanup && hasSubthreads ? (
+        <Item
+          disabled={cleanup.archive.length === 0}
+          onSelect={() => {
+            for (const child of cleanup.archive) actions.archive(child.id);
+          }}
+        >
+          <Icon name="Archive" className="size-3.5" />
+          {cleanup.archive.length === 0
+            ? `Subthreads still running (${cleanup.keptCount})`
+            : `Clean up subthreads (${cleanup.archivedCount})${cleanup.keptCount > 0 ? `, keeps ${cleanup.keptCount} running` : ""}`}
+        </Item>
+      ) : null}
       <Item onSelect={() => actions.archive(thread.id)}>
         <Icon name="Archive" className="size-3.5" /> Archive
       </Item>
@@ -381,14 +478,16 @@ function deferMenuAction(action: () => void): void {
   window.setTimeout(action, 0);
 }
 
-function InlineRename({
+export function InlineRename({
   initial,
   onCommit,
   onCancel,
+  label = "Rename thread",
 }: {
   initial: string;
   onCommit: (value: string) => void;
   onCancel: () => void;
+  label?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(initial);
@@ -412,7 +511,7 @@ function InlineRename({
         }
       }}
       className="pointer-events-auto relative z-10 w-full min-w-0 rounded bg-background px-1 text-sm outline-none ring-1 ring-sidebar-ring"
-      aria-label="Rename thread"
+      aria-label={label}
     />
   );
 }

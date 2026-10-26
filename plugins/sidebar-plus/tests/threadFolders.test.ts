@@ -38,7 +38,7 @@ describe("thread folder placement", () => {
         }) as PluginSidebarThread,
     );
     const result = folderThreads(threads, new Set(), 5, new Map([["0", 100]]));
-    expect(result.page.map((thread) => thread.id)).toEqual([
+    expect(result.page.map((node) => node.thread.id)).toEqual([
       "0",
       "7",
       "6",

@@ -1,8 +1,18 @@
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
+import {
+  ancestorsOf,
+  descendants,
+  subtree,
+  treeIds,
+  type TreeNode,
+} from "./familyTree";
 
 export const FOLDER_PAGE_SIZE = 5;
 
-/** Page individual threads, so expanded children cannot overflow a page. */
+/**
+ * Page whole families, so a child always appears under its parent. Project
+ * pins stay above the page and take their descendants with them.
+ */
 export function folderThreads(
   threads: readonly PluginSidebarThread[],
   projectPinnedIds: ReadonlySet<string>,
@@ -16,14 +26,30 @@ export function folderThreads(
   const sorted = [...threads].sort(
     (a, b) => activityAt(b) - activityAt(a) || a.id.localeCompare(b.id),
   );
-  const pinned = sorted.filter(
-    (thread) => thread.isPinned && projectPinnedIds.has(thread.id),
-  );
-  const recent = sorted.filter(
-    (thread) => !thread.isPinned || !projectPinnedIds.has(thread.id),
-  );
-  const page = recent.slice(0, limit);
-  return { pinned, page, hiddenCount: recent.length - page.length };
+  const byId = new Map(sorted.map((thread) => [thread.id, thread]));
+  const { roots, childrenOf } = buildTree(sorted);
+  // A pin nested under another pin travels with the outer one.
+  const pinned = sorted
+    .filter(
+      (thread) =>
+        thread.isPinned &&
+        projectPinnedIds.has(thread.id) &&
+        !ancestorsOf(thread, byId).some((ancestor) => ancestor.isPinned),
+    )
+    .map((thread) => subtree(thread, childrenOf));
+  const inPinned = treeIds(pinned);
+  const familyActivity = (node: TreeNode) =>
+    Math.max(activityAt(node.thread), ...descendants(node).map(activityAt));
+  const families = roots
+    .filter((thread) => !inPinned.has(thread.id))
+    .map((thread) => subtree(thread, childrenOf, inPinned))
+    .map((node) => ({ node, at: familyActivity(node) }))
+    .sort(
+      (a, b) => b.at - a.at || a.node.thread.id.localeCompare(b.node.thread.id),
+    )
+    .map(({ node }) => node);
+  const page = families.slice(0, limit);
+  return { pinned, page, hiddenCount: families.length - page.length };
 }
 
 export function buildTree(threads: readonly PluginSidebarThread[]) {
@@ -31,8 +57,7 @@ export function buildTree(threads: readonly PluginSidebarThread[]) {
   const childrenOf = new Map<string, PluginSidebarThread[]>();
   const roots: PluginSidebarThread[] = [];
   for (const thread of threads) {
-    // A parent outside this page is intentionally not materialized: the page
-    // must still contain only five threads, and the child must remain reachable.
+    // A thread whose parent lives in another folder is a root here.
     const ancestors = new Set([thread.id]);
     let parent = thread.parentThreadId;
     let cycle = false;
