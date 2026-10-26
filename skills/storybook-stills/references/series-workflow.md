@@ -41,3 +41,11 @@ A dead woman in a plum coat (reads as Grace's red coat), a sunset behind a night
 - A 'before / after' wound: say in the brief and in the audit brief from which picture the bandage exists (the cut at 35, the cloth in 36-38, gauze after); the audit then checks continuity instead of reporting the forearm.
 - The audit brief must say what time of day each range of pictures is (dawn is not night: ten false 'sunset' FAILs in one audit); list the deliberate states (a dusk return, a lamp-lit garage).
 - Pictures the plan cannot use (spares) are listed in plan.py's docstring; the art threads over-deliver, and unused rule pictures (40-42) were cheaper than a rewritten script.
+
+## Part 6 notes (the finale)
+- The image tool's SAFETY FILTER refuses pictures of someone taping / binding their OWN wrist (read as self-harm): ask for the calm result instead (the roll of tape held loosely beside a padded, loosely taped forearm), never the act.
+- A night-vision video inside the film = the normal picture drawn dark + `cctv` fx with `tint` (a cold blue for a phone, green for building cameras); ask the artist for the DARK picture from the camera's own angle (a shelf, a corner) and a pane that shows night, not a sunset (35_voss_frozen_frame).
+- Cards that teach in a list (THE SIGNS: fever, sweating, confusion, sleepwalking; RESTRAIN KINDLY: wrists, padding, not the neck, warm fingers) are `steps` cards with code pictograms typed on the narrator's words; the pictures between them show the rule being applied.
+- A season finale ends on a place with nobody in it (the empty chair, the cut tape, the open hangar, the footprints): three unpeopled inserts in a row are cheap to audit and read at once.
+- Disk: six parts of art + public jpgs + ~1.1 GB of Codex's own generated_images copies filled the disk (12 GB free to 1.4 GB over the session): check `df` before each art wave; the exact byte copies of finals in ~/.codex/generated_images can be deleted (hash-match against art/), the webpack cache in node_modules/.cache regenerates.
+- Season-long colour / body continuity worth a table in the bible: whose LEFT forearm carries what (Voss: the veined bite; Min-jun: the gauze); the audit brief names both.
