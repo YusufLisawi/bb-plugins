@@ -35,6 +35,7 @@ import { matchesQuery, threadStatus } from "./status";
 import { moveVisibleProjectOrder, orderProjects } from "./projectOrder";
 import { ThreadFolderPickerProvider } from "./ThreadFolderPicker";
 import { ProjectSectionsProvider } from "./ProjectSections";
+import { statusFamilies } from "./statusFamilies";
 import { threadFolderId } from "./threadFolders";
 import type { FolderPlacement } from "./threadFolders";
 
@@ -370,6 +371,12 @@ function SidebarListContent({
   const done = smartThreads
     .filter((t) => threadStatus(t) === "done" && t.updatedAt >= windowStart)
     .sort(byUpdated);
+  // In progress and Done move whole families: a task with a working sub-agent
+  // is in progress even while the task itself is idle.
+  const families = statusFamilies(smartThreads, byId, childrenOf, {
+    doneSince: windowStart,
+    skipRoot: isProjectPin,
+  });
   const pinned = pinHeads.filter((t) => !isProjectPin(t)).sort(byUpdated);
   const pinnedFamilies = pinned.map((thread) => subtree(thread, childrenOf));
 
@@ -378,6 +385,9 @@ function SidebarListContent({
   // makes those threads reappear in their folders instead of vanishing.
   // Pinned claims each pin's whole family.
   const listed = new Set<string>();
+  // Families shown in In progress / Done leave their project entirely, even
+  // threads moved to another project folder; they return once they settle.
+  const claimedByFamily = new Set<string>();
   const enabledSections = layout.sections.filter((s) => s.enabled);
   for (const section of enabledSections) {
     if (ui.collapsedSections.includes(section.id)) continue;
@@ -390,6 +400,17 @@ function SidebarListContent({
             ? done
             : [];
     for (const thread of source) listed.add(thread.id);
+    const claimed =
+      section.id === "running"
+        ? families.runningIds
+        : section.id === "done"
+          ? families.doneIds
+          : null;
+    if (claimed)
+      for (const id of claimed) {
+        listed.add(id);
+        claimedByFamily.add(id);
+      }
     if (section.id === "pinned")
       for (const id of treeIds(pinnedFamilies)) listed.add(id);
   }
@@ -401,10 +422,11 @@ function SidebarListContent({
     layout.dedupeFolders &&
     listed.has(thread.id) &&
     !projectPinHead.has(thread.id) &&
-    !(
-      folderPlacements.has(thread.id) &&
-      (!thread.isPinned || projectPinnedIds.has(thread.id))
-    );
+    (claimedByFamily.has(thread.id) ||
+      !(
+        folderPlacements.has(thread.id) &&
+        (!thread.isPinned || projectPinnedIds.has(thread.id))
+      ));
   const inFolder = new Set<string>();
   for (const thread of visible) {
     if (shownAbove(thread)) continue;
@@ -445,8 +467,9 @@ function SidebarListContent({
     id: SectionId,
     list: PluginSidebarThread[],
     accent: string | null,
+    familyNodes?: TreeNode[],
   ) => {
-    if (list.length === 0) return null;
+    if (list.length === 0 && !familyNodes?.length) return null;
     const label =
       id === "attention"
         ? "Needs attention"
@@ -458,12 +481,14 @@ function SidebarListContent({
     // A pin brings its family; a status section nests each match under its
     // parent, so a running child of an idle parent still reads as its child.
     const nodes =
-      id === "pinned" ? pinnedFamilies : groupUnderAncestors(list, byId);
+      familyNodes ??
+      (id === "pinned" ? pinnedFamilies : groupUnderAncestors(list, byId));
+    if (nodes.length === 0) return null;
     return (
       <Section
         key={id}
         label={label}
-        count={list.length}
+        count={familyNodes ? familyNodes.length : list.length}
         collapsed={ui.collapsedSections.includes(id)}
         onToggle={() => toggleSection(id)}
         accent={accent}
@@ -472,7 +497,9 @@ function SidebarListContent({
           <ThreadTree
             nodes={nodes}
             scope={id === "pinned" ? "tree" : id}
-            defaultOpen={id === "pinned" ? "auto" : "always"}
+            defaultOpen={
+              familyNodes ? "closed" : id === "pinned" ? "auto" : "always"
+            }
             expansion={expansion}
             activeThreadId={activeThreadId}
             followUpThreadIds={followUpThreadIds}
@@ -590,12 +617,14 @@ function SidebarListContent({
                   "running",
                   running,
                   statusDotClass("running", colored),
+                  families.running,
                 );
               case "done":
                 return renderSmart(
                   "done",
                   done,
                   statusDotClass("done", colored),
+                  families.done,
                 );
               case "pinned":
                 return renderSmart("pinned", pinned, null);

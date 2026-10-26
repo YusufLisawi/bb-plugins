@@ -33,8 +33,12 @@ export function ThreadTree({
   nodes: readonly TreeNode[];
   /** Namespaces the remembered state: "tree" for folders and pins, else a section id. */
   scope: string;
-  /** "always" in status sections; "auto" opens only live families. */
-  defaultOpen: "always" | "auto";
+  /**
+   * "always" opens every family; "auto" opens live families; "closed" keeps
+   * families shut until clicked (In progress, Done), except a context parent
+   * placed only to show its matching child, and a family holding the open thread.
+   */
+  defaultOpen: "always" | "auto" | "closed";
   expansion: TreeExpansion;
   depth?: number;
   bgInset?: number;
@@ -60,7 +64,11 @@ export function ThreadTree({
       hasChildren &&
       expansion.isOpen(
         key,
-        defaultOpen === "always" || shouldAutoExpand(node, activeThreadId),
+        defaultOpen === "always" ||
+          (defaultOpen === "auto" && shouldAutoExpand(node, activeThreadId)) ||
+          (defaultOpen === "closed" &&
+            (node.context ||
+              descendants(node).some((t) => t.id === activeThreadId))),
       );
     const hidden = hasChildren && !open ? descendants(node) : [];
     rows.push(

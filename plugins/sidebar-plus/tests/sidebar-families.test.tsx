@@ -27,11 +27,13 @@ const makeThread = (
     parent = null,
     projectId = "alpha",
     running = false,
+    done = false,
     isPinned = false,
   }: {
     parent?: string | null;
     projectId?: string;
     running?: boolean;
+    done?: boolean;
     isPinned?: boolean;
   } = {},
 ) =>
@@ -48,7 +50,7 @@ const makeThread = (
     isPinned,
     isUnread: false,
     hasPendingInteraction: false,
-    indicator: running ? "runtime" : "none",
+    indicator: running ? "runtime" : done ? "unread-success" : "none",
     activity: {
       workflows: 0,
       backgroundAgents: 0,
@@ -129,7 +131,7 @@ const folder = (projectId: string) =>
 const rowOf = (name: string, root: HTMLElement = document.body) =>
   within(root).getByRole("link", { name }).closest("li")!;
 
-it("nests a running sub-agent under its idle parent and keeps the parent's other children in the folder", async () => {
+it("moves an idle task with a working sub-agent to In progress as one collapsed family", async () => {
   mock.threads = [
     makeThread("Parent", 1),
     makeThread("Worker", 5, { parent: "Parent", running: true }),
@@ -138,27 +140,48 @@ it("nests a running sub-agent under its idle parent and keeps the parent's other
   ];
   await renderSidebar();
   const running = section("In progress");
-  expect(rowTitles(running)).toEqual(["Parent", "Worker"]);
-  expect(
-    within(rowOf("Parent", running)).getByRole("button", {
-      name: "Collapse children",
-    }),
-  ).toBeTruthy();
-  // Only the running child counts; its parent is context.
+  // Collapsed by default: only the task, with its sub-threads behind a click.
+  expect(rowTitles(running)).toEqual(["Parent"]);
   expect(
     within(running).getByRole("button", { name: /In progress/ }).textContent,
   ).toContain("1");
-
-  // The folder no longer repeats the running child, but its parent and the
-  // remaining child stay together instead of the child turning into a root.
-  const alpha = folder("alpha");
-  expect(rowTitles(alpha)).toEqual(["Loose", "Parent"]);
   fireEvent.click(
-    within(rowOf("Parent", alpha)).getByRole("button", {
+    within(rowOf("Parent", running)).getByRole("button", {
       name: "Expand children",
     }),
   );
-  expect(rowTitles(folder("alpha"))).toEqual(["Loose", "Parent", "Finished"]);
+  expect(rowTitles(section("In progress"))).toEqual([
+    "Parent",
+    "Worker",
+    "Finished",
+  ]);
+
+  // The whole family left its project while it is in progress.
+  expect(rowTitles(folder("alpha"))).toEqual(["Loose"]);
+});
+
+it("shows a finished task only in Done, and back in its project once read", async () => {
+  // Done lists threads touched in the last few days.
+  const now = Date.now();
+  mock.threads = [
+    makeThread("Shipped", now - 1_000, { done: true }),
+    makeThread("Its agent", now - 2_000, { parent: "Shipped" }),
+    makeThread("Loose", now - 3_000),
+  ];
+  await renderSidebar();
+  expect(rowTitles(section("Done"))).toEqual(["Shipped"]);
+  expect(rowTitles(folder("alpha"))).toEqual(["Loose"]);
+
+  // Opening it marks it read: it is no longer "done" and returns to its project.
+  mock.threads = [
+    makeThread("Shipped", now - 1_000),
+    makeThread("Its agent", now - 2_000, { parent: "Shipped" }),
+    makeThread("Loose", now - 3_000),
+  ];
+  cleanup();
+  await renderSidebar();
+  expect(screen.queryByRole("region", { name: "Done" })).toBeNull();
+  expect(rowTitles(folder("alpha"))).toContain("Shipped");
 });
 
 it("moves a globally pinned thread into Pinned with all of its children, as a collapsed accordion", async () => {
