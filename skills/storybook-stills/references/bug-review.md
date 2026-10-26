@@ -38,6 +38,8 @@ sleeve next to a carried child's backpack (Leo carries Kit: his far arm is hidde
 ("remove the loose hand at box x0,y0,x1,y1; the far arm stays hidden behind <person>"). Rule of thumb: **a hand you cannot trace to a sleeve is an extra arm, even
 when the story explains it**; an unseen arm is simply not drawn.
 
+9. **COLOUR CLUES** (FLIGHT DELAYED, Part 2 review): a colour that is a plot clue belongs to ONE person (Grace's red coat): no dead person or crowd extra in red / crimson / maroon / burgundy / plum, in any picture (scan with a hue mask, then look: a plum coat reads as red). **TIME OF DAY**: a night scene has a dark window (a sunset behind a 3 a.m. line was found only by the owner); a window that the story covered stays covered in every later picture. Stiffness is a pose: a stiff dead person has locked knees and a dragged foot, never a hand on the rail and a high step.
+
 ## How to run it (fast)
 Two independent passes: (1) you, at 1000+ px, two pictures per sheet, tracing shoulders for every person (the arms audit is the slow part: zoom with a
 PIL crop on every grab / hug / carry / bite / crowd-foreground picture); (2) a separate read-only Codex REVIEW thread (`--reasoning-level high`) that

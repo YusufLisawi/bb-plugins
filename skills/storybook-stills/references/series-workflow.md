@@ -17,3 +17,9 @@ The recipe that produced Part 2 (`episodes/flight2`, 66 pictures, 8 cards, 2:58.
 - A prop that becomes a plot device later is drawn from its first appearance (the dead officer's ID lanyard in Part 2 pays off as the cliffhanger).
 - A rule taught in one part is the setup of the next (rigor mortis "locks a body for two days. Then it wears off." → Part 3's running dead): the card (`stages`) says it, the CTA teaser repeats it ("It doesn't last").
 - Time: the first night is Day 1 → 2; a whole day on the roof is one narrated sentence; the fast dead appear at dawn of Day 3.
+
+## Re-voicing one line (no re-roll of the rest)
+`python3 episodes/<slug>/make_script.py` (the new text) → `.venv/bin/python scripts/splice_line.py <slug> <line id>` (speaks only that line, cuts the old one out at the middle of its pauses, 30 ms crossfades, levels it) → `scripts/trim_take.py <slug>` → `scripts/voice.py <slug> --reuse`. Longer line = longer film: win the seconds back from the `air` column, never from the cards.
+
+## Owner review of Part 2 (what he caught that the audits did not)
+A dead woman in a plum coat (reads as Grace's red coat), a sunset behind a night line, a plot hole (a phone number nobody calls), a stiff dead woman drawn climbing like an athlete. Check colour clues, time of day, loose plot threads and the pose of the dead before the audit, not after.
