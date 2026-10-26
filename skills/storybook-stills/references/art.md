@@ -3,9 +3,10 @@
 Images are generated only by Codex BB threads with the imagegen skill (never image APIs directly).
 
 ```bash
-bb thread spawn --project proj_kax9max22t --parent-self --provider codex --environment env_nji25bvwcj \
+bb thread spawn --project proj_kax9max22t --parent-self --provider codex --model gpt-6-luna --reasoning-level max --environment env_nji25bvwcj \
   --title "Art · <slug> pictures 1–20" --prompt-file /tmp/briefs/<slug>-a.md
 ```
+- **Owner rule (2026-10-26, ALL image generation, covers included):** every art thread is spawned with `--model gpt-6-luna --reasoning-level max`, and its brief makes it REVIEW EVERY GENERATED IMAGE at full size before saving (extra hands/arms/legs traced to shoulders; illogical physics: floating objects, impossible poses, wrong shadows or light, props facing the wrong way, things passing through each other; AI slop: smeared/melted details, warped faces, garbled pseudo-text, mangled fingers, inconsistent style or cast, mushy backgrounds), regenerating or editing until clean and reporting per image what it checked (item 9 of the brief templates).
 - Use the project checkout environment (`env_nji25bvwcj`), not a worktree, so files land in the main checkout and no 1.5 GB
   worktree is left behind. At most 5 Codex threads at once (each holds 0.5–0.8 GB of RAM).
 - ~10–12 pictures per thread for a dense film (60–70 pictures = 5–6 threads, ~25 min each in parallel). Split by place or by act so

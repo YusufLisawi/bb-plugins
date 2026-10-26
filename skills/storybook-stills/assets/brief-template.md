@@ -45,6 +45,7 @@ BUG CHECKLIST (the owner rejected earlier cuts for exactly these; review EVERY p
 5. PLACE LOGIC: the same layout, furniture and light direction whenever a place returns; nobody stands inside a wall.
 6. NO TEXT anywhere: signs, screens, boards, badges, passports, banknotes stay BLANK (simple pictograms are allowed).
 7. SAFE CROP and 8. READABLE as above.
+9. REVIEW RULE (owner, mandatory for every image): REVIEW EVERY GENERATED IMAGE at full size before you save it, for (a) duplicated or extra hands, arms or legs (trace each hand to its own shoulder); (b) illogical physics: floating objects, impossible poses, wrong shadows or light direction, props facing the wrong way, things passing through each other; (c) AI slop: smeared or melted details, warped faces, garbled pseudo-text, mangled fingers, inconsistent style or cast, mushy backgrounds. Regenerate or EDIT until clean, and report per image what you checked.
 Reply with the saved paths and ONE line per picture: for EACH person the arms you traced (shoulder -> hand), the legs, props checked, text none, crop ok.
 If a picture cannot be made clean, say which and why. (A later FIX message names one file and says "EDIT TARGET: change ONLY …".)
 

@@ -27,7 +27,7 @@ cards, unsynced beats, needless circles, overflowing text) are why the next sect
 3. **ZERO ART BUGS, ARMS FIRST.** Hard rule: **max two arms and two legs per person, every hand traced to its own shoulder** (checked on every person, most of
    all where two people touch: a bite, a grab, a hug, a carry). Every picture is reviewed at 1000+ px against the checklist BEFORE it goes into a plan, by you
    AND by an independent read-only Codex audit thread; failures go back to the art thread with an exact EDIT request (`references/bug-review.md`).
-   The same checklist is pasted into every art brief (`assets/brief-template.md`).
+   The same checklist is pasted into every art brief (`assets/brief-template.md`). **Owner rule (2026-10-26):** every art thread (pictures, covers, fixes) is spawned with `--model gpt-6-luna --reasoning-level max` and told to REVIEW EVERY GENERATED IMAGE at full size before saving: extra hands/arms/legs, illogical physics (floating objects, impossible poses, wrong shadows/light, props facing the wrong way, things passing through each other) and AI slop (melted details, warped faces, garbled pseudo-text, mangled fingers, inconsistent style/cast, mushy backgrounds), regenerating or editing until clean and reporting per image what it checked.
 4. **One picture per action, drawn by Codex.** The same cast and places in every picture; a place that changes (barricaded,
    burst open, dawn) is a new STATE drawn by editing the previous image.
 5. **Nothing holds still.** Every shot gets its own push or pan and a small settle on the cut; hits shake the frame with an impact burst;
