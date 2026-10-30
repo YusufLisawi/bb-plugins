@@ -1,0 +1,7 @@
+#!/bin/sh
+# The farm command. After `farm setup` it runs the installed runtime (~/.local/share/bb-farm, also on PATH as
+# `farm`). `farm setup` and `farm update` run this skill's copy, so they install what the skill ships.
+if [ -f "$HOME/.local/share/bb-farm/VERSION" ] && [ "$1" != "setup" ] && [ "$1" != "update" ]; then
+  exec "${BUN:-$HOME/.bun/bin/bun}" "$HOME/.local/share/bb-farm/farm.ts" "$@"
+fi
+exec "${BUN:-$HOME/.bun/bin/bun}" "$(dirname "$0")/runtime/farm.ts" "$@"

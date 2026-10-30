@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>render farm page</title>
+    <style>
+      html, body { margin: 0; background: #000; color: #888; font: 13px monospace; }
+    </style>
+    <script>
+      // What a Remotion render gives project code: getInputProps() reads window.remotion_inputProps (the job's
+      // &props=, base64url JSON), and code written for Node may touch process.env.
+      (function () {
+        var p = new URLSearchParams(location.search).get("props");
+        var json = "{}";
+        if (p) {
+          var bin = atob(p.replace(/-/g, "+").replace(/_/g, "/"));
+          json = new TextDecoder().decode(Uint8Array.from(bin, function (c) { return c.charCodeAt(0); }));
+        }
+        window.remotion_inputProps = json;
+        window.process = window.process || { env: {} };
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="status" style="padding: 8px"></div>
+    <script type="module" src="./entry.tsx"></script>
+  </body>
+</html>

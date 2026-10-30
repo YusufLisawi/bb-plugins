@@ -1,0 +1,9 @@
+{
+  "name": "bb-farm-runtime",
+  "private": true,
+  "type": "module",
+  "description": "remotion-render-farm runtime: the farm CLI and API, the worker, the page builder. Vite is used for projects without their own.",
+  "dependencies": {
+    "vite": "7.1.9"
+  }
+}
