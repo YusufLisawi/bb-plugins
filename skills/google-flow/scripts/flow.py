@@ -723,9 +723,10 @@ button,input{background:#222;color:#eee;border:1px solid #444;border-radius:6px;
 <script>
 const B=location.pathname.replace(/\\/$/,'');const img=document.getElementById('s');let vw=1,vh=1;
 const post=(p,b)=>fetch(B+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
-async function tick(){try{const r=await fetch(B+'/state');const j=await r.json();vw=j.vw;vh=j.vh;
- document.getElementById('st').textContent=j.done?'Signed in. You can close this page.':(j.url||'').split('?')[0];
- if(j.done)return;}catch(e){}
+let fails=0;const st=document.getElementById('st');
+function finished(){st.textContent='Signed in to Flow. You can close this page.';st.style.fontSize='18px';img.style.opacity=.35}
+async function tick(){try{const r=await fetch(B+'/state');const j=await r.json();fails=0;vw=j.vw;vh=j.vh;
+ if(j.done){finished();return}st.textContent=(j.url||'').split('?')[0];}catch(e){if(++fails>=3){st.textContent='This sign-in page has closed. If you finished signing in, you are done.';return}}
  const n=new Image();n.onload=()=>{img.src=n.src;setTimeout(tick,600)};n.onerror=()=>setTimeout(tick,1500);n.src=B+'/shot?'+Date.now()}
 tick();
 img.addEventListener('click',e=>{const r=img.getBoundingClientRect();post('/click',{x:(e.clientX-r.left)/r.width*vw,y:(e.clientY-r.top)/r.height*vh})});
@@ -831,7 +832,7 @@ def cmd_login(a):
         time.sleep(3)
         if state["done"] or check_done()[0]:
             state["done"] = True
-            time.sleep(4)  # let the page show "Signed in"
+            time.sleep(20)  # keep serving so the page can show "Signed in"
             break
     srv.shutdown()
     if state["done"] and f.project:
