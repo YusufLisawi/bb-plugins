@@ -89,6 +89,9 @@ one is approved. Continuity notes (props, wounds, clothes, time of day) go into 
 - `references/cta-end-card.md`: the animated end card and its plan entry.
 - `references/series-workflow.md`: Parts 2-6 of a series: script budget, voice + `trim_take.py`, gates, brief assembly, fx coordinates (`find_screen.py`, `frame_grid.py`), the two-pass audit and its false alarms.
 - `references/build-and-qa.md`: render, peek, QA, upload, gallery, covers, disk and thread limits, known traps.
+- `references/painted-scenes-and-3d.md`: NOBODY CAME: Codex-painted transparent layers that code animates (parallax, swell, sway, light, particles), the real-coastline 3-D flight map, the 3-D island, rule cards with animated pictograms, dialogue bubbles, process lessons.
+- `references/hook-motion-graphics.md`: THE HOOK RULE (owner, 2026-10-31): fast flat motion-graphics components popping on their spoken word + big centred words (marker highlight), NO 3-D, NOTHING at the top of the frame; the flat 2-D island map; the text-never-at-the-top build rule.
+- `references/render-farm-lessons.md`: rendering a stills film on the render farm: the fixes (no `<Audio>` in the browser renderer, whole-frame durations + a padded mix, no SVG masks over gradient backgrounds, a slim hard-linked public folder) and how to QA the masters.
 
 ## Done means
 
