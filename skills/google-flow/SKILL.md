@@ -34,6 +34,46 @@ $F video --start shot.png -p "PROMPT" --secs 4 --out DIR   # upload, generate, w
 
 The PinchTab profile directory is under `/tmp` on this machine, so a reboot empties the browser; the saved cookies sign it back in on the next command.
 
+## Defaults: "animate this picture"
+
+`video --start PICTURE -p PROMPT` with nothing else = **Omni 1.1 Flash, the picture as the start frame, 720p, 4 s, one take,
+the 720p original downloaded, 7 credits**. The aspect follows the picture (portrait -> 9:16, landscape -> 16:9) unless
+`--aspect` is given. Defaults live in `~/.config/google-flow/config.json` (`video` / `image` blocks); the user prefers clips
+under 5 s and Omni unless they ask for another model.
+
+## Consistent characters and multiple attachments
+
+Flow has two ways to feed references, and they do different jobs:
+
+- **Frames** (`--start`, `--end`): the video starts (and ends) on exactly that picture, so the art style, the cast and the
+  place stay as drawn. Best fidelity. One start + one end at most.
+- **Ingredients** (`--character NAME`, `--ingredient FILE_OR_ASSET`, each repeatable; videos, voices and avatars work too):
+  the model composes a new shot from several references. More freedom, less style fidelity (in tests the street changed,
+  sign-like pseudo-text appeared, faces got more detailed). A video uses frames OR ingredients, never both.
+- **Flow characters** hold a name, a portrait, a body image and a description, reused across shots:
+  `character create --name Ren --portrait ren_portrait.png --body ren_body.png --info "..."`, plus `character list`,
+  `character update --name Ren --body ... --info ...` and `character delete --name Ren`. Give stylised characters your own
+  body image: a single full-body view on a plain background (crop one view out of a turnaround sheet; a 4-view sheet as the
+  body risks four copies of the character).
+
+**Best recipe for a consistent shot (tested):**
+1. Reference art once per series, drawn by Codex in the house style: a portrait and a single full-body image per character
+   on plain backgrounds, plus an empty plate per place. Create a Flow character from each.
+2. Keyframe for free: `image --character Ren --character Giant --ref street_plate.png -p "..."` (Nano Banana, 0 credits
+   on Pro). Look at it and bug-check it (arms, legs, text) before spending credits.
+3. Animate the approved keyframe: `video --start "<keyframe title from the result>" -p "..."`.
+This kept the street, both characters and the ink style, where an ingredients-only video drifted.
+
+**Prompt rules that mattered in tests:**
+- Open with the style lock ("Hand-drawn cartoon storybook ink illustration, exactly the style of the references: ...").
+- Name each character as in Flow and repeat its 3-4 key traits; say which reference is the setting ("the street reference").
+- One clear action per 4 s, then the camera move ("Slow push-in").
+- Close with the exclusions: "Only these two characters, no new creatures, exactly two arms and two legs each, no text".
+- Avoid nouns a model can turn into a thing: "a giant shadow" became a shadow monster; write "the shadow of an unseen giant
+  falls over the street (no creature visible)".
+- Clothe humanoid creatures: a bare mannequin-like giant reference was refused as "sexual content"; the same giant in a torn
+  shirt and trousers passed. Refused jobs are refunded automatically (the result says so in `message`).
+
 ## Commands
 
 | Command | What it does |
@@ -46,6 +86,7 @@ The PinchTab profile directory is under `/tmp` on this machine, so a reboot empt
 | `upload FILE [--name N]` | adds an image to the project |
 | `list [video\|image] [--limit N]` | tiles newest first: index, kind, title, progress, failed |
 | `download TILE [--quality Q] [--options]` | TILE = `latest`, an index or a title (substring); upscales on Flow's side |
+| `character create\|update\|delete\|list [--name N --portrait IMG --body IMG --info TEXT]` | Flow characters for consistency |
 | `new-project [--save]`, `login`, `setup`, `shot [--out F]` | project, sign-in, setup, debug screenshot |
 
 Settings (all optional; defaults in the config file): `--model omni | veo-lite | veo-fast | veo-quality | nano | <full name>`,
@@ -56,6 +97,7 @@ fixed 720p 8 s), `--count 1-4`. Generation flags: `--download original | best | 
 
 `--start / --end / --ingredient / --ref` take a local file (uploaded with a unique name) or the name of an asset already in
 the project, e.g. a generated image's title from `list`, so a Flow image can be animated without re-uploading.
+`--character` takes a Flow character name (`character list`); it works for `video` (ingredients) and `image` (references).
 
 ## Recipes
 

@@ -156,7 +156,8 @@ class PinchTab:
             time.sleep(3)
         self.tab = tab
         save_state(tabId=tab)
-        if url and not ids.get(tab, {}).get("url", "").startswith(url.split("?")[0]):
+        cur = ids.get(tab, {}).get("url", "").split("?")[0].rstrip("/")
+        if url and cur != url.split("?")[0].rstrip("/"):
             self.nav(url)
         return tab
 
@@ -171,8 +172,22 @@ class PinchTab:
         return r.get("result")
 
     def click(self, selector):
-        """A trusted CDP click (Flow ignores synthetic clicks on some controls, e.g. generate)."""
-        return self.req("POST", "/action", {"kind": "click", "selector": selector, "tabId": self.tab}, timeout=30)
+        """A trusted CDP click (Flow ignores synthetic clicks on some controls, e.g. generate). A click that navigates
+        (PinchTab answers 409 navigation_changed) counts as done."""
+        try:
+            return self.req("POST", "/action", {"kind": "click", "selector": selector, "tabId": self.tab}, timeout=30)
+        except RuntimeError as e:
+            if "navigation_changed" in str(e):
+                time.sleep(1.5)
+                return {"navigated": True}
+            raise
+
+    def click_text(self, text, tag="button"):
+        """Trusted click on the visible <tag> whose text contains `text` (icons and labels around it are fine)."""
+        return self.click(f"xpath://{tag}[contains(normalize-space(.), {json.dumps(text)})]")
+
+    def fill(self, selector, text):
+        return self.req("POST", "/action", {"kind": "fill", "selector": selector, "text": text, "tabId": self.tab}, timeout=30)
 
     def screenshot(self, path):
         b = self.req("GET", f"/screenshot?tabId={self.tab}&raw=true", raw=True, timeout=60)
@@ -251,11 +266,19 @@ class Flow:
         self.save_live_cookies()
         if need_project:
             # the grid renders a moment after the prompt bar; wait for both to settle
-            ready = self.pt.eval("""(async()=>{const s=ms=>new Promise(r=>setTimeout(r,ms));let last=-1,same=0;
-              for(let i=0;i<120;i++){const box=document.querySelector('[aria-label="What do you want to create?"]');
-                const n=document.querySelectorAll('flow-tile-container').length;
-                const empty=/Start creating or drop media/.test(document.body.innerText);
-                if(box&&(n>0||empty)){same=(n===last)?same+1:0;last=n;if(same>=3)return true}await s(250)}return false})()""", timeout=60)
+            ready, last, same, t0 = False, -1, 0, time.time()
+            while time.time() - t0 < 30:
+                st = self.pt.eval("""JSON.stringify({box:!!document.querySelector('[aria-label="What do you want to create?"]'),
+                  n:document.querySelectorAll('flow-tile-container').length,
+                  empty:/Start creating or drop media/.test(document.body.innerText)})""")
+                st = json.loads(st) if isinstance(st, str) else (st or {})
+                if st.get("box") and (st.get("n") or st.get("empty")):
+                    same = same + 1 if st["n"] == last else 0
+                    last = st["n"]
+                    if same >= 2:
+                        ready = True
+                        break
+                time.sleep(0.4)
             if not ready:
                 die("Flow project did not finish loading", url=url)
         return self
@@ -342,6 +365,26 @@ class Flow:
                 time.sleep(1.5)
             log(f"generate click not accepted (attempt {attempt + 1})")
         return False
+
+    def add_ingredients(self, items):
+        """Attach several assets / characters in one pass of Flow's multi-select picker."""
+        r = self.call("selectIngredients", items)
+        if not r.get("ok"):
+            self.call("closeMenus")
+            die(r.get("error", "could not pick ingredients"), available=r.get("available"), picked=r.get("picked"))
+        before = r.get("before", 0)
+        if r.get("pickerOpen"):
+            self.pt.click_text("Add to prompt")
+        t0 = time.time()
+        while time.time() - t0 < 8:
+            if self.call("ingredientCount") >= before + len(items):
+                return r["picked"]
+            time.sleep(0.5)
+        n = self.call("ingredientCount")
+        if n > before:
+            log(f"attached {n - before} of {len(items)} ingredients (Flow may cap how many a model takes)")
+            return r["picked"]
+        die("the ingredients were selected but did not attach", picked=r.get("picked"))
 
     def credits(self):
         try:
@@ -435,6 +478,43 @@ def probe(p: Path):
         return out
     except Exception:
         return {}
+
+
+def image_size(p: Path):
+    """(width, height) of a PNG / JPEG / WebP without Pillow; None when unknown."""
+    try:
+        b = Path(p).read_bytes()[:400_000]
+        if b[:8] == b"\x89PNG\r\n\x1a\n":
+            return int.from_bytes(b[16:20], "big"), int.from_bytes(b[20:24], "big")
+        if b[:4] == b"RIFF" and b[8:12] == b"WEBP" and b[12:16] == b"VP8X":
+            return int.from_bytes(b[24:27], "little") + 1, int.from_bytes(b[27:30], "little") + 1
+        if b[:2] == b"\xff\xd8":
+            i = 2
+            while i < len(b) - 9:
+                if b[i] != 0xFF:
+                    i += 1
+                    continue
+                m = b[i + 1]
+                if m in (0xC0, 0xC1, 0xC2):
+                    return int.from_bytes(b[i + 7:i + 9], "big"), int.from_bytes(b[i + 5:i + 7], "big")
+                i += 2 + int.from_bytes(b[i + 2:i + 4], "big")
+    except Exception:
+        pass
+    return None
+
+
+def auto_aspect(path, kind):
+    """The aspect that fits a local picture best (video: 16:9 or 9:16)."""
+    p = Path(path).expanduser() if path else None
+    if not p or not p.is_file():
+        return None
+    wh = image_size(p)
+    if not wh:
+        return None
+    r = wh[0] / wh[1]
+    if kind == "video":
+        return "9:16" if r < 1 else "16:9"
+    return min({"16:9": 16 / 9, "4:3": 4 / 3, "1:1": 1, "3:4": 3 / 4, "9:16": 9 / 16}.items(), key=lambda kv: abs(kv[1] - r))[0]
 
 
 def norm_model(m):
@@ -542,10 +622,11 @@ def gen_cfg(a, kind):
     cfg = {"mode": "Video" if kind == "video" else "Image"}
     model = norm_model(a.model or d.get("model"))
     cfg["model"] = model
-    cfg["aspect"] = a.aspect or d.get("aspect")
+    pic = getattr(a, "start", None) or ((getattr(a, "ingredient", None) or getattr(a, "ref", None) or [None])[0])
+    cfg["aspect"] = a.aspect or auto_aspect(pic, kind) or d.get("aspect")
     cfg["count"] = norm_count(a.count or d.get("count"))
     if kind == "video":
-        cfg["input"] = "Ingredients" if getattr(a, "ingredient", None) else "Frames"
+        cfg["input"] = "Ingredients" if (getattr(a, "ingredient", None) or getattr(a, "character", None)) else "Frames"
         is_veo = "veo" in str(model).lower()
         cfg["res"] = a.res or (None if is_veo else d.get("res"))
         cfg["secs"] = norm_secs(a.secs) if a.secs else (None if is_veo else d.get("secs"))
@@ -606,9 +687,14 @@ def run_generation(a, kind):
     cfg = gen_cfg(a, kind)
     log("settings:", json.dumps({k: v for k, v in cfg.items() if v}))
     # assets first: uploads change the grid
+    if kind == "video" and (getattr(a, "start", None) or getattr(a, "end", None)) and \
+            (getattr(a, "ingredient", None) or getattr(a, "character", None)):
+        die("Flow uses either frames (--start/--end) or ingredients (--ingredient/--character) for one video, not both. "
+            "For a consistent character in a set scene, use --character NAME --ingredient scene.png")
     start = f.ensure_asset(getattr(a, "start", None), "start frame")
     end = f.ensure_asset(getattr(a, "end", None), "end frame")
     refs = [f.ensure_asset(r, "ingredient") for r in (getattr(a, "ingredient", None) or getattr(a, "ref", None) or [])]
+    chars = list(getattr(a, "character", None) or [])
     f.call("clearPromptBar")
     st = configure(f, cfg)
     quoted, model = st.get("price"), st.get("model")
@@ -619,10 +705,9 @@ def run_generation(a, kind):
                 r = f.call("setFrame", slot, name)
                 if not r.get("ok"):
                     die(f"could not set the {slot.lower()} frame to {name}", **r)
-    for r_ in refs:
-        r = f.call("addIngredient", r_)
-        if not r.get("ok"):
-            die(f"could not add ingredient {r_}", **r)
+    items = [{"name": c, "tab": "Characters"} for c in chars] + [{"name": r_, "tab": "All"} for r_ in refs]
+    if items:
+        f.add_ingredients(items)
     p = f.call("setPrompt", a.prompt)
     if not p.get("ok"):
         die("could not type the prompt", **p)
@@ -634,7 +719,7 @@ def run_generation(a, kind):
         die(f"quoted {quoted} credits is over --max-credits {a.max_credits}", quoted=quoted)
     if a.dry_run:
         print(json.dumps({"ok": True, "dry_run": True, "quoted_credits": quoted, "model": st.get("model"), "summary": st.get("summary"),
-                          "start": start, "end": end, "ingredients": refs}))
+                          "start": start, "end": end, "ingredients": refs, "characters": chars}))
         return
     credits_before = f.credits()
     n = int(str(cfg.get("count") or "x1").lstrip("x"))
@@ -650,6 +735,7 @@ def run_generation(a, kind):
         item = {"index": t["i"], "title": t["title"], "kind": t["kind"], "failed": t["failed"]}
         if t["failed"]:
             item["message"] = t["text"]
+            item["refunded"] = bool(re.search(r"refund", t["text"], re.I))
         elif a.download != "none":
             base = a.name or re.sub(r"[^A-Za-z0-9_-]+", "_", t["title"] or kind)[:60]
             if n > 1:
@@ -841,6 +927,148 @@ def cmd_login(a):
     print(json.dumps({"ok": state["done"], "signed_in": state["done"]}))
 
 
+def wait_for(f, js_cond, secs=30, step=0.5):
+    t0 = time.time()
+    while time.time() - t0 < secs:
+        try:
+            if f.pt.eval(js_cond):
+                return True
+        except RuntimeError:
+            pass
+        time.sleep(step)
+    return False
+
+
+def pick_from_project(f, asset, soft=False):
+    """In a character slot: 'Add from project' -> the asset -> 'Add media' when the dialog asks for it.
+    soft=True returns False instead of failing when the asset is missing (the picker caches the project list)."""
+    f.pt.click_text("Add from project")
+    if not wait_for(f, "document.querySelectorAll('[role=option]').length>0", 10):
+        die("the project picker did not open")
+    f.call("pickerSearch", asset)
+    if not f.call("clickOption", asset):
+        f.call("closeMenus")
+        if soft:
+            return False
+        die(f"asset not in the picker: {asset}")
+    time.sleep(0.8)
+    if f.pt.eval("[...document.querySelectorAll('button')].some(b=>b.offsetParent&&/Add media/.test(b.textContent))"):
+        f.pt.click_text("Add media")
+    return True
+
+
+def attach_body(f, body, char_url, _retry=True):
+    has_add = "[...document.querySelectorAll('button')].some(b=>b.offsetParent&&/Add from project/.test(b.textContent))"
+    for _ in range(3):
+        if f.pt.eval(has_add):
+            break
+        try:
+            f.pt.click_text("Create body")
+        except RuntimeError:
+            pass
+        wait_for(f, has_add, 6)
+    else:
+        die("could not open the body slot", character_url=char_url)
+    if not pick_from_project(f, body, soft=_retry):
+        log("body image not in the picker yet: reloading the character page")
+        time.sleep(3)
+        f.pt.click("xpath://button[normalize-space(.)='Done']")  # keep name / portrait / info
+        time.sleep(2)
+        f.pt.nav(char_url)
+        f.inject()
+        wait_for(f, "!!document.querySelector('input[aria-label=\"Character name\"]')", 20)
+        time.sleep(1)
+        return attach_body(f, body, char_url, _retry=False)
+    if not wait_for(f, "[...document.querySelectorAll('button')].some(b=>b.offsetParent&&/^(accessibility_new\\s*)?Body$/.test(b.textContent.trim()))", 40):
+        die("the body image did not attach", character_url=char_url)
+
+
+def open_character(f, name):
+    f.pt.click_text("Characters")
+    wait_for(f, "/Create my avatar|New character/.test(document.body.innerText)", 10)
+    time.sleep(1)
+    xy = f.pt.eval(f"""(()=>{{const c=[...document.querySelectorAll('flow-tile-container')].find(c=>window.__flow.txt(c)===
+        {json.dumps(name)});if(!c)return null;const b=c.getBoundingClientRect();return [b.left+b.width/2,b.top+b.height/2]}})()""")
+    if not xy:
+        die(f"no character named {name!r}")
+    try:
+        f.pt.req("POST", "/action", {"kind": "click", "x": xy[0], "y": xy[1], "tabId": f.pt.tab})
+    except RuntimeError as e:
+        if "navigation_changed" not in str(e):
+            raise
+    if not wait_for(f, "!!document.querySelector('input[aria-label=\"Character name\"]')", 20):
+        die("the character editor did not open")
+    time.sleep(1)
+    f.inject()
+    return f.pt.eval("location.href").split("?")[0]
+
+
+def cmd_character(a):
+    f = Flow(a.project).open()
+    base = f.project.split("?")[0].rstrip("/")
+    if a.action == "list":
+        f.pt.click_text("Characters")
+        wait_for(f, "/Create my avatar|New character/.test(document.body.innerText)", 10)
+        time.sleep(1)
+        names = f.pt.eval("""JSON.stringify([...document.querySelectorAll('flow-tile-container')].map(c=>window.__flow.txt(c))
+            .filter(t=>t&&!/^(New character|Create my avatar)$/.test(t)))""")
+        f.pt.nav(f.project)
+        print(json.dumps({"ok": True, "characters": json.loads(names)}))
+        return
+    if a.action == "delete":
+        if not a.name:
+            die("character delete needs --name")
+        f.pt.nav(f.project)
+        f.inject()
+        char_url = open_character(f, a.name)
+        f.pt.click('[aria-label="Move to bin"]')
+        time.sleep(1.2)
+        if f.pt.eval("[...document.querySelectorAll('.cdk-overlay-pane button')].some(b=>/Move to bin|Delete/.test(b.textContent))"):
+            f.pt.click("xpath://div[contains(@class,'cdk-overlay-pane')]//button[contains(.,'Move to bin') or contains(.,'Delete')]")
+        time.sleep(2)
+        f.pt.nav(f.project)
+        print(json.dumps({"ok": True, "deleted": a.name, "character_url": char_url}))
+        return
+    if a.action == "update":
+        if not a.name:
+            die("character update needs --name")
+        body = f.ensure_asset(a.body, "character body") if a.body else None
+        f.pt.nav(f.project)
+        f.inject()
+        char_url = open_character(f, a.name)
+        if a.info:
+            f.pt.fill('textarea[aria-label="Character personality"]', a.info)
+        if body:
+            attach_body(f, body, char_url)
+        time.sleep(1.5)
+        f.pt.click("xpath://button[normalize-space(.)='Done']")
+        time.sleep(2)
+        f.pt.nav(f.project)
+        print(json.dumps({"ok": True, "name": a.name, "body": body, "character_url": char_url}))
+        return
+    if not a.name or not a.portrait:
+        die("character create needs --name and --portrait (an image file or a project asset)")
+    portrait = f.ensure_asset(a.portrait, "character portrait")
+    body = f.ensure_asset(a.body, "character body") if a.body else None
+    f.pt.nav(base + "/character")
+    f.inject()
+    wait_for(f, "[...document.querySelectorAll('button')].some(b=>/Add from project/.test(b.textContent))", 20)
+    pick_from_project(f, portrait)
+    if not wait_for(f, "!!document.querySelector('input[aria-label=\"Character name\"]')", 40):
+        die("the character editor did not open")
+    char_url = f.pt.eval("location.href").split("?")[0]
+    f.pt.fill('input[aria-label="Character name"]', a.name)
+    if a.info:
+        f.pt.fill('textarea[aria-label="Character personality"]', a.info)
+    if body:
+        attach_body(f, body, char_url)
+    time.sleep(1.5)
+    f.pt.click("xpath://button[normalize-space(.)='Done']")
+    time.sleep(2)
+    f.pt.nav(f.project)
+    print(json.dumps({"ok": True, "name": a.name, "portrait": portrait, "body": body, "character_url": char_url}))
+
+
 def cmd_shot(a):
     f = Flow(a.project).open(need_project=False)
     p = a.out or "/tmp/flow_shot.jpg"
@@ -911,10 +1139,12 @@ def main():
         if kind == "video":
             s.add_argument("--start", help="start frame: a local image (uploaded) or an asset name in the project")
             s.add_argument("--end", help="end frame: a local image or an asset name")
-            s.add_argument("--ingredient", action="append", help="Ingredients mode reference (repeatable) instead of frames")
+            s.add_argument("--ingredient", action="append", help="Ingredients mode reference: a file or asset name (repeatable); not with --start")
+            s.add_argument("--character", action="append", help="a Flow character by name (repeatable; see `character list`); Ingredients mode")
             s.add_argument("--download", default="original", help="original | best | gif | 720p | 1080p | 4k | none (default original)")
         else:
             s.add_argument("--ref", action="append", help="reference image (local file or asset name), repeatable")
+            s.add_argument("--character", action="append", help="a Flow character by name as a reference (repeatable)")
             s.add_argument("--download", default="original", help="original | best | an option label from `download --options` | none")
         s.add_argument("--out", help="output folder (default: config out_dir)")
         s.add_argument("--name", help="output file base name")
@@ -939,6 +1169,14 @@ def main():
     s = sp.add_parser("new-project", help="create a new Flow project")
     s.add_argument("--save", action="store_true", help="make it the default project")
     s.set_defaults(fn=cmd_new_project)
+
+    s = sp.add_parser("character", help="Flow characters for consistency: create from your own portrait (+ body) art, or list")
+    s.add_argument("action", choices=["create", "update", "delete", "list"])
+    s.add_argument("--name")
+    s.add_argument("--portrait", help="head-and-shoulders image: a file (uploaded) or a project asset name")
+    s.add_argument("--body", help="full-body image: a file or a project asset name (recommended for stylised characters)")
+    s.add_argument("--info", help="who the character is and how they look/act (used by Flow)")
+    s.set_defaults(fn=cmd_character)
 
     s = sp.add_parser("login", help="serve a live view of the automation browser so the user signs in to Google")
     s.add_argument("--port", type=int, default=8790)

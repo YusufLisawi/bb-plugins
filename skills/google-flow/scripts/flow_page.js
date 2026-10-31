@@ -3,7 +3,7 @@
 // aria-labels, ARIA roles and visible text (Material icon ligatures stripped),
 // never on generated class names.
 (() => {
-  if (window.__flow && window.__flow.v === 5) return 'loaded';
+  if (window.__flow && window.__flow.v === 8) return 'loaded';
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const vis = (e) => !!e && !!(e.offsetParent || e.getClientRects().length);
   // Visible text of an element without Material icon names ("videocam Video" -> "Video").
@@ -141,10 +141,59 @@
     const got = (box.innerText || '').trim();
     return { ok: got.length > 0 && got.slice(0, 20) === text.trim().slice(0, 20), length: got.length };
   };
+  // Picker options read "<name><Kind>" (e.g. "ren_sheet.pngImage", "RenCharacter"). Prefer an exact name match so
+  // "Ren" never picks "ren_giant.jpg".
+  const KIND = /(Image|Video|Character|Voice|Avatar|Upload)$/;
+  const optName = (o) => txt(o).replace(KIND, '').trim();
   const assetOption = (name) => {
     const opts = all('[role=option]');
-    return opts.find((o) => txt(o) === name || o.getAttribute('aria-label') === name) ||
-      opts.find((o) => txt(o).includes(name)) || null;
+    const n = name.toLowerCase();
+    return opts.find((o) => optName(o) === name || o.getAttribute('aria-label') === name) ||
+      opts.find((o) => optName(o).toLowerCase() === n) ||
+      opts.find((o) => optName(o).toLowerCase().startsWith(n)) ||
+      opts.find((o) => optName(o).toLowerCase().includes(n)) || null;
+  };
+  const pickerSearch = async (q) => {
+    const search = all('input[aria-label="Search assets"], [aria-label="Search assets"]')[0];
+    if (!search) return;
+    search.focus();
+    search.value = q;
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(700);
+  };
+  const pickerTab = async (label) => {
+    const t = all('[role=tab]').find((e) => low(txt(e)) === low(label));
+    if (t && t.getAttribute('aria-selected') !== 'true') { t.click(); await sleep(700); }
+    return !!t;
+  };
+  // Ingredients picker (multi-select): items [{name, tab?}] -> select each; flow.py then presses "Add to prompt"
+  // with a trusted click (a JS click on it is sometimes ignored).
+  const ingredientCount = () => all('[aria-label="Image ingredient"], [aria-label$=" ingredient"], img[alt="Ingredient image"]').length;
+  const pickerOpen = () => !!all('[aria-label="Search assets"]')[0];
+  const selectIngredients = async (items) => {
+    const before = ingredientCount();
+    const picked = [];
+    for (const it of items) {
+      if (!pickerOpen()) {
+        await closeMenus();
+        const opener = byLabel('Add ingredients to the prompt box');
+        if (!opener) return { ok: false, error: 'no ingredients button (is the video in Ingredients mode?)', picked };
+        opener.click();
+        if (!(await waitFor(pickerOpen, 6000))) return { ok: false, error: 'ingredients picker did not open', picked };
+      }
+      await pickerTab(it.tab || 'All');
+      await pickerSearch(it.name);
+      const opt = await waitFor(() => assetOption(it.name), 8000);
+      if (!opt) {
+        const names = all('[role=option]').map(optName).slice(0, 30);
+        await pickerSearch('');
+        return { ok: false, error: `asset not found: ${it.name}`, available: names, picked };
+      }
+      if (opt.getAttribute('aria-selected') !== 'true') { opt.click(); await sleep(600); }
+      picked.push(optName(opt));
+      if (pickerOpen()) await pickerSearch('');
+    }
+    return { ok: true, picked, before, pickerOpen: pickerOpen() };
   };
   // Opens the asset picker behind `opener` (the Start / End frame slot or the ingredients
   // button), picks `name`, and confirms with "Add to prompt" when the dialog asks for it.
@@ -335,9 +384,10 @@
     .map(txt).filter(Boolean).slice(0, 5);
 
   window.__flow = {
-    v: 5, sleep, txt, panelState, openPanel, configure, models, selectModel, price, setPrompt, setFrame,
+    v: 8, sleep, txt, panelState, openPanel, configure, models, selectModel, price, setPrompt, setFrame,
     addIngredient, clearPromptBar, generate, tiles, tileMenu, downloadOptions, scrollTop, bufReset, bufAdd,
-    dropFile, account, errors, closeMenus, dlArm, dlStatus, dlChunk, dlDone,
+    dropFile, account, errors, closeMenus, dlArm, dlStatus, dlChunk, dlDone, selectIngredients, ingredientCount,
+    pickerTab, pickerSearch, assetOption: (n) => { const o = assetOption(n); return o ? optName(o) : null; }, clickOption: async (n) => { const o = await waitFor(() => assetOption(n), 8000); if (!o) return false; o.click(); return true; },
   };
   return 'loaded';
 })();

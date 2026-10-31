@@ -45,3 +45,18 @@ progress percentage and a thumbnail (or a failure text), downloads each, and rea
 `login` serves a page that polls `GET /screenshot` of the tab and relays clicks (`kind: click, x, y` in CSS pixels),
 wheel, `keyboard-type` and `press` actions. It never logs request bodies. Done = the tab is on flow.google.com (not
 `/about`) with a `[aria-label^="Google Account"]` element.
+
+## Ingredients and characters
+
+- The ingredients picker (`Add ingredients to the prompt box`) is multi-select for assets (confirm with `Add to prompt`,
+  trusted click) but a **character** option attaches immediately and closes it; `selectIngredients` reopens the picker per
+  item. Options read `<name><Kind>`; `assetOption` strips the kind and prefers exact names. "Is the picker open" = the
+  `Search assets` box exists (an empty tab has no listbox). Attached chips: `ingredientCount()`.
+- Character editor: `/project/<id>/character` (new) or `/character/<cid>`. First image: `Add from project` -> option ->
+  `Add media`. Then `input[aria-label="Character name"]` and `textarea[aria-label="Character personality"]` (PinchTab `fill`),
+  `Create body` -> `Add from project` -> option (attaches at once). `Done` saves; `Move to bin` deletes (navigates: PinchTab
+  answers 409 navigation_changed, which `click()` treats as success). The picker caches the project list from page load, so an
+  image uploaded after the page opened is missing until a reload (`attach_body` saves, reloads and retries once).
+- `Delete image` and other hover buttons have `pointer-events: none` until hovered: click them with JS.
+- Uploading straight into a character slot (`Upload` with a captured file input + `POST /upload` inline data) stalled at
+  99 %; upload to the project grid first and use `Add from project`.
