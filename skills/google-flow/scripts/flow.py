@@ -25,6 +25,7 @@ PAGE_JS = (HERE / "flow_page.js").read_text()
 CONF_DIR = Path(os.environ.get("FLOW_CONFIG_DIR", Path.home() / ".config" / "google-flow"))
 CONF_FILE = CONF_DIR / "config.json"
 STATE_FILE = CONF_DIR / "state.json"
+COOKIE_FILE = CONF_DIR / "cookies.json"  # private (0600) copy, kept fresh from the live browser
 PT_CONF = Path(os.environ.get("PINCHTAB_CONFIG", Path.home() / ".pinchtab" / "config.json"))
 FLOW_HOME = "https://flow.google.com/"
 NEED_DOMAINS = ["flow.google.com", "*.flow.google.com", "google.com", "*.google.com", "labs.google", "*.labs.google",
@@ -188,6 +189,47 @@ class Flow:
     def signed_in(self):
         return bool(self.pt.eval("!!document.querySelector('[aria-label^=\"Google Account\"]')"))
 
+    def wait_signed_in(self, secs=15):
+        t0 = time.time()
+        while time.time() - t0 < secs:
+            try:
+                if self.signed_in():
+                    return True
+            except Exception:
+                pass
+            time.sleep(1)
+        return False
+
+    def save_live_cookies(self, force=False):
+        """Write the browser's current (rotated) Google cookies back to the private copy, at most every 10 min,
+        so a later re-login never replays stale values."""
+        st = load_json(STATE_FILE, {})
+        if not COOKIE_FILE.exists() or (not force and time.time() - st.get("cookies_saved", 0) < 600):
+            return
+        seen = {}
+        for u in ("https://flow.google.com/", "https://accounts.google.com/", "https://www.google.com/"):
+            try:
+                r = self.pt.req("GET", f"/cookies?tabId={self.pt.tab}&url={urllib.request.quote(u, safe='')}")
+            except Exception:
+                return
+            for c in r.get("cookies", []):
+                seen[(c.get("name"), c.get("domain"), c.get("path"))] = c
+        if not any(k[0] in ("SID", "__Secure-1PSID") for k in seen):
+            return
+        out = []
+        for c in seen.values():
+            x = {k: c.get(k) for k in ("name", "value", "domain", "path", "secure", "httpOnly")}
+            if c.get("expires") and c["expires"] > 0:
+                x["expirationDate"] = c["expires"]
+            if c.get("sameSite"):
+                x["sameSite"] = {"None": "no_restriction", "Lax": "lax", "Strict": "strict"}.get(c["sameSite"], c["sameSite"])
+            out.append(x)
+        tmp = COOKIE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(out))
+        os.chmod(tmp, 0o600)
+        tmp.replace(COOKIE_FILE)
+        save_state(cookies_saved=time.time())
+
     def open(self, need_project=True, _retry=True):
         if need_project and not self.project:
             die("no Flow project set: pass --project URL or run `flow.py setup --project URL` (or `flow.py new-project`)")
@@ -197,8 +239,16 @@ class Flow:
         if "accounts.google.com" in (url or "") or not self.signed_in():
             time.sleep(2)
             if not self.signed_in():
-                die("the automation browser is not signed in to Google: run `flow.py login` (the user signs in through a "
-                    "live view) or `flow.py setup --cookies FRESH_EXPORT.json`", url=url)
+                if _retry and COOKIE_FILE.exists():
+                    log("signed out: re-applying the saved cookies")
+                    inject_cookies(self, COOKIE_FILE)
+                    self.pt.nav(self.project or FLOW_HOME)
+                    self.inject()
+                    if self.wait_signed_in():
+                        return self.open(need_project, _retry=False)
+                die("not signed in to Google and the saved cookies were rejected: export fresh cookies and run "
+                    "`flow.py setup --cookies export.json` (or `flow.py login`)", url=url)
+        self.save_live_cookies()
         if need_project:
             # the grid renders a moment after the prompt bar; wait for both to settle
             ready = self.pt.eval("""(async()=>{const s=ms=>new Promise(r=>setTimeout(r,ms));let last=-1,same=0;
@@ -440,6 +490,10 @@ def cmd_setup(a):
     f = Flow(a.project)
     f.pt.ensure_tab(None)
     if a.cookies:
+        CONF_DIR.mkdir(parents=True, exist_ok=True)
+        if Path(a.cookies).expanduser().resolve() != COOKIE_FILE.resolve():
+            shutil.copy(Path(a.cookies).expanduser(), COOKIE_FILE)
+        os.chmod(COOKIE_FILE, 0o600)
         f.pt.nav(f.project or FLOW_HOME)
         time.sleep(2)
         if f.signed_in() and not a.force:
@@ -448,8 +502,12 @@ def cmd_setup(a):
             inject_cookies(f, Path(a.cookies).expanduser())
     f.pt.nav(f.project or FLOW_HOME)
     f.inject()
+    f.wait_signed_in()
     acct = f.account()
-    print(json.dumps({"ok": bool(acct.get("signedIn")), "account": acct, "project_url": f.project, "config": str(CONF_FILE)}))
+    if acct.get("signedIn"):
+        f.save_live_cookies(force=True)
+    print(json.dumps({"ok": bool(acct.get("signedIn")), "account": acct, "project_url": f.project, "config": str(CONF_FILE),
+                      **({} if acct.get("signedIn") else {"hint": "Google rejected these cookies (the session behind them ended): export fresh ones"})}))
 
 
 def inject_cookies(f, path: Path):

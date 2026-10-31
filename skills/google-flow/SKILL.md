@@ -21,17 +21,18 @@ $F video --start shot.png -p "PROMPT" --secs 4 --out DIR   # upload, generate, w
 1. PinchTab must be installed (`pinchtab` on PATH; the `pinchtab` skill covers it). `flow.py setup` enables the two
    PinchTab permissions it needs (`allowEvaluate`, `allowCookies`) and the Google domains in `~/.pinchtab/config.json`
    (backup `config.json.bak-google-flow`), then restarts the server. It changes nothing else.
-2. Sign in. **Preferred: `flow.py login`.** It serves a live view of the automation browser on `127.0.0.1:8790` with a secret
-   path, starting at Google sign-in. In BB run it in the background, `bb connect expose 8790`, and give the user the public URL
-   + the printed path. The user clicks and types their own password / 2FA there; the command exits by itself once Flow is
-   signed in. Never type or ask for the password yourself. This gives the automation browser its own Google session.
-   Fallback: `flow.py setup --cookies export.json` with a fresh Cookie-Editor / EditThisCookie export. Copied cookies are
-   short-lived (Google rotates and device-binds them; expect a sign-out within about an hour) and `setup` refuses to replay
-   them over a live session unless `--force`, because replaying stale rotated cookies signs the session out.
+2. Sign in with the user's cookies: `flow.py setup --cookies export.json` (a Cookie-Editor / EditThisCookie JSON export
+   from a browser signed in to Flow). It keeps a private copy at `~/.config/google-flow/cookies.json` (0600), refreshes that
+   copy from the live browser (Google rotates `SIDTS`/`SIDCC`), and whenever the automation browser is found signed out it
+   re-applies the copy by itself, so later commands just work. Only when Google rejects them (the session behind the export
+   ended, e.g. the user signed out of that browser) does a command fail with "export fresh cookies"; ask the user for a new
+   export. Never print cookie values. Alternative without cookies: `flow.py login` serves a live view of the automation
+   browser on `127.0.0.1:8790` (secret path); in BB run it in the background, `bb connect expose 8790`, and give the user the
+   URL + path to sign in themselves. Never type or ask for a password.
 3. Choose the project: `flow.py setup --project https://flow.google.com/project/<id>` (stored in
    `~/.config/google-flow/config.json`), or `flow.py new-project --save`. `--project URL` works on any command.
 
-The PinchTab profile directory is configured under `/tmp` on this machine, so a reboot signs Flow out: run `login` again.
+The PinchTab profile directory is under `/tmp` on this machine, so a reboot empties the browser; the saved cookies sign it back in on the next command.
 
 ## Commands
 
