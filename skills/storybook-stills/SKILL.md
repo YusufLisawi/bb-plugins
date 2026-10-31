@@ -75,6 +75,12 @@ Write the season bible first (cast with an arc each, the evolving threat on a cl
 approved, then build ONE PART AT A TIME: each part goes to the dev player and waits for review before the next; render all parts only after the last
 one is approved. Continuity notes (props, wounds, clothes, time of day) go into every art brief.
 
+## Other looks
+
+A second picture style exists since 2026-11-01: **flat-stickman** (the Olatunde / Emu War flat vector stickman: stick bodies, flat muted
+fills, extreme close-ups, split screens). Same pipeline, different art brief and shot grammar; its AI-animated Nano Banana + Flow route is
+the **nano-flow-stickman** skill. Use them only when the owner asks for that look.
+
 ## Read next, as needed
 
 - `references/look-and-cast.md`: the look, the cast design rules, what AI draws vs what code draws.
