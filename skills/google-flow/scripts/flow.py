@@ -311,12 +311,24 @@ class Flow:
         self.call("scrollTop")
         return self.call("tiles")
 
+    @staticmethod
+    def tkey(t):
+        """a tile's identity (Flow renders only the newest ~24 tiles, so counting tiles stops working once a project is full)"""
+        return (t.get("title"), t.get("thumb"), t.get("kind"))
+
+    def keys(self):
+        return {self.tkey(t) for t in self.tiles()}
+
+    def fresh(self, ts, before):
+        """tiles not present before (newest first)"""
+        return [t for t in ts if self.tkey(t) not in before]
+
     def upload(self, path: Path, name=None):
         path = Path(path).expanduser().resolve()
         if not path.is_file():
             die(f"file not found: {path}")
         name = name or path.name
-        before = len(self.tiles())
+        before = self.keys()
         mime = mimetypes.guess_type(name)[0] or "image/png"
         b64 = base64.b64encode(path.read_bytes()).decode()
         self.call("bufReset")
@@ -327,8 +339,10 @@ class Flow:
         t0 = time.time()
         while time.time() - t0 < 90:
             ts = self.tiles()
-            if len(ts) > before and ts[0].get("progress") is None:
-                return {"ok": True, "name": name, "tile": ts[0]}
+            stem = Path(name).stem
+            hit = [t for t in ts if stem in (t.get("title") or "")] or self.fresh(ts, before)
+            if hit and hit[0].get("progress") is None:
+                return {"ok": True, "name": hit[0].get("title") or name, "tile": hit[0]}
             time.sleep(1.5)
         return {"ok": False, "error": "upload did not appear in the project within 90 s", "name": name}
 
@@ -344,7 +358,7 @@ class Flow:
             r = self.upload(p, name)
             if not r.get("ok"):
                 die(r.get("error"), step=f"upload {slot_label}")
-            return name
+            return r.get("name") or name
         return ref
 
     def submit(self, before_n):
@@ -355,12 +369,13 @@ class Flow:
             btn = self.pt.eval("(()=>{const b=document.querySelector('[aria-label=\"Start generation\"]');return b?(b.disabled?'disabled':'ok'):'missing'})()")
             if btn != "ok":
                 die(f"generate button is {btn}", state=chk)
+            time.sleep(2.5 if attempt == 0 else 6)   # let Flow finish attaching frames / references (an early click is silently ignored)
             self.pt.click('[aria-label="Start generation"]')
             t0 = time.time()
             while time.time() - t0 < 25:
-                n = len(self.call("tiles"))
+                new = self.fresh(self.call("tiles"), before_n)
                 cleared = self.pt.eval("(()=>{const b=document.querySelector('[aria-label=\"What do you want to create?\"]');return !b||!(b.innerText||'').trim()})()")
-                if n > before_n or cleared:
+                if new or cleared:
                     return True
                 time.sleep(1.5)
             log(f"generate click not accepted (attempt {attempt + 1})")
@@ -397,7 +412,7 @@ class Flow:
         t0, last = time.time(), None
         while time.time() - t0 < timeout_min * 60:
             ts = self.tiles()
-            new = ts[: max(0, len(ts) - before_n)][:n] if len(ts) > before_n else []
+            new = self.fresh(ts, before_n)[:n]
             if len(new) >= n:
                 prog = [t.get("progress") for t in new]
                 if all(p is None for p in prog) and all(t.get("thumb") or t.get("failed") for t in new):
@@ -408,7 +423,7 @@ class Flow:
                     last = msg
             else:
                 errs = self.call("errors")
-                if errs and time.time() - t0 > 8 and len(ts) <= before_n:
+                if errs and time.time() - t0 > 8 and not new:
                     bad = [e for e in errs if re.search(r"fail|error|couldn|not enough|insufficient|violat|policy|limit", e, re.I)]
                     if bad:
                         die("Flow refused the generation", messages=bad)
@@ -723,7 +738,7 @@ def run_generation(a, kind):
         return
     credits_before = f.credits()
     n = int(str(cfg.get("count") or "x1").lstrip("x"))
-    before_n = len(f.tiles())
+    before_n = f.keys()   # identities, not a count (the grid holds only ~24 tiles)
     if not f.submit(before_n):
         die("Flow did not accept the generate click (nothing was submitted, no credits spent)", state=f.call("panelState"))
     t0 = time.time()
