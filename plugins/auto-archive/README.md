@@ -10,6 +10,15 @@ A repository-managed fork of [slogsdon/bb-plugin-auto-archive](https://github.co
 
 Inactive root threads are archived after 15 days by default. Existing configuration and the original install timestamp use the same plugin ID and storage keys. Pins are always protected in either Sidebar Plus location, including pinned children. The hourly sweep retains the upstream safeguards for hidden, running, and pre-install idle threads. The old option to archive pins is no longer supported; stored legacy values are ignored.
 
+## Sub-threads
+
+Child threads (sub-agents and forks started under a parent) are archived on their own after **2 days** without activity by default, while the parent stays. Root threads keep the main threshold. Change it with `bb plugin config auto-archive set childInactivityDays 1`; `0` turns it off, and children then go only with their parent.
+
+A child's activity is its latest update, read, or attention time, whichever is newest: BB leaves a child's attention time at its creation, so the last update is the reliable clock. A rename or read therefore delays archiving too.
+
+> [!NOTE]
+> Pinned and exempt threads keep all of their sub-threads. A child stays while it, or any thread below it, is working, queued, delegating, or recently active, because archiving a child also archives its own sub-threads. Hidden children follow **Archive hidden threads**, and children that were already idle before install are left alone. When a whole branch is stale, only its top thread is archived and the rest follow it.
+
 ## Exempt individual threads
 
 In Sidebar Plus, right-click a thread or hold it on mobile, then choose **Disable auto-archive**. Choose **Enable auto-archive** to remove the exemption. Exemptions are stored on the server and work without pinning the thread.
@@ -39,6 +48,7 @@ bb auto-archive status
 bb auto-archive run --dry-run
 bb auto-archive cleanup --dry-run
 bb plugin config auto-archive set inactivityDays 15
+bb plugin config auto-archive set childInactivityDays 2
 ```
 
 The typed RPCs are `getExemptions` (null input) and `setExemption` (`{ threadId, exempt }`). See [the agent guide](skills/auto-archive/SKILL.md) for usage.

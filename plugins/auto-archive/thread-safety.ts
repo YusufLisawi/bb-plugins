@@ -1,5 +1,10 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { DAY_MS, type SweepConfig, type ThreadActivitySnapshot } from "./sweep";
+import {
+  childActivityAt,
+  DAY_MS,
+  type SweepConfig,
+  type ThreadActivitySnapshot,
+} from "./sweep";
 
 export interface SafetyThread extends ThreadActivitySnapshot {
   title: string | null;
@@ -131,6 +136,68 @@ export function archiveProtectedIds(
     const thread = index.get(id);
     if (thread) pending.push(...parentIds(thread));
   }
+  return result;
+}
+
+/**
+ * Threads the child sweep must leave alone. A pin or exemption covers its
+ * whole family: its ancestors, which an archive would cascade from, and its
+ * descendants, since Sidebar Plus shows a pin together with its children.
+ * Live, queued or recently active threads protect their ancestors.
+ *
+ * `protectedIds` are exemptions with their resolved ancestors; only the
+ * exempt threads themselves (`exemptIds`) extend protection downwards, so an
+ * exempt child does not shield its siblings.
+ */
+export function childArchiveProtectedIds(
+  index: ReadonlyMap<string, SafetyThread>,
+  protectedIds: ReadonlySet<string>,
+  exemptIds: ReadonlySet<string>,
+  config: SweepConfig,
+  now: number,
+): Set<string> {
+  const cutoff = now - (config.childInactivityDays ?? Infinity) * DAY_MS;
+  const childrenOf = new Map<string, string[]>();
+  for (const thread of index.values())
+    for (const parentId of parentIds(thread)) {
+      const children = childrenOf.get(parentId) ?? [];
+      children.push(thread.id);
+      childrenOf.set(parentId, children);
+    }
+  const up = [...protectedIds, ...exemptIds];
+  const down = [...exemptIds];
+  for (const thread of index.values()) {
+    if (thread.pinnedAt !== null) {
+      up.push(thread.id);
+      down.push(thread.id);
+      continue;
+    }
+    // Archiving cannot reach an archived descendant; it is already archived.
+    if (thread.archivedAt !== null) continue;
+    const at = childActivityAt(thread);
+    if (
+      (!config.archiveRunning && hasWork(thread)) ||
+      !Number.isFinite(at) ||
+      at > cutoff
+    )
+      up.push(thread.id);
+  }
+  const result = new Set<string>();
+  const walk = (pending: string[], next: (id: string) => readonly string[]) => {
+    const visited = new Set<string>();
+    while (pending.length) {
+      const id = pending.pop()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      result.add(id);
+      pending.push(...next(id));
+    }
+  };
+  walk(up, (id) => {
+    const thread = index.get(id);
+    return thread ? parentIds(thread) : [];
+  });
+  walk(down, (id) => childrenOf.get(id) ?? []);
   return result;
 }
 

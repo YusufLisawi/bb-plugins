@@ -5,16 +5,26 @@ An editable bb sidebar that keeps bb's look but reorganizes it around
 
 - **Smart sections** — *Needs attention* (questions, approvals, failures),
   *In progress*, *Done* (finished and unread), *Pinned*. Each can be toggled
-  and reordered.
+  and reordered. A sub-thread is listed under its parent, so a running
+  sub-agent of an idle parent shows as that parent's child; the parent is
+  drawn muted because it is only there for context.
 - **Colored status** — the same glyphs bb draws, painted with theme tokens:
   orange while working, green when done, blue when waiting on you, red on
   failure. Just the glyph/dot, never the whole row. Can be switched off.
 - **Projects as folders** — every project is a folder with a status cluster
-  and thread count; open it to see its threads as a tree (children indented).
-  The active thread's project opens automatically; folders remember what you
-  opened. Five recent threads appear initially; **Show 5 more** reveals the
-  next five. Children count toward that limit. Hover a folder for “New thread
-  here”, or hold it on mobile for **Start new thread in this project**.
+  and thread count; open it to see its threads as a tree. Viewing a thread
+  does not open its folder: a closed folder shows just that one thread under
+  its name, so you can see where it lives. Folders remember what you opened.
+  The five most
+  recently active families appear initially (a family is as recent as its
+  newest sub-thread); **Show 5 more** reveals the next five. Hover a folder
+  for “New thread here”, or hold it on mobile for **Start new thread in this
+  project**.
+- **Sub-threads as accordions** — a parent's chevron folds its sub-threads
+  away; folded, the row shows how many it hides and their status. Families in
+  folders and Pinned start folded and open by themselves while they hold the
+  open thread or a sub-thread that is working or waiting on you. Your choice
+  is remembered per browser. In status sections families start open.
 - **Icon grid for the top nav** — Extensions and plugin pages (Dispatch,
   Automations, Docs, …) become small icon tiles in a configurable grid; New
   thread / Search are styled to match. The rows stay host-rendered, so
@@ -49,8 +59,8 @@ Right-click a thread, use its actions button, or hold it on mobile:
 | Action | Result |
 | --- | --- |
 | Move to project folder… | Choose another sidebar project folder, with searchable destinations. |
-| Pin globally | Keep the thread in the sidebar's global Pinned section. |
-| Pin in project | Keep it at the top of its project folder, above the five recent threads, with a leading pin icon. |
+| Pin globally | Keep the thread and all of its sub-threads in the sidebar's global Pinned section. |
+| Pin in project | Keep it and all of its sub-threads at the top of its project folder, above the five recent families, with a leading pin icon. |
 | Move to project pinned section | Move an existing global pin into its folder. Offered only for pinned threads. |
 | Move to global pinned section | Move a project pin back to the global Pinned section. |
 | Unpin | Remove the pin from either location. |
@@ -58,14 +68,14 @@ Right-click a thread, use its actions button, or hold it on mobile:
 | Enable auto-archive | Remove the exemption and apply the usual inactivity policy again when the thread is unpinned. |
 
 > [!NOTE]
-> Pinned threads are always protected from automatic archiving and deletion, in either location. Archive exemptions require this repository's Auto Archive plugin. The menu shows **Auto-archive unavailable** if that plugin cannot be reached. Pin placement and exemptions are saved on the server and update across open windows. Existing follow-up marks remain independent.
+> Pinned threads are always protected from automatic archiving and deletion, in either location, and so are their sub-threads. Archive exemptions require this repository's Auto Archive plugin. The menu shows **Auto-archive unavailable** if that plugin cannot be reached. Pin placement and exemptions are saved on the server and update across open windows. Existing follow-up marks remain independent.
 
 ## Move a thread between folders
 
 Hold a thread on mobile, right-click it on desktop, or open its actions button. Choose **Move to project folder…**, then select a destination. The destination opens automatically, and a moved thread appears within its first five recent rows. Project pins stay above those rows; global pins stay in the global Pinned section. Choose the original project in the same picker to clear the custom placement and return to BB's usual grouping.
 
 > [!NOTE]
-> This changes Sidebar Plus folder placement. BB's actual project, workspace, conversation, thread ID, parent relationships, pins, and archive exemptions are preserved. Only the selected thread moves; its children keep their own folder placement. If the destination project disappears, the thread falls back to its original folder. Folder moves sync across open windows and survive reloads.
+> This changes Sidebar Plus folder placement. BB's actual project, workspace, conversation, thread ID, parent relationships, pins, and archive exemptions are preserved. Only the selected thread moves; its children keep their own folder placement. The exception is a project pin: its sub-threads always sit under it in its folder. If the destination project disappears, the thread falls back to its original folder. Folder moves sync across open windows and survive reloads.
 
 ## Develop
 

@@ -5,13 +5,14 @@ description: Inspect or configure BB Auto Archive, preview archive/deletion swee
 
 # Auto Archive
 
-Use the installed `auto-archive` plugin. The default inactivity threshold is 15 days. Confirm the current configuration with `bb auto-archive status` before changing it.
+Use the installed `auto-archive` plugin. The default inactivity threshold is 15 days for root threads; child threads (sub-agents, forks) are archived on their own after `childInactivityDays` (default 2, `0` turns it off). Confirm the current configuration with `bb auto-archive status` before changing it.
 
 ```sh
 bb auto-archive status
 bb auto-archive run --dry-run
 bb auto-archive cleanup --dry-run
 bb plugin config auto-archive set inactivityDays 15
+bb plugin config auto-archive set childInactivityDays 2
 ```
 
 Do not run a real sweep merely to verify a configuration change. `bb auto-archive run` performs the user's configured archives immediately; use it when that action is requested.
@@ -42,6 +43,8 @@ Automatic deletion is off by default. `deleteArchivedAfterDays` defaults to `13`
 
 ## Behavior
 
-Activity means the latest attention timestamp from creation, turn completion, or error. Reading a thread or editing its metadata does not reset the inactivity window. Pins and their ancestors are always protected from automatic archiving, including project pins. Hidden and running roots are skipped by default. An old stored archivePinned=true setting cannot override pin protection. Threads already idle before the original plugin install remain protected.
+Activity means the latest attention timestamp from creation, turn completion, or error. Reading a thread or editing its metadata does not reset the inactivity window. Children are the exception: BB leaves a child's attention time at creation, so a child's clock is its latest update, read, or attention time, and any of those delays archiving.
+
+Child archiving keeps every sub-thread of a pinned or exempt thread, and any child that has (or has below it) work, queued messages, background agents, or recent activity. Only the top of a stale branch is archived; its descendants follow by cascade. Pins and their ancestors are always protected from automatic archiving, including project pins. Hidden and running roots are skipped by default. An old stored archivePinned=true setting cannot override pin protection. Threads already idle before the original plugin install remain protected.
 
 Exemptions persist through reloads and updates and are removed on thread deletion. The sweeper rechecks exemptions and core state before each archive. If protected ancestry cannot be resolved, it avoids archiving rather than guessing.

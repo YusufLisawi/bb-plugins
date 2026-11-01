@@ -638,14 +638,17 @@ function SidebarListContent({
                     onToggle={() => toggleSection("projects")}
                   >
                     {orderedProjects.map((project, index) => {
+                      // The open thread's folder stays as you left it; closed,
+                      // it shows only that thread, as a pointer to where it lives.
                       const autoOpen =
-                        (activeThread !== null &&
-                          folderId(activeThread) === project.id) ||
-                        (activeThread === null &&
-                          activeProjectId === project.id);
+                        activeThread === null &&
+                        activeProjectId === project.id;
                       const open =
                         ui.openFolders.includes(project.id) ||
                         (autoOpen && !ui.closedFolders.includes(project.id));
+                      const activeHere =
+                        activeThread !== null &&
+                        folderId(activeThread) === project.id;
                       return (
                         <Folder
                           key={project.id}
@@ -654,6 +657,7 @@ function SidebarListContent({
                           placedAt={placedAt}
                           expansion={expansion}
                           open={open}
+                          activeThread={activeHere ? activeThread : null}
                           onToggle={() => setFolderOpen(project.id, !open)}
                           activeThreadId={activeThreadId}
                           followUpThreadIds={followUpThreadIds}

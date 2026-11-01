@@ -9,6 +9,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { StatusCluster } from "./StatusGlyph";
 import { ThreadTree, type TreeExpansion } from "./ThreadTree";
+import { ThreadRow } from "./ThreadRow";
 import { usePortalScopeProps } from "@/lib/portal-scope";
 import { useThreadPreferences } from "./ThreadPreferences";
 import { folderThreads, FOLDER_PAGE_SIZE } from "./folderThreads";
@@ -39,6 +40,7 @@ export function Folder({
   canMoveDown = false,
   placedAt,
   expansion,
+  activeThread = null,
 }: {
   project: PluginSidebarProject;
   threads: readonly PluginSidebarThread[];
@@ -56,6 +58,8 @@ export function Folder({
   canMoveDown?: boolean;
   placedAt?: ReadonlyMap<string, number>;
   expansion: TreeExpansion;
+  /** The thread being viewed, when it lives here; a closed folder shows only it. */
+  activeThread?: PluginSidebarThread | null;
 }) {
   const actions = useSidebarThreadActions();
   const [visibleCount, setVisibleCount] = useState(FOLDER_PAGE_SIZE);
@@ -256,6 +260,27 @@ export function Folder({
               </button>
             </li>
           ) : null}
+        </ul>
+      ) : activeThread ? (
+        <ul
+          data-sbp-active-peek={project.id}
+          className={cn(
+            "relative ml-2 space-y-px",
+            "before:pointer-events-none before:absolute before:bottom-0 before:left-[7px] before:top-0 before:z-10 before:w-px before:bg-border-hairline before:opacity-70 before:content-['']",
+          )}
+        >
+          <ThreadRow
+            thread={activeThread}
+            depth={1}
+            bgInset={14}
+            isActive
+            isFollowUp={followUpThreadIds.has(activeThread.id)}
+            onToggleFollowUp={(marked) =>
+              onSetFollowUp(activeThread.id, marked)
+            }
+            colored={colored}
+            onNavigate={onNavigate}
+          />
         </ul>
       ) : null}
     </div>

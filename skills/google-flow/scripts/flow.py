@@ -57,7 +57,8 @@ def log(*a):
 def die(msg, **extra):
     try:   # a Google warning anywhere in the error starts the shared cool-down (google_guard.py)
         from google_guard import note_failure
-        note_failure(msg + " " + json.dumps(extra, default=str))
+        texts = [msg] + [str(v) for k, v in extra.items() if k in ("message", "messages", "alerts", "text") and v]
+        note_failure(" ".join(texts))   # only human-readable texts: key names like "rate_limited" must not trip it
     except Exception:
         pass
     print(json.dumps({"ok": False, "error": msg, **extra}))

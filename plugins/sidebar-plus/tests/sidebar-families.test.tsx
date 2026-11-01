@@ -242,3 +242,29 @@ it("keeps a project pin's family together at the top of the pin's folder", async
   expect(rowTitles(folder("beta"))).toEqual([]);
   expect(screen.queryByRole("region", { name: "Pinned" })).toBeNull();
 });
+
+it("shows only the open thread under its closed folder, and everything once the folder is opened", async () => {
+  window.localStorage.setItem(
+    "sidebar-plus:ui",
+    JSON.stringify({ openFolders: [] }),
+  );
+  mock.threads = [
+    makeThread("Viewing", 1),
+    makeThread("Sibling", 2),
+    makeThread("Elsewhere", 3, { projectId: "beta" }),
+  ];
+  await renderSidebar("Viewing");
+  // Viewing a thread no longer opens its whole folder.
+  expect(
+    screen
+      .getByRole("button", { name: "Alpha (2 threads)" })
+      .getAttribute("aria-expanded"),
+  ).toBe("false");
+  expect(rowTitles(folder("alpha"))).toEqual(["Viewing"]);
+  expect(rowOf("Viewing", folder("alpha")).className).toContain(
+    "bg-sidebar-accent",
+  );
+  expect(rowTitles(folder("beta"))).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Alpha (2 threads)" }));
+  expect(rowTitles(folder("alpha"))).toEqual(["Sibling", "Viewing"]);
+});

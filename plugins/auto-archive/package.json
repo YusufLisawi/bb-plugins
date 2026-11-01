@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-auto-archive",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Archive inactive threads and optionally clean old archives, with permanent pin protection.",
   "license": "MIT",
   "type": "module",

@@ -5,9 +5,11 @@
 // with colored status glyphs, and restyles the host's top nav rows into an
 // icon grid. The layout is editable from a popover in the sidebar and from
 // this plugin's settings page; it is stored server-side and synced live.
+// While a plugin page that offers a sidebar takeover is open (Mail's split
+// list), that view replaces the threads; see src/Takeover.tsx.
 import "./app.css";
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
-import { SidebarList } from "./src/SidebarList";
+import { SidebarListWithTakeover } from "./src/Takeover";
 import { LayoutEditor } from "./src/LayoutEditor";
 
 function SettingsSection() {
@@ -24,7 +26,7 @@ export default definePluginApp((app) => {
     title: "Sidebar Plus",
     description:
       "Needs-attention / In-progress / Done sections, colored status, project folders, icon grid for the top nav.",
-    component: SidebarList,
+    component: SidebarListWithTakeover,
   });
 
   app.slots.settingsSection({
