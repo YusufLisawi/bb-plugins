@@ -79,7 +79,7 @@ one is approved. Continuity notes (props, wounds, clothes, time of day) go into 
 
 A second picture style exists since 2026-11-01: **flat-stickman** (the Olatunde / Emu War flat vector stickman: stick bodies, flat muted
 fills, extreme close-ups, split screens). Same pipeline, different art brief and shot grammar; its AI-animated Nano Banana + Flow route is
-the **nano-flow-stickman** skill. Use them only when the owner asks for that look.
+the **nano-flow-stickman** skill. Use them only when the owner asks for that look. A third, **bio-explainer** (2026-11-01), is the Nano Banana biography film with code explainer cards in any language (MUSK ES, Spanish): `film.py` table, cast sheets first, Flow batch runner, audits, delivery.
 
 ## Read next, as needed
 
