@@ -10,6 +10,20 @@ Look = the flat-stickman skill's cousin: big round PLAIN WHITE heads, thick blac
 mitten hands, flat colour clothes, soft oval shadows, cream backgrounds for gags, detailed-but-flat places. Accents: red Tesla/crisis, blue
 space/Twitter, gold money, purple AI. **Our own compositions, never a redraw of the reference video's frames; no real logos (names are code tags).**
 
+## Production split (owner, 2026-11-01: use this from the next film on)
+
+Google flagged "unusual activity" after ~5 h of nonstop Flow image jobs, so the bulk work moves to Codex:
+- **Nano Banana (Flow, free) only for the anchors:** the cast sheets (one per character age/outfit, props, vehicles, places) and 6–10 style frames
+  that fix the look. Through `flow.py` under the Google guard (one job at a time, paced, daily caps, back-off).
+- **Codex imagegen for every scene picture:** up to 5 parallel Codex threads (RAM limit), each with the cast-sheet crops + the style frames as
+  references and the full bug checklist, ~30 pictures per thread. `gpt-6-luna` at `high` for places, props and object inserts; `max` for shots with
+  people. Nothing touches the Google account, so it can run overnight unattended. Copy each final out of `~/.codex/generated_images` into
+  `art/<slug>/raw/` (and clean that cache afterwards).
+- **Omni (Flow) only for the hook and the finale** (2 clips, ~20 credits), animated from the approved Codex/Nano keyframes; clip audio muted.
+- **Thumbnails:** 3 concepts, each made by both Nano Banana and Codex, so the owner picks winners for A/B tests (Codex won on detail and likeness
+  in MUSK ES; Nano Banana was 25× faster). Real faces as drawn caricatures, never stickmen; text spelled exactly, in the film's language.
+- **Check real products/events against current photos** before drawing them (MUSK ES drew the old 2008 Roadster and an invented ramp first).
+
 ## The pipeline (all in ~/Developer/story-studio)
 
 1. **Script** (`episodes/<slug>/script.md`, simple Spanish/English, ~1,560 words ≈ 10–11 min at 2.6–2.8 w/s). Fact-check every number that goes on screen (WebSearch) and
