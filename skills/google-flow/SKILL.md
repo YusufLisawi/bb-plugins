@@ -74,6 +74,18 @@ This kept the street, both characters and the ink style, where an ingredients-on
 - Clothe humanoid creatures: a bare mannequin-like giant reference was refused as "sexual content"; the same giant in a torn
   shirt and trousers passed. Refused jobs are refunded automatically (the result says so in `message`).
 
+## Account safety (always on: scripts/google_guard.py)
+
+Every command that touches Google goes through one guard, shared by flow.py, aistudio_tts.py and any new Google script:
+- **One job at a time:** a lock across all processes and agents; a second caller waits (up to 30 min), never runs in parallel.
+- **Human pace:** a random 20–60 s pause between generations.
+- **Daily caps:** 60 images, 12 videos, 80 speech clips per day; over the cap the job is refused.
+- **Back-off:** any "unusual activity", rate-limit, quota or refusal text pauses ALL Google work for 120 min. No automatic
+  retries anywhere: when a job is refused, stop and report.
+Settings live in `~/.config/google-flow/config.json` under `"guard"` (`pause_s`, `cap`, `cooldown_min`, `wait_min`); usage and
+any cool-down show in `flow.py status` → `guard`. `GOOGLE_GUARD_OFF=1` bypasses it: the owner's call only. Never run two agents on
+the account at once (today's "unusual activity" came from Flow and AI Studio jobs overlapping).
+
 ## Commands
 
 | Command | What it does |

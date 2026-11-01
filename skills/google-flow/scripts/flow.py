@@ -55,6 +55,11 @@ def log(*a):
 
 
 def die(msg, **extra):
+    try:   # a Google warning anywhere in the error starts the shared cool-down (google_guard.py)
+        from google_guard import note_failure
+        note_failure(msg + " " + json.dumps(extra, default=str))
+    except Exception:
+        pass
     print(json.dumps({"ok": False, "error": msg, **extra}))
     sys.exit(1)
 
@@ -626,7 +631,8 @@ def inject_cookies(f, path: Path):
 def cmd_status(a):
     f = Flow(a.project).open(need_project=bool(a.project or config().get("project_url")))
     acct = f.account()
-    out = {"ok": True, "account": acct, "project_url": f.project, "url": f.pt.eval("location.href")}
+    from google_guard import status as guard_status
+    out = {"ok": True, "account": acct, "project_url": f.project, "url": f.pt.eval("location.href"), "guard": guard_status()}
     if a.tiles:
         out["tiles"] = f.tiles()[: a.tiles]
     print(json.dumps(out))
@@ -750,6 +756,8 @@ def run_generation(a, kind):
         item = {"index": t["i"], "title": t["title"], "kind": t["kind"], "failed": t["failed"]}
         if t["failed"]:
             item["message"] = t["text"]
+            from google_guard import note_failure
+            note_failure(t["text"] or "")
             item["refunded"] = bool(re.search(r"refund", t["text"], re.I))
         elif a.download != "none":
             base = a.name or re.sub(r"[^A-Za-z0-9_-]+", "_", t["title"] or kind)[:60]
@@ -1203,8 +1211,16 @@ def main():
     s.set_defaults(fn=cmd_shot)
 
     a = ap.parse_args()
+    from google_guard import guard
+    kind = {"video": "video", "image": "image"}.get(a.cmd, "ui")
+    if kind != "ui" and getattr(a, "dry_run", False):
+        kind = "ui"
     try:
-        a.fn(a)
+        if a.cmd in ("setup", "login"):   # long, interactive: never hold the Google lock
+            a.fn(a)
+        else:
+            with guard(kind):
+                a.fn(a)
     except RuntimeError as e:
         die(str(e))
     except KeyboardInterrupt:
