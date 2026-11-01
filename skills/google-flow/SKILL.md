@@ -1,38 +1,58 @@
 ---
 name: google-flow
-description: Generate videos and images in Google Flow (flow.google.com) on the user's own account with one command per job, through a PinchTab browser, and get back JSON with the quoted and the actually spent credits and the downloaded files. Covers Omni 1.1 Flash and Veo 3.1 (Lite / Fast / Quality) image-to-video with start and end frames or ingredients, 16:9 or 9:16, 4/6/8/10 s, 360p preview or 720p, x1-x4, Nano Banana images with references, price quotes without spending, upscaled downloads (720p, 1080p, 2K), and Google sign-in. Use whenever the user wants something animated or generated "with Flow", "in Google Flow", with Omni, Veo or Nano Banana through their Flow account, wants Flow credit costs compared, or wants a Flow clip or image downloaded or upscaled.
+description: Generate videos, images, speech and music with the user's Google AI Pro accounts. Flow (flow.google.com) through four persistent PinchTab accounts (google1-google4, --account auto picks the one with room), one command per job, JSON back with quoted and spent credits and the files: Omni 1.1 Flash and Veo 3.1 image-to-video, Nano Banana images, price quotes, upscaled downloads, Google sign-in on a live view, a daily keep-alive. Speech and music through the Gemini API (gemini_audio.py, the DEFAULT: Gemini 3.8 Flash TTS with styles, tags, multi-speaker, Spanish/Arabic/German, long texts; Lyria 3.5 music). Use whenever the user wants something animated or generated "with Flow", Omni, Veo, Nano Banana, wants a Gemini or Google voice-over / TTS / music track, wants Flow credit costs compared, or a Flow clip or image downloaded or upscaled.
 ---
 
-# Google Flow automation
+# Google Flow + Gemini audio
 
-`scripts/flow.py` drives the user's Flow project in a PinchTab browser. Each command prints **one JSON object on stdout**
+**Speech and music: use the Gemini API first** (`scripts/gemini_audio.py`, details in
+[references/gemini-api.md](references/gemini-api.md)): no browser, no account pacing, key in `~/.config/google-flow/gemini.env`
+(never print or copy it). Speech: `gemini-3.8-flash-tts`; music: `lyria-3.5` (or the 30 s clip model). The AI Studio browser
+route (`aistudio_tts.py`, [references/aistudio-tts.md](references/aistudio-tts.md)) is only the fallback.
+
+```bash
+G="python3 <skill-dir>/scripts/gemini_audio.py"
+$G tts --voice Arlo --style "Narration, calm" --text "…<whispers> …" --out a.wav [--mp3] [--lang es] [--speakers JSON] [--text-file F]
+$G music --prompt "…" [--seconds 30] [--instrumental] [--wav] --out m.mp3
+$G voices [--language es] [--gender female] [--search NAME]   |   $G models   |   $G usage
+```
+
+Each command prints one JSON object (`ok`, files, `duration`, `usage`, `est_cost_usd`; a 429 is `rate_limited: true` with
+`retry_after_s`). Long text is cut at sentences (3,000 characters) and joined with a 0.25 s pause; direction goes in `--style`
+(a style line inside the text is read aloud); tags are `<whispers> <gasp> <laugh> <sigh> <short pause>` (square `[tags]`
+are converted). Story Studio: `"provider": "gemini"` in `cast.json` (`scripts/voice.py`).
+
+**Flow:** `scripts/flow.py` drives the user's Flow projects in PinchTab browsers, one persistent profile per Google account
+(**google1 … google4**, [references/accounts.md](references/accounts.md)). Each command prints **one JSON object on stdout**
 (progress goes to stderr), so a job costs a few hundred tokens: never snapshot or screenshot Flow yourself unless a command
 fails and `flow.py shot` is not enough. Python 3.9+, standard library only; `ffprobe` (optional) adds duration and size.
 
 ```bash
 F="python3 <skill-dir>/scripts/flow.py"
-$F status                                    # signed in? credits, project
+$F accounts                                  # all four accounts: signed in? email, credits, today's usage (no generation)
+$F status                                    # signed in? credits, project (of the account used last)
 $F price video --model omni --res 360p --secs 4            # quote only, spends nothing
-$F video --start shot.png -p "PROMPT" --secs 4 --out DIR   # upload, generate, wait, download, report credits
+$F video --start shot.png -p "PROMPT" --secs 4 --out DIR   # --account auto (default): the signed-in account with the most room
 ```
 
 ## First run on a machine
 
-1. PinchTab must be installed (`pinchtab` on PATH; the `pinchtab` skill covers it). `flow.py setup` enables the two
-   PinchTab permissions it needs (`allowEvaluate`, `allowCookies`) and the Google domains in `~/.pinchtab/config.json`
-   (backup `config.json.bak-google-flow`), then restarts the server. It changes nothing else.
-2. Sign in with the user's cookies: `flow.py setup --cookies export.json` (a Cookie-Editor / EditThisCookie JSON export
-   from a browser signed in to Flow). It keeps a private copy at `~/.config/google-flow/cookies.json` (0600), refreshes that
-   copy from the live browser (Google rotates `SIDTS`/`SIDCC`), and whenever the automation browser is found signed out it
-   re-applies the copy by itself, so later commands just work. Only when Google rejects them (the session behind the export
-   ended, e.g. the user signed out of that browser) does a command fail with "export fresh cookies"; ask the user for a new
-   export. Never print cookie values. Alternative without cookies: `flow.py login` serves a live view of the automation
-   browser on `127.0.0.1:8790` (secret path); in BB run it in the background, `bb connect expose 8790`, and give the user the
-   URL + path to sign in themselves. Never type or ask for a password.
-3. Choose the project: `flow.py setup --project https://flow.google.com/project/<id>` (stored in
-   `~/.config/google-flow/config.json`), or `flow.py new-project --save`. `--project URL` works on any command.
+1. PinchTab must be installed (`pinchtab` on PATH; the `pinchtab` skill covers it). Nothing else to set up: a **dedicated
+   PinchTab server** for the accounts (port 9877, its own config and token under `~/.local/share/pinchtab/google/`, profiles in
+   a persistent folder) is created and started on demand. The shared PinchTab server (9867) is never touched; **never stop or
+   restart any PinchTab server** (its shutdown kills every PinchTab-launched Chrome on the machine). See references/accounts.md.
+2. Sign each account in: `flow.py login --account google2` serves a live view of that account's browser on
+   `127.0.0.1:8790+N` (secret path); in BB run it in the background, `bb connect expose PORT`, and give the owner the URL + path
+   to sign in himself, one account at a time. Never type or ask for a password. Alternative: `flow.py setup --account NAME
+   --cookies export.json` (a Cookie-Editor / EditThisCookie JSON export); the private copy `accounts/NAME/cookies.json` (0600)
+   is refreshed from the live browser (Google rotates `SIDTS`/`SIDCC`) and re-applied automatically when the browser is found
+   signed out. Never print cookie values.
+3. Give each account its Flow project: `flow.py new-project --save --account NAME`, or `flow.py setup --account NAME --project
+   https://flow.google.com/project/<id>` (a project belongs to one account; `--project URL` works on any command).
+4. Check: `flow.py accounts`. Daily: `flow.py keepalive --quiet` (cron / automation; no generation; exit 2 = someone signed out).
 
-The PinchTab profile directory is under `/tmp` on this machine, so a reboot empties the browser; the saved cookies sign it back in on the next command.
+Browser profiles are persistent (`~/snap/chromium/common/pinchtab-profiles`: the snap Chromium cannot use `~/.local` or
+`/tmp` across reboots), so a reboot only restarts the browsers; the logins stay.
 
 ## Defaults: "animate this picture"
 
@@ -77,19 +97,26 @@ This kept the street, both characters and the ink style, where an ingredients-on
 ## Account safety (always on: scripts/google_guard.py)
 
 Every command that touches Google goes through one guard, shared by flow.py, aistudio_tts.py and any new Google script:
-- **One job at a time:** a lock across all processes and agents; a second caller waits (up to 30 min), never runs in parallel.
-- **Human pace:** a random 20–60 s pause between generations.
-- **Daily caps:** 60 images, 12 videos, 80 speech clips per day; over the cap the job is refused.
-- **Back-off:** any "unusual activity", rate-limit, quota or refusal text pauses ALL Google work for 120 min. No automatic
-  retries anywhere: when a job is refused, stop and report.
+- **One job at a time:** a lock across all processes, agents **and accounts**; a second caller waits (up to 30 min), never runs in parallel.
+- **Human pace:** a random 20–60 s pause between generations, global: switching account does not shorten it.
+- **Daily caps per account:** 60 images, 12 videos, 80 speech clips per local day *each*; over the cap the job is refused.
+- **Back-off per account:** any "unusual activity", rate-limit, quota or refusal text pauses THAT account for 120 min; the
+  others keep working. No automatic retries anywhere: when a job is refused, stop and report.
+- **`--account auto`** (default for video / image / speak): the signed-in account with the most room today, no cool-down,
+  credits left and a Flow project; ties round-robin. `list` / `download` / `status` without `--account` use the account that
+  generated last (tiles live in one account's project).
 Settings live in `~/.config/google-flow/config.json` under `"guard"` (`pause_s`, `cap`, `cooldown_min`, `wait_min`); usage and
-any cool-down show in `flow.py status` → `guard`. `GOOGLE_GUARD_OFF=1` bypasses it: the owner's call only. Never run two agents on
-the account at once (today's "unusual activity" came from Flow and AI Studio jobs overlapping).
+cool-downs show per account in `flow.py accounts` and `flow.py status` → `guard`. `GOOGLE_GUARD_OFF=1` bypasses it: the owner's call
+only. Never run two agents on one account at once (an "unusual activity" warning once came from Flow and AI Studio jobs overlapping).
+The Gemini API route (`gemini_audio.py`) is not behind this guard: it is an API key, not an account session.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
+| `accounts [--cached] [--only google2,…] [--force]` | every account: signed in, email Google shows, credits, project, today's usage, cool-down; no generation |
+| `keepalive [--quiet]` | daily: open each signed-in account's Flow home, confirm sign-in, refresh the cookie copy; exit 2 if one signed out |
+| `login --account NAME [--port P]` | live view for the OWNER to sign NAME in; saves email, credits, cookie copy |
 | `status [--tiles N]` | account, credits left, reset date, project; optionally the newest N tiles |
 | `price video\|image [settings]` | applies the settings and returns the quoted credits; no generation |
 | `models [video\|image\|all]` | probes every model's options and the price of every duration/resolution (~10 s) |
@@ -99,9 +126,10 @@ the account at once (today's "unusual activity" came from Flow and AI Studio job
 | `list [video\|image] [--limit N]` | tiles newest first: index, kind, title, progress, failed |
 | `download TILE [--quality Q] [--options]` | TILE = `latest`, an index or a title (substring); upscales on Flow's side |
 | `character create\|update\|delete\|list [--name N --portrait IMG --body IMG --info TEXT]` | Flow characters for consistency |
-| `new-project [--save]`, `login`, `setup`, `shot [--out F]` | project, sign-in, setup, debug screenshot |
+| `new-project [--save]`, `setup [--cookies F] [--project URL] [--mode headless\|headed]`, `shot [--out F]` | project, per-account setup, debug screenshot |
 
-Settings (all optional; defaults in the config file): `--model omni | veo-lite | veo-fast | veo-quality | nano | <full name>`,
+Every command takes `--account google1 | google2 | google3 | google4 | auto | shared` (`shared` = the old shared-PinchTab
+default profile). Settings (all optional; defaults in the config file): `--model omni | veo-lite | veo-fast | veo-quality | nano | <full name>`,
 `--aspect 16:9 | 9:16` (images also `4:3 1:1 3:4`), `--res 360p | 720p` and `--secs 4 | 6 | 8 | 10` (Omni only; Veo is
 fixed 720p 8 s), `--count 1-4`. Generation flags: `--download original | best | gif | 720p | 1080p | 2k | none`,
 `--out DIR`, `--name BASE`, `--max-credits N` (refuse when the quote is higher), `--dry-run` (set everything up and quote),
@@ -140,6 +168,6 @@ Downloads (all qualities, upscales included) are taken from the page directly, n
 ## When something fails
 
 Every failure is `{"ok": false, "error": ...}` with context (`offered` options for an unsupported setting, `available`
-menu items, `messages` when Flow refuses a prompt). Not signed in → `login`. A setting the model lacks → pick from
+menu items, `messages` when Flow refuses a prompt). Not signed in → `login --account NAME`. A setting the model lacks → pick from
 `offered`. Flow UI changed → `flow.py shot` and read [references/internals.md](references/internals.md); fix the selector
 in `scripts/flow_page.js` (aria-labels and visible text only) and bump its `v` number.

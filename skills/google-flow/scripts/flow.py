@@ -21,12 +21,18 @@ import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import accounts as acc  # noqa: E402  (google1..4: files and one PinchTab browser each)
+import google_guard as gg  # noqa: E402  (one lock, per-account counters and cool-downs)
+from google_guard import guard, status as guard_status  # noqa: E402
+
 PAGE_JS = (HERE / "flow_page.js").read_text()
-CONF_DIR = Path(os.environ.get("FLOW_CONFIG_DIR", Path.home() / ".config" / "google-flow"))
+CONF_DIR = acc.DIR
 CONF_FILE = CONF_DIR / "config.json"
-STATE_FILE = CONF_DIR / "state.json"
-COOKIE_FILE = CONF_DIR / "cookies.json"  # private (0600) copy, kept fresh from the live browser
-PT_CONF = Path(os.environ.get("PINCHTAB_CONFIG", Path.home() / ".pinchtab" / "config.json"))
+ACCOUNT = None  # the account this process works on: google1..google4, or "shared" (the old shared-PinchTab default profile)
+STATE_FILE = CONF_DIR / "state.json"      # per account: set by use_account()
+COOKIE_FILE = CONF_DIR / "cookies.json"   # private (0600) copy, kept fresh from the live browser; per account
+PT_CONF = Path(os.environ.get("PINCHTAB_CONFIG", Path.home() / ".pinchtab" / "config.json"))  # the SHARED server (account "shared")
 FLOW_HOME = "https://flow.google.com/"
 NEED_DOMAINS = ["flow.google.com", "*.flow.google.com", "google.com", "*.google.com", "labs.google", "*.labs.google",
                 "*.gstatic.com", "*.googleusercontent.com", "*.googleapis.com"]
@@ -73,6 +79,14 @@ def load_json(p: Path, default):
         return default
 
 
+def use_account(name: str):
+    """Work on one account from here on: its state, cookie copy, project, browser and guard counters."""
+    global ACCOUNT, STATE_FILE, COOKIE_FILE
+    ACCOUNT = acc.check(name)
+    STATE_FILE, COOKIE_FILE = acc.state_path(name), acc.cookie_path(name)
+    gg.use(name)
+
+
 def config():
     c = json.loads(json.dumps(DEFAULTS))
     user = load_json(CONF_FILE, {})
@@ -81,10 +95,17 @@ def config():
             c[k].update(v)
         else:
             c[k] = v
+    if ACCOUNT and ACCOUNT != acc.SHARED:   # every account has its own Flow project (a project belongs to one account)
+        c["project_url"] = acc.cfg(ACCOUNT).get("project_url")
     return c
 
 
 def save_config(update: dict):
+    update = dict(update)
+    if ACCOUNT and ACCOUNT != acc.SHARED and "project_url" in update:
+        acc.set_cfg(ACCOUNT, project_url=update.pop("project_url"))
+    if not update:
+        return
     CONF_DIR.mkdir(parents=True, exist_ok=True)
     cur = load_json(CONF_FILE, {})
     for k, v in update.items():
@@ -96,22 +117,31 @@ def save_config(update: dict):
 
 
 def save_state(**kw):
-    CONF_DIR.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     s = load_json(STATE_FILE, {})
     s.update(kw)
-    STATE_FILE.write_text(json.dumps(s, indent=2))
+    acc.write_json(STATE_FILE, s)
 
 
 # ---- PinchTab client ----------------------------------------------------------------------
 class PinchTab:
+    """One account's browser. google1..4: the dedicated server's instance for that profile (its own port, so tabs and
+    cookies never mix with another account or another agent). "shared": the shared server's default profile (old way)."""
+
     def __init__(self):
+        self.account = ACCOUNT
+        self.tab = None
+        if self.account and self.account != acc.SHARED:
+            self.base, self.token = None, None   # known once the instance is up (ensure_server)
+            return
         pc = load_json(PT_CONF, {})
         srv = pc.get("server", {})
         self.base = os.environ.get("PINCHTAB_URL") or f"http://{srv.get('bind', '127.0.0.1')}:{srv.get('port', 9867)}"
         self.token = os.environ.get("PINCHTAB_TOKEN") or srv.get("token")
-        self.tab = None
 
     def req(self, method, path, body=None, timeout=90, raw=False):
+        if self.base is None:
+            self.ensure_server()
         data = json.dumps(body).encode() if body is not None else None
         r = urllib.request.Request(self.base + path, data=data, method=method)
         r.add_header("Content-Type", "application/json")
@@ -134,6 +164,14 @@ class PinchTab:
             return False
 
     def ensure_server(self):
+        if self.account and self.account != acc.SHARED:
+            if self.base is None or not self.alive():
+                try:
+                    port = acc.ensure_instance(self.account)
+                except RuntimeError as e:
+                    die(str(e), account=self.account)
+                self.base, self.token = f"http://127.0.0.1:{port}", acc.token()
+            return
         if self.alive():
             return
         log("starting PinchTab server")
@@ -223,9 +261,9 @@ class Flow:
 
     def save_live_cookies(self, force=False):
         """Write the browser's current (rotated) Google cookies back to the private copy, at most every 10 min,
-        so a later re-login never replays stale values."""
+        so a later re-login never replays stale values. `force` also creates the copy (after a sign-in)."""
         st = load_json(STATE_FILE, {})
-        if not COOKIE_FILE.exists() or (not force and time.time() - st.get("cookies_saved", 0) < 600):
+        if not force and (not COOKIE_FILE.exists() or time.time() - st.get("cookies_saved", 0) < 600):
             return
         seen = {}
         for u in ("https://flow.google.com/", "https://accounts.google.com/", "https://www.google.com/"):
@@ -253,7 +291,8 @@ class Flow:
 
     def open(self, need_project=True, _retry=True):
         if need_project and not self.project:
-            die("no Flow project set: pass --project URL or run `flow.py setup --project URL` (or `flow.py new-project`)")
+            die(f"no Flow project set for {ACCOUNT}: pass --project URL, or run `flow.py new-project --save --account {ACCOUNT}` "
+                f"(or `flow.py setup --account {ACCOUNT} --project URL`)", account=ACCOUNT)
         self.pt.ensure_tab(self.project if need_project else None)
         self.inject()
         url = self.pt.eval("location.href")
@@ -267,8 +306,12 @@ class Flow:
                     self.inject()
                     if self.wait_signed_in():
                         return self.open(need_project, _retry=False)
-                die("not signed in to Google and the saved cookies were rejected: export fresh cookies and run "
-                    "`flow.py setup --cookies export.json` (or `flow.py login`)", url=url)
+                if ACCOUNT != acc.SHARED:
+                    save_state(signed_in=False, checked_at=time.time())
+                die(f"{ACCOUNT} is not signed in to Google and the saved cookies were rejected: run `flow.py login --account {ACCOUNT}` "
+                    f"(the owner signs in on the live view) or `flow.py setup --account {ACCOUNT} --cookies export.json`", url=url, account=ACCOUNT)
+        if ACCOUNT != acc.SHARED and not load_json(STATE_FILE, {}).get("signed_in"):
+            save_state(signed_in=True, checked_at=time.time())
         self.save_live_cookies()
         if need_project:
             # the grid renders a moment after the prompt bar; wait for both to settle
@@ -311,7 +354,14 @@ class Flow:
 
     # ---- building blocks ----
     def account(self):
-        return self.call("account")
+        a = self.call("account")
+        if ACCOUNT and ACCOUNT != acc.SHARED and isinstance(a, dict):   # keep the account's sign-in facts for `accounts` / auto
+            now = time.time()
+            if a.get("signedIn"):
+                save_state(signed_in=True, email=a.get("email"), credits=a.get("credits"), resets=a.get("resets"), credits_at=now, checked_at=now)
+            else:
+                save_state(signed_in=False, checked_at=now)
+        return a
 
     def tiles(self):
         self.call("scrollTop")
@@ -558,29 +608,40 @@ def norm_count(n):
 
 # ---- commands ---------------------------------------------------------------------------------
 def cmd_setup(a):
-    """Prepare PinchTab (allowlist + permissions), inject cookies, remember a project."""
-    pc = load_json(PT_CONF, None)
-    if pc is None:
-        die(f"PinchTab config not found at {PT_CONF}; install PinchTab first")
-    sec = pc.setdefault("security", {})
-    changed = False
-    for k in ("allowEvaluate", "allowCookies"):
-        if not sec.get(k):
-            sec[k] = True
-            changed = True
-    doms = sec.setdefault("allowedDomains", [])
-    for d in NEED_DOMAINS:
-        if d not in doms:
-            doms.append(d)
-            changed = True
-    if changed:
-        bak = PT_CONF.with_suffix(".json.bak-google-flow")
-        if not bak.exists():
-            shutil.copy(PT_CONF, bak)
-        PT_CONF.write_text(json.dumps(pc, indent=2))
-        log("updated PinchTab config (evaluate, cookies, Google domains); restarting server")
-        subprocess.run(["pinchtab", "server", "restart"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(3)
+    """Prepare the account's browser, inject cookies, remember a project / mode.
+
+    google1..4: the dedicated server is created and started on demand (its config already allows evaluate, cookies and the
+    Google domains); nothing shared is touched. "shared" (the old way): patch the shared server's config; it is NOT restarted
+    here (a PinchTab shutdown kills every PinchTab-launched Chrome, other agents' tabs included): restart it yourself when idle."""
+    if ACCOUNT == acc.SHARED:
+        pc = load_json(PT_CONF, None)
+        if pc is None:
+            die(f"PinchTab config not found at {PT_CONF}; install PinchTab first")
+        sec = pc.setdefault("security", {})
+        changed = False
+        for k in ("allowEvaluate", "allowCookies"):
+            if not sec.get(k):
+                sec[k] = True
+                changed = True
+        doms = sec.setdefault("allowedDomains", [])
+        for d in NEED_DOMAINS:
+            if d not in doms:
+                doms.append(d)
+                changed = True
+        if changed:
+            bak = PT_CONF.with_suffix(".json.bak-google-flow")
+            if not bak.exists():
+                shutil.copy(PT_CONF, bak)
+            PT_CONF.write_text(json.dumps(pc, indent=2))
+            log("updated the shared PinchTab config (evaluate, cookies, Google domains); restart that server when no other agent is using it")
+    else:
+        try:
+            acc.ensure_server()
+        except RuntimeError as e:
+            die(str(e))
+        if a.mode:
+            acc.set_cfg(ACCOUNT, mode=a.mode)
+            acc.stop_instance(ACCOUNT)   # the instance (not the server) restarts in the new mode below
     upd = {}
     if a.project:
         upd["project_url"] = a.project
@@ -592,6 +653,7 @@ def cmd_setup(a):
     f.pt.ensure_tab(None)
     if a.cookies:
         CONF_DIR.mkdir(parents=True, exist_ok=True)
+        COOKIE_FILE.parent.mkdir(parents=True, exist_ok=True)
         if Path(a.cookies).expanduser().resolve() != COOKIE_FILE.resolve():
             shutil.copy(Path(a.cookies).expanduser(), COOKIE_FILE)
         os.chmod(COOKIE_FILE, 0o600)
@@ -607,8 +669,9 @@ def cmd_setup(a):
     acct = f.account()
     if acct.get("signedIn"):
         f.save_live_cookies(force=True)
-    print(json.dumps({"ok": bool(acct.get("signedIn")), "account": acct, "project_url": f.project, "config": str(CONF_FILE),
-                      **({} if acct.get("signedIn") else {"hint": "Google rejected these cookies (the session behind them ended): export fresh ones"})}))
+    print(json.dumps({"ok": bool(acct.get("signedIn")), "account_name": ACCOUNT, "account": acct, "project_url": f.project,
+                      "mode": acc.cfg(ACCOUNT).get("mode", "headless") if ACCOUNT != acc.SHARED else None, "config": str(CONF_FILE),
+                      **({} if acct.get("signedIn") else {"hint": f"{ACCOUNT} is signed out: `flow.py login --account {ACCOUNT}`, or export fresh cookies"})}))
 
 
 def inject_cookies(f, path: Path):
@@ -632,8 +695,8 @@ def inject_cookies(f, path: Path):
 def cmd_status(a):
     f = Flow(a.project).open(need_project=bool(a.project or config().get("project_url")))
     acct = f.account()
-    from google_guard import status as guard_status
-    out = {"ok": True, "account": acct, "project_url": f.project, "url": f.pt.eval("location.href"), "guard": guard_status()}
+    out = {"ok": True, "account_name": ACCOUNT, "account": acct, "project_url": f.project, "url": f.pt.eval("location.href"),
+           "guard": guard_status(ACCOUNT if ACCOUNT != acc.SHARED else None)}
     if a.tiles:
         out["tiles"] = f.tiles()[: a.tiles]
     print(json.dumps(out))
@@ -770,7 +833,7 @@ def run_generation(a, kind):
     credits_after = f.credits()
     spent = (credits_before - credits_after) if (credits_before is not None and credits_after is not None) else None
     save_state(last={"kind": kind, "titles": [r["title"] for r in results], "at": time.time()})
-    print(json.dumps({"ok": all(not r["failed"] for r in results), "kind": kind, "model": st.get("model"), "summary": st.get("summary"),
+    print(json.dumps({"ok": all(not r["failed"] for r in results), "account": ACCOUNT, "kind": kind, "model": st.get("model"), "summary": st.get("summary"),
                       "quoted_credits": quoted, "credits_before": credits_before, "credits_after": credits_after,
                       "credits_spent": spent, "generation_seconds": gen_secs, "results": results}))
 
@@ -818,14 +881,105 @@ def cmd_download(a):
     print(json.dumps({"tile": t["title"], **r}))
 
 
+def probe_account(name, replay=True, stop_after=True):
+    """Sign-in facts of ONE account from its own browser: is it signed in, which email Google shows, how many credits. It opens
+    the Flow home only (never a generation), re-applies the saved cookie copy when the browser is signed out, refreshes the
+    copy when it is signed in, and stops the browser again when this call was the one that started it."""
+    started_here = not acc.running(name)
+    use_account(name)
+    info = {"account": name, "mode": acc.cfg(name).get("mode", "headless"), "project_url": acc.cfg(name).get("project_url")}
+    try:
+        acc.ensure_instance(name)
+        f = Flow(None)
+        f.pt.ensure_tab(None)
+        f.pt.nav(FLOW_HOME)
+        f.inject()
+        ok = f.wait_signed_in(12)
+        if not ok and replay and COOKIE_FILE.exists():
+            log(f"{name}: signed out, re-applying the saved cookies")
+            inject_cookies(f, COOKIE_FILE)
+            f.pt.nav(FLOW_HOME)
+            f.inject()
+            ok = f.wait_signed_in(12)
+        if ok:
+            a = f.account()
+            f.save_live_cookies(force=True)
+            info.update(signed_in=True, email=a.get("email"), credits=a.get("credits"), resets=a.get("resets"))
+        else:
+            save_state(signed_in=False, checked_at=time.time())
+            info.update(signed_in=False)
+    except (RuntimeError, OSError) as e:
+        info.update(signed_in=None, error=str(e)[:200])
+    finally:
+        if stop_after and started_here:
+            acc.stop_instance(name)
+    return info
+
+
+def account_row(name):
+    st, g = acc.state(name), gg.status(name)
+    ck = acc.cookie_path(name)
+    row = {"account": name, "signed_in": st.get("signed_in"), "email": st.get("email"), "credits": st.get("credits"),
+           "resets": st.get("resets"), "project_url": acc.cfg(name).get("project_url"), "mode": acc.cfg(name).get("mode", "headless"),
+           "browser_running": acc.running(name) if acc.server_alive() else False,
+           "checked_min_ago": round((time.time() - st["checked_at"]) / 60) if st.get("checked_at") else None,
+           "cookie_copy_min_ago": round((time.time() - st["cookies_saved"]) / 60) if st.get("cookies_saved") and ck.exists() else None,
+           "today": g["today"], "cooldown_min_left": g["cooldown_min_left"]}
+    if g["cooldown_min_left"]:
+        row["cooldown_reason"] = g["cooldown_reason"]
+    return row
+
+
+def cmd_accounts(a):
+    """Every account at a glance: sign-in state, email Google shows, credits, today's usage, cool-down. No generation.
+    Live by default (one visit to each account's Flow home, one at a time); --cached reads the saved facts only."""
+    names = [n.strip() for n in a.only.split(",")] if a.only else list(acc.NAMES)
+    rows = []
+    for n in names:
+        acc.check(n)
+        row_pre = account_row(n)
+        if not a.cached and row_pre["cooldown_min_left"] and not a.force:
+            row_pre["note"] = "in cool-down: not visited (use --force)"
+        elif not a.cached and (row_pre["signed_in"] is not None or acc.cookie_path(n).exists() or a.force):
+            probe_account(n, stop_after=not a.keep_open)
+        elif not a.cached:
+            row_pre["note"] = "never signed in: flow.py login --account " + n
+        rows.append({**account_row(n), **({"note": row_pre["note"]} if row_pre.get("note") else {})})
+    print(json.dumps({"ok": True, "accounts": rows, "signed_in": [r["account"] for r in rows if r["signed_in"]],
+                      "needs_login": [r["account"] for r in rows if not r["signed_in"]]}))
+
+
+def cmd_keepalive(a):
+    """Once a day: open each signed-in account's Flow home, confirm it is still signed in, refresh the saved cookie copy.
+    Cron / automation friendly: no generation, one JSON line, exit code 2 when an account that was signed in is now signed out.
+    Accounts in a cool-down are not visited; accounts never signed in are reported, not probed."""
+    out = {"checked": [], "signed_out": [], "skipped": {}}
+    for n in acc.NAMES:
+        st, g = acc.state(n), gg.status(n)
+        if g["cooldown_min_left"]:
+            out["skipped"][n] = f"cool-down, {g['cooldown_min_left']:.0f} min left"
+        elif st.get("signed_in") is None and not acc.cookie_path(n).exists():
+            out["skipped"][n] = "never signed in"
+        else:
+            r = probe_account(n)
+            out["checked"].append({k: r.get(k) for k in ("account", "signed_in", "email", "credits", "error") if r.get(k) is not None})
+            if r.get("signed_in") is False:
+                out["signed_out"].append(n)
+    out["ok"] = not out["signed_out"]
+    if not (a.quiet and out["ok"]):
+        print(json.dumps(out))
+    if out["signed_out"]:
+        sys.exit(2)
+
+
 LOGIN_HTML = """<!doctype html><html><head><meta name=viewport content="width=device-width,initial-scale=1">
-<title>Sign in to Google Flow</title><style>
+<title>Sign in to Google Flow (__ACCT__)</title><style>
 body{margin:0;background:#111;color:#eee;font:14px system-ui;display:flex;flex-direction:column;align-items:center}
 #bar{padding:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:center}
 #s{max-width:100vw;max-height:calc(100vh - 60px);cursor:crosshair;outline:1px solid #333}
 button,input{background:#222;color:#eee;border:1px solid #444;border-radius:6px;padding:6px 10px;font:inherit}
 #st{color:#8c8}</style></head><body>
-<div id=bar><span>Click the page, then just type (keys go to the browser).</span>
+<div id=bar><span><b>__ACCT__</b>: click the page, then just type (keys go to the browser).</span>
 <input id=t placeholder="or paste text here" size=18><button onclick="sendT()">Send text</button>
 <button onclick="key('Enter')">Enter</button><button onclick="key('Tab')">Tab</button>
 <button onclick="key('Backspace')">⌫</button><span id=st></span></div>
@@ -834,7 +988,7 @@ button,input{background:#222;color:#eee;border:1px solid #444;border-radius:6px;
 const B=location.pathname.replace(/\\/$/,'');const img=document.getElementById('s');let vw=1,vh=1;
 const post=(p,b)=>fetch(B+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
 let fails=0;const st=document.getElementById('st');
-function finished(){st.textContent='Signed in to Flow. You can close this page.';st.style.fontSize='18px';img.style.opacity=.35}
+function finished(){st.textContent='__ACCT__ is signed in to Flow. You can close this page.';st.style.fontSize='18px';img.style.opacity=.35}
 async function tick(){try{const r=await fetch(B+'/state');const j=await r.json();fails=0;vw=j.vw;vh=j.vh;
  if(j.done){finished();return}st.textContent=(j.url||'').split('?')[0];}catch(e){if(++fails>=3){st.textContent='This sign-in page has closed. If you finished signing in, you are done.';return}}
  const n=new Image();n.onload=()=>{img.src=n.src;setTimeout(tick,600)};n.onerror=()=>setTimeout(tick,1500);n.src=B+'/shot?'+Date.now()}
@@ -860,6 +1014,7 @@ def cmd_login(a):
     f = Flow(a.project)
     f.pt.ensure_tab(None)
     f.pt.nav("https://accounts.google.com/ServiceLogin?continue=" + urllib.request.quote(f.project or FLOW_HOME, safe=""))
+    port = a.port or (8790 + (acc.NAMES.index(ACCOUNT) + 1 if ACCOUNT in acc.NAMES else 0))
     tok = secrets.token_urlsafe(12)
     state = {"done": False}
     lock = threading.Lock()
@@ -897,7 +1052,7 @@ def cmd_login(a):
                 return
             p = p[len(tok) + 1:]
             if p in ("", "/"):
-                return self._ok(LOGIN_HTML.encode(), "text/html; charset=utf-8")
+                return self._ok(LOGIN_HTML.replace("__ACCT__", ACCOUNT).encode(), "text/html; charset=utf-8")
             if p == "/shot":
                 with lock:
                     b = f.pt.req("GET", f"/screenshot?tabId={f.pt.tab}&raw=true&quality=70", raw=True, timeout=30)
@@ -932,9 +1087,9 @@ def cmd_login(a):
                 pass
             self._ok(b"{}")
 
-    srv = ThreadingHTTPServer(("127.0.0.1", a.port), H)
-    url = f"http://127.0.0.1:{a.port}/{tok}/"
-    print(json.dumps({"ok": True, "login_url": url, "port": a.port, "path": f"/{tok}/",
+    srv = ThreadingHTTPServer(("127.0.0.1", port), H)
+    url = f"http://127.0.0.1:{port}/{tok}/"
+    print(json.dumps({"ok": True, "account": ACCOUNT, "login_url": url, "port": port, "path": f"/{tok}/",
                       "note": "open it (remotely: `bb connect expose PORT` and append the path); it exits once signed in"}), flush=True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     t0 = time.time()
@@ -945,10 +1100,18 @@ def cmd_login(a):
             time.sleep(20)  # keep serving so the page can show "Signed in"
             break
     srv.shutdown()
-    if state["done"] and f.project:
-        f.pt.nav(f.project)
+    info = {}
+    if state["done"]:   # remember who signed in (email Google shows, credits) and keep a private copy of the cookies
+        try:
+            f.inject()
+            info = f.account()
+            f.save_live_cookies(force=True)
+        except Exception as e:
+            log(f"signed in, but reading the account failed: {e}")
+        if f.project:
+            f.pt.nav(f.project)
     log("signed in" if state["done"] else "login timed out")
-    print(json.dumps({"ok": state["done"], "signed_in": state["done"]}))
+    print(json.dumps({"ok": state["done"], "signed_in": state["done"], "account": ACCOUNT, "email": info.get("email"), "credits": info.get("credits")}))
 
 
 def wait_for(f, js_cond, secs=30, step=0.5):
@@ -1119,7 +1282,9 @@ def cmd_new_project(a):
 def main():
     ap = argparse.ArgumentParser(prog="flow.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--project", help="Flow project URL (default: config project_url)")
+    common.add_argument("--project", help="Flow project URL (default: the account's project_url)")
+    common.add_argument("--account", help="google1 | google2 | google3 | google4 | auto | shared (default: auto for video / image, "
+                                          "else the account used last). auto = the signed-in account with the most room today")
     sp = ap.add_subparsers(dest="cmd", required=True)
     _add = sp.add_parser
     sp.add_parser = lambda *x, **k: _add(*x, parents=[common], **k)
@@ -1128,6 +1293,7 @@ def main():
     s.add_argument("--cookies", help="cookie export JSON (EditThisCookie / Cookie-Editor format)")
     s.add_argument("--out-dir", help="default folder for finished files")
     s.add_argument("--force", action="store_true", help="inject cookies even when the browser is already signed in")
+    s.add_argument("--mode", choices=["headless", "headed"], help="the account's browser: headless, or headed on a virtual screen (Xvfb)")
     s.set_defaults(fn=cmd_setup)
 
     s = sp.add_parser("status", help="signed-in account, credits, project")
@@ -1203,24 +1369,48 @@ def main():
     s.set_defaults(fn=cmd_character)
 
     s = sp.add_parser("login", help="serve a live view of the automation browser so the user signs in to Google")
-    s.add_argument("--port", type=int, default=8790)
+    s.add_argument("--port", type=int, default=None, help="live view port (default 8790 + the account number: google2 → 8792)")
     s.add_argument("--timeout", type=int, default=30, help="minutes to wait for the sign-in")
     s.set_defaults(fn=cmd_login)
+
+    s = sp.add_parser("accounts", help="every account: signed in?, email, credits, today's usage, cool-down (no generation)")
+    s.add_argument("--only", help="comma list, e.g. google2,google3")
+    s.add_argument("--cached", action="store_true", help="do not open any browser; print the saved facts")
+    s.add_argument("--force", action="store_true", help="also visit accounts that are in a cool-down")
+    s.add_argument("--keep-open", action="store_true", help="leave the browsers this call started running")
+    s.set_defaults(fn=cmd_accounts)
+
+    s = sp.add_parser("keepalive", help="daily: confirm every account is still signed in and refresh its cookie copy (no generation)")
+    s.add_argument("--quiet", action="store_true", help="print nothing when every account is fine")
+    s.set_defaults(fn=cmd_keepalive)
 
     s = sp.add_parser("shot", help="screenshot the Flow tab (debugging)")
     s.add_argument("--out")
     s.set_defaults(fn=cmd_shot)
 
     a = ap.parse_args()
-    from google_guard import guard
     kind = {"video": "video", "image": "image"}.get(a.cmd, "ui")
     if kind != "ui" and getattr(a, "dry_run", False):
         kind = "ui"
     try:
+        if a.cmd not in ("accounts", "keepalive"):
+            name = a.account
+            if a.cmd in ("setup", "login") and not name:
+                die(f"{a.cmd} needs --account google1 | google2 | google3 | google4 (which account?)")
+            if name is None:
+                name = "auto" if (kind in ("video", "image") and not a.project) else (acc.last_account() or "google1")
+            if name == "auto":
+                name = gg.pick_account(kind, need_project=True) if kind in ("video", "image") else (acc.last_account() or "google1")
+            try:
+                use_account(name)
+            except ValueError as e:
+                die(str(e))
+            if kind in ("video", "image"):
+                acc.remember(name)
         if a.cmd in ("setup", "login"):   # long, interactive: never hold the Google lock
             a.fn(a)
         else:
-            with guard(kind):
+            with guard(kind, ACCOUNT):
                 a.fn(a)
     except RuntimeError as e:
         die(str(e))
