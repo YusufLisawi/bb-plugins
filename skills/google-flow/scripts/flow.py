@@ -311,7 +311,7 @@ class Flow:
                 die(f"{ACCOUNT} is not signed in to Google and the saved cookies were rejected: run `flow.py login --account {ACCOUNT}` "
                     f"(the owner signs in on the live view) or `flow.py setup --account {ACCOUNT} --cookies export.json`", url=url, account=ACCOUNT)
         if ACCOUNT != acc.SHARED and not load_json(STATE_FILE, {}).get("signed_in"):
-            save_state(signed_in=True, checked_at=time.time())
+            save_state(signed_in=True, ever_signed_in=True, checked_at=time.time())
         self.save_live_cookies()
         if need_project:
             # the grid renders a moment after the prompt bar; wait for both to settle
@@ -358,7 +358,7 @@ class Flow:
         if ACCOUNT and ACCOUNT != acc.SHARED and isinstance(a, dict):   # keep the account's sign-in facts for `accounts` / auto
             now = time.time()
             if a.get("signedIn"):
-                save_state(signed_in=True, email=a.get("email"), credits=a.get("credits"), resets=a.get("resets"), credits_at=now, checked_at=now)
+                save_state(signed_in=True, ever_signed_in=True, email=a.get("email"), credits=a.get("credits"), resets=a.get("resets"), credits_at=now, checked_at=now)
             else:
                 save_state(signed_in=False, checked_at=now)
         return a
@@ -916,6 +916,11 @@ def probe_account(name, replay=True, stop_after=True):
     return info
 
 
+def was_signed_in(name):
+    """True when the account has ever been signed in (or came with a cookie copy): only those can 'sign out'."""
+    return bool(acc.state(name).get("ever_signed_in") or acc.cookie_path(name).exists())
+
+
 def account_row(name):
     st, g = acc.state(name), gg.status(name)
     ck = acc.cookie_path(name)
@@ -940,7 +945,7 @@ def cmd_accounts(a):
         row_pre = account_row(n)
         if not a.cached and row_pre["cooldown_min_left"] and not a.force:
             row_pre["note"] = "in cool-down: not visited (use --force)"
-        elif not a.cached and (row_pre["signed_in"] is not None or acc.cookie_path(n).exists() or a.force):
+        elif not a.cached and (was_signed_in(n) or a.force):
             probe_account(n, stop_after=not a.keep_open)
         elif not a.cached:
             row_pre["note"] = "never signed in: flow.py login --account " + n
@@ -955,10 +960,10 @@ def cmd_keepalive(a):
     Accounts in a cool-down are not visited; accounts never signed in are reported, not probed."""
     out = {"checked": [], "signed_out": [], "skipped": {}}
     for n in acc.NAMES:
-        st, g = acc.state(n), gg.status(n)
+        g = gg.status(n)
         if g["cooldown_min_left"]:
             out["skipped"][n] = f"cool-down, {g['cooldown_min_left']:.0f} min left"
-        elif st.get("signed_in") is None and not acc.cookie_path(n).exists():
+        elif not was_signed_in(n):
             out["skipped"][n] = "never signed in"
         else:
             r = probe_account(n)
