@@ -73,3 +73,14 @@ Google flagged "unusual activity" after ~5 h of nonstop Flow image jobs, so the 
 - Letters sneak in as sleep "Z" marks, "!" and "?" in bubbles: say "empty bubble"; draw Zzz/! as code fx.
 - A young mother (Maye ~30, short blonde hair) needs her own sheet; the same face with grey hair is the 2010s version.
 - The audit threads are literal: they flagged the original Roadster as "closed roof", a shower scene as "bare torso" and stranger extras as "not Elon". Fix real bugs (extra limbs, text, orientation, tuft clones, ringed eyes), log the false alarms in NOTES.md.
+
+## Lessons from the owner-fix round (2026-11-01 evening)
+
+- **Check the product against current photos before drawing it**: the "new Roadster" was drawn as the old red convertible until the owner supplied photos. For any real product, vehicle or place, fetch reference pictures first, make a prop sheet from them, then scenes.
+- **Stunt choreography needs the real structure**: describe the shape in letters ("a C: floor, wall, ceiling bar facing down") and which way every object points ("nose LEFT, tail RIGHT; the row broadside, all facing left"); Nano Banana drifts on orientation. For Omni, start from the key frame of the MOST unusual state (the car upside down on the top bar) and describe one motion; end the prompt with where it must land ("the EMPTY road well past the last vehicle", "never touches any parked vehicle").
+- **Widen a composition with PIL** when a keyframe lacks empty room: stretch the leftmost 130 px, blur it, blend 130 px, rescale to 16:9 and extend the top and bottom edge rows (deterministic, seamless on flat night backgrounds).
+- **On-screen words**: at most 2 words, a number / name / key word, a rounded pill with padding (never a yellow square box); vertical captions are chosen by emphasis (spelled numbers → numerals, names once, key words, one per 6 s), not by transcript.
+- **Google Flow can block automation** ("We noticed some unusual activity", then the generate click is never accepted) after hundreds of jobs; credits are not charged. Stop, do not retry in a loop, cool down for minutes, and have a fallback (a Codex image thread) for stills.
+- **The niche slug must drop accents** (`historia-y-exito`): `r2_sync.py slug()` and `vertical/build.py niche_of()` use the same NFKD rule now; an upload under an older folder name stays on R2 and the gallery map ignores it.
+- `splice_line.py <slug> h1:h3` re-voices a BLOCK of lines (any count of new lines for the old ones) and speaks them with the cast language (Spanish whisper alignment: a splice with English whisper matched 3 of 59 words).
+
