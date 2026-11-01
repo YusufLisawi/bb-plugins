@@ -16,8 +16,12 @@ What it enforces (state in ~/.config/google-flow/guard.json, settings in config.
   BACK-OFF  an "unusual activity" / rate-limit / refusal message sets a cool-down (`cooldown_min`) for THAT account only;
             until it ends every guarded call for it fails at once with the minutes left. The other accounts keep working.
             No automatic retries anywhere.
-  AUTO      pick_account(kind): the signed-in account with the most room left today (and credits, and a Flow project for
-            video / image) and no cool-down; ties go to the one used least recently (round-robin).
+  POOL      `--account auto` for image / video jobs (pick_account): stay on one account for a BATCH (16 image jobs, 8 video
+            jobs; `batch`), then move to the next signed-in account (google1 → google2 → google3 → …, circular). Images and
+            videos keep separate positions. The day's STARTING account rotates daily (`pool_anchor` day = google1, the next
+            day google2, …, over the signed-in accounts). An account in a cool-down, signed out, without a Flow project / credits
+            or over its daily cap is skipped (the batch moves on). Other kinds (speech fallback): the signed-in account with
+            the most room today, ties least recently used.
 Override in an emergency only with GOOGLE_GUARD_OFF=1 (the owner's call).
 """
 from __future__ import annotations
@@ -39,7 +43,9 @@ DIR = accounts.DIR
 LOCK = DIR / "google.lock"
 STATE = DIR / "guard.json"
 CONF = DIR / "config.json"
-DEFAULTS = {"pause_s": [20, 60], "cap": {"image": 60, "video": 12, "tts": 80}, "cooldown_min": 120, "wait_min": 30}
+DEFAULTS = {"pause_s": [20, 60], "cap": {"image": 60, "video": 12, "tts": 80}, "cooldown_min": 120, "wait_min": 30,
+            "batch": {"image": 16, "video": 8}, "pool_anchor": "2026-11-01"}
+POOLED = ("image", "video")
 WARN = re.compile(r"unusual activity|suspicious|automated|captcha|verify (it'?s|that) you|too many requests|rate.?limit|"
                   r"quota|resource.?exhausted|\b429\b|try again (later|in)|temporarily (blocked|unavailable)|exceeded", re.I)
 CURRENT: str | None = None   # the account this process works on
@@ -137,31 +143,89 @@ def note_failure(text: str, account: str | None = None) -> bool:
     return True
 
 
-def pick_account(kind: str, need_project: bool = False) -> str:
-    """`--account auto`: the signed-in account with the most room left today and no cool-down; ties → least recently used."""
+def _ineligible(n, kind, st, s, need_project):
+    """why account `n` cannot take a `kind` job right now (None = it can)"""
+    cs, a = accounts.state(n), st.get("accounts", {}).get(n, {})
+    if cs.get("signed_in") is not True:
+        return "not signed in (flow.py login --account %s)" % n
+    if need_project and not accounts.cfg(n).get("project_url"):
+        return "no Flow project (flow.py new-project --save --account %s)" % n
+    left = a.get("cooldown_until", 0) - time.time()
+    if left > 0:
+        return f"cool-down, {left / 60:.0f} min left"
+    if kind in ("image", "video") and cs.get("credits") is not None and cs["credits"] <= 0:
+        return "no Flow credits left"
+    cap = s["cap"].get(kind)
+    used = a.get("counts", {}).get(_today(), {}).get(kind, 0)
+    if cap is not None and used >= cap:
+        return f"daily cap {used}/{cap}"
+    return None
+
+
+def _start_account(signed, s):
+    """the day's starting account: the signed-in accounts in order, one step further each day from `pool_anchor`"""
+    import datetime
+    days = (datetime.date.fromisoformat(_today()) - datetime.date.fromisoformat(s["pool_anchor"])).days
+    return signed[days % len(signed)]
+
+
+def _pool_plan(kind, st, s, need_project):
+    """Where the next `kind` job goes under the batch rotation: (account | None, new pool position, skipped reasons).
+    Pure: nothing is saved here."""
+    names = list(accounts.NAMES)
+    signed = [n for n in names if accounts.state(n).get("signed_in") is True]
+    batch = max(1, int(s["batch"].get(kind, 1)))
+    pool = dict(st.get("pool", {}).get(kind) or {})
+    if pool.get("day") != _today() or pool.get("account") not in names:   # a new day: back to the day's starting account
+        pool = {"day": _today(), "account": _start_account(signed, s) if signed else names[0], "used": 0}
+    i = names.index(pool["account"])
+    ring = names[i:] + names[:i]
+    skipped, full = {}, None
+    for n in ring:
+        why = _ineligible(n, kind, st, s, need_project)
+        if why:
+            skipped[n] = why
+        elif n == pool["account"] and pool["used"] < batch:
+            return n, pool, skipped                                    # still inside its batch
+        elif n == pool["account"]:
+            full = n                                                    # batch done: move on to the next eligible one
+        else:
+            return n, {"day": _today(), "account": n, "used": 0}, skipped   # next batch starts here
+    if full:   # nobody else can take over: a new batch on the same account
+        return full, {"day": _today(), "account": full, "used": 0}, skipped
+    return None, pool, skipped
+
+
+def pool_status(kind, need_project=True):
+    """what `--account auto` would do next for `kind` (flow.py accounts shows it); changes nothing"""
     s, st = settings(), _state()
+    n, pool, skipped = _pool_plan(kind, st, s, need_project)
+    batch = max(1, int(s["batch"].get(kind, 1)))
+    return {"next": n, "on": pool["account"], "used_in_batch": pool["used"], "batch": batch,
+            "left_in_batch": max(0, batch - pool["used"]) if n == pool["account"] else batch, "skipped": skipped or None}
+
+
+def pick_account(kind: str, need_project: bool = False) -> str:
+    """`--account auto`. image / video: the batch rotation (see POOL above). Other kinds: the signed-in account with the
+    most room left today and no cool-down; ties → least recently used."""
+    s, st = settings(), _state()
+    if kind in POOLED:
+        n, pool, skipped = _pool_plan(kind, st, s, need_project)
+        if not n:
+            _fail(f"no Google account is available for {kind}: " + "; ".join(f"{k}: {why}" for k, why in skipped.items()), skipped=skipped)
+        st.setdefault("pool", {})[kind] = pool
+        _save(st)
+        _log(f"auto → {n} ({pool['used']}/{s['batch'].get(kind)} {kind} jobs in its batch)" + (f"; skipped {skipped}" if skipped else ""))
+        return n
     rows, skipped = [], {}
     for n in accounts.NAMES:
-        cs, a = accounts.state(n), st.get("accounts", {}).get(n, {})
-        if cs.get("signed_in") is not True:
-            skipped[n] = "not signed in (flow.py login --account %s)" % n
-            continue
-        if need_project and not accounts.cfg(n).get("project_url"):
-            skipped[n] = "no Flow project (flow.py new-project --save --account %s)" % n
-            continue
-        left = a.get("cooldown_until", 0) - time.time()
-        if left > 0:
-            skipped[n] = f"cool-down, {left / 60:.0f} min left"
-            continue
-        if kind in ("image", "video") and cs.get("credits") is not None and cs["credits"] <= 0:
-            skipped[n] = "no Flow credits left"
+        why = _ineligible(n, kind, st, s, need_project)
+        if why:
+            skipped[n] = why
             continue
         cap = s["cap"].get(kind)
-        used = a.get("counts", {}).get(_today(), {}).get(kind, 0)
-        if cap is not None and used >= cap:
-            skipped[n] = f"daily cap {used}/{cap}"
-            continue
-        rows.append(((cap - used) if cap is not None else 10 ** 6, cs.get("last_used", 0), n))
+        used = st.get("accounts", {}).get(n, {}).get("counts", {}).get(_today(), {}).get(kind, 0)
+        rows.append(((cap - used) if cap is not None else 10 ** 6, accounts.state(n).get("last_used", 0), n))
     if not rows:
         _fail(f"no Google account is available for {kind}: " + "; ".join(f"{n}: {why}" for n, why in skipped.items()), skipped=skipped)
     rows.sort(key=lambda r: (-r[0], r[1]))
@@ -216,6 +280,9 @@ def guard(kind: str = "ui", account: str | None = None):
                 day[kind] = day.get(kind, 0) + 1
                 keep = time.strftime("%Y-%m-%d", time.localtime(time.time() - 7 * 86400))
                 _acct(st, account)["counts"] = {k: v for k, v in _acct(st, account)["counts"].items() if k >= keep}
+            pool = st.get("pool", {}).get(kind)
+            if kind in POOLED and account and pool and pool.get("account") == account and pool.get("day") == _today():
+                pool["used"] = pool.get("used", 0) + 1   # one more job in this account's batch
             st["last_end"] = time.time()
             _save(st)
         fcntl.flock(fh, fcntl.LOCK_UN)

@@ -2,8 +2,8 @@
 
 The owner has four Google AI Pro accounts. Each one lives in its own persistent browser profile, has its own Flow project,
 cookie copy, credits and guard counters, and is addressed with `--account google1 … google4` on `flow.py` and
-`aistudio_tts.py`. `--account auto` (the default for `video`, `image` and `speak`) picks one; every result says which
-(`"account": "google2"`).
+`aistudio_tts.py`. `--account auto` (the default for `video` and `image`; `speak` is the AI Studio fallback) picks one by the
+pool rule below; every result says which (`"account": "google2"`).
 
 ```bash
 F="python3 <skill-dir>/scripts/flow.py"
@@ -60,8 +60,11 @@ stores the email Google shows, the credits and a private cookie copy (`accounts/
 (the live view drives one browser). Then `new-project --save --account NAME` creates its Flow project.
 
 Cookie replay still works as before: `setup --account NAME --cookies export.json`, and a signed-out browser re-applies its own
-saved copy by itself. `google1` was seeded from the old single-account cookie copy and project (it has not been visited since
-the move: its first visit comes with the first command after its rest).
+saved copy by itself. Replay from an OLD copy does not always survive the move to a new browser profile: google1's migrated
+cookies were rejected and it needed a real sign-in. **Changing the account password ends the browser's session** (Google then
+asks "verify it's you"; the saved copy is useless): sign in again on a fresh `login` link. If Flow's landing page shows after
+the password, click "Create with Google Flow" in the live view; the page reports "signed in" by itself. Check any account later
+with `flow.py accounts --only NAME` (add `--force` for one in a cool-down: it is a read-only visit of the Flow home).
 
 ## Safety guard across accounts (google_guard.py)
 
@@ -70,9 +73,23 @@ the move: its first visit comes with the first command after its rest).
 - **Per-account** daily counters (60 images / 12 videos / 80 speech clips per account per local day, `config.json` →
   `guard.cap`) and **per-account cool-downs**: a warning ("unusual activity", quota, rate limit, refusal…) pauses only the
   account that saw it, for `cooldown_min` (120). The other accounts keep working.
-- **`auto`**: among the accounts that are signed in (last known state), have a Flow project (video / image), are out of
-  cool-down, have credits left and are under the cap, take the one with the most room today; ties go to the one used least
-  recently (round-robin). If none qualifies the error lists why for each. Follow-up commands (`list`, `download`, `status`)
+- **`auto` = the pool** (images and videos; `google_guard.pick_account`):
+  - **Batches:** 16 image jobs stay on one account, then the next signed-in account takes over (google1 → google2 → google3 → …,
+    circular); videos: 8 jobs per account. A job is one `image` / `video` command (`--count 4` is still one job). Images and
+    videos have separate positions (`guard.json` → `pool.image` / `pool.video`: `{day, account, used}`); `used` counts jobs that
+    ended on that account.
+  - **Daily start:** the first job of each day (per kind) starts on the day's account: the signed-in accounts in order, one step
+    further each day from `guard.pool_anchor` (2026-11-01 = google1, 11-02 = google2, 11-03 = google3, then around again).
+  - **Skips:** an account that is signed out (last known state), in a cool-down, over its daily cap, without a Flow project or
+    out of credits is skipped and the batch moves on (a fresh batch starts on the next eligible account; if only one account
+    is left its batches simply restart). If none qualifies the error lists why for each.
+  - `flow.py accounts` prints `pool.image` / `pool.video`: `next` (where the next job goes), `used_in_batch`, `left_in_batch`.
+  - Settings: `config.json` → `guard.batch` (`{"image": 16, "video": 8}`), `guard.pool_anchor`. Explicit `--account` jobs bypass
+    the pool (they only count toward the batch when they run on the pool's current account).
+  - Speech and music do **not** use the pool: they go through the Gemini API. The AI Studio speech fallback takes the signed-in
+    account with the most room today (ties: least recently used).
+  - Flow characters, uploaded plates and generated tiles are **per project**, so every account's project needs the same
+    characters / plates before the rotation can be relied on for a series. Follow-up commands (`list`, `download`, `status`)
   without `--account` use the account that generated last, because a tile lives in one account's project. `--project URL`
   without `--account` also means "the last account": a project URL belongs to one account.
 - No generation happens in `accounts`, `keepalive`, `status`, `login`. Accounts in a cool-down are **not visited** by

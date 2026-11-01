@@ -1,6 +1,6 @@
 ---
 name: google-flow
-description: Generate videos, images, speech and music with the user's Google AI Pro accounts. Flow (flow.google.com) through four persistent PinchTab accounts (google1-google4, --account auto picks the one with room), one command per job, JSON back with quoted and spent credits and the files: Omni 1.1 Flash and Veo 3.1 image-to-video, Nano Banana images, price quotes, upscaled downloads, Google sign-in on a live view, a daily keep-alive. Speech and music through the Gemini API (gemini_audio.py, the DEFAULT: Gemini 3.8 Flash TTS with styles, tags, multi-speaker, Spanish/Arabic/German, long texts; Lyria 3.5 music). Use whenever the user wants something animated or generated "with Flow", Omni, Veo, Nano Banana, wants a Gemini or Google voice-over / TTS / music track, wants Flow credit costs compared, or a Flow clip or image downloaded or upscaled.
+description: Generate videos, images, speech and music with the user's Google AI Pro accounts. Flow (flow.google.com) through four persistent PinchTab accounts (google1-google4, --account auto = a rotating pool: 16 image jobs or 8 video jobs per account, then the next one), one command per job, JSON back with quoted and spent credits and the files: Omni 1.1 Flash and Veo 3.1 image-to-video, Nano Banana images, price quotes, upscaled downloads, Google sign-in on a live view, a daily keep-alive. Speech and music through the Gemini API (gemini_audio.py, the DEFAULT: Gemini 3.8 Flash TTS with styles, tags, multi-speaker, Spanish/Arabic/German, long texts; Lyria 3.5 music). Use whenever the user wants something animated or generated "with Flow", Omni, Veo, Nano Banana, wants a Gemini or Google voice-over / TTS / music track, wants Flow credit costs compared, or a Flow clip or image downloaded or upscaled.
 ---
 
 # Google Flow + Gemini audio
@@ -102,9 +102,15 @@ Every command that touches Google goes through one guard, shared by flow.py, ais
 - **Daily caps per account:** 60 images, 12 videos, 80 speech clips per local day *each*; over the cap the job is refused.
 - **Back-off per account:** any "unusual activity", rate-limit, quota or refusal text pauses THAT account for 120 min; the
   others keep working. No automatic retries anywhere: when a job is refused, stop and report.
-- **`--account auto`** (default for video / image / speak): the signed-in account with the most room today, no cool-down,
-  credits left and a Flow project; ties round-robin. `list` / `download` / `status` without `--account` use the account that
-  generated last (tiles live in one account's project).
+- **`--account auto`** (default for video / image) is a **pool with batches**: stay on one account for **16 image jobs** or
+  **8 video jobs**, then move to the next signed-in account (google1 → google2 → google3 → …, circular); images and videos keep
+  separate positions; the **day's starting account rotates daily** (2026-11-01 = google1, the next day google2, …, over the signed-in
+  accounts). An account in a cool-down, signed out, over its daily cap, or without a Flow project / credits is skipped and the batch
+  moves on. `flow.py accounts` shows the pool (`next`, `used_in_batch`, `left_in_batch`). Settings: `guard.batch`
+  (`{"image": 16, "video": 8}`), `guard.pool_anchor`. Speech / music go through the Gemini API, not the pool (the AI Studio
+  speech fallback picks the account with the most room). `list` / `download` / `status` without `--account` use the account
+  that generated last (tiles live in one account's project). Flow characters and uploaded plates are per project: set them up in
+  every account's project before relying on the rotation.
 Settings live in `~/.config/google-flow/config.json` under `"guard"` (`pause_s`, `cap`, `cooldown_min`, `wait_min`); usage and
 cool-downs show per account in `flow.py accounts` and `flow.py status` → `guard`. `GOOGLE_GUARD_OFF=1` bypasses it: the owner's call
 only. Never run two agents on one account at once (an "unusual activity" warning once came from Flow and AI Studio jobs overlapping).
@@ -114,7 +120,7 @@ The Gemini API route (`gemini_audio.py`) is not behind this guard: it is an API 
 
 | Command | What it does |
 |---|---|
-| `accounts [--cached] [--only google2,…] [--force]` | every account: signed in, email Google shows, credits, project, today's usage, cool-down; no generation |
+| `accounts [--cached] [--only google2,…] [--force]` | every account: signed in, email Google shows, credits, project, today's usage, cool-down, plus the pool's next account for images / videos; no generation |
 | `keepalive [--quiet]` | daily: open each signed-in account's Flow home, confirm sign-in, refresh the cookie copy; exit 2 if one signed out |
 | `login --account NAME [--port P]` | live view for the OWNER to sign NAME in; saves email, credits, cookie copy |
 | `status [--tiles N]` | account, credits left, reset date, project; optionally the newest N tiles |

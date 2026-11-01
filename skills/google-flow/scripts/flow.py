@@ -951,7 +951,8 @@ def cmd_accounts(a):
             row_pre["note"] = "never signed in: flow.py login --account " + n
         rows.append({**account_row(n), **({"note": row_pre["note"]} if row_pre.get("note") else {})})
     print(json.dumps({"ok": True, "accounts": rows, "signed_in": [r["account"] for r in rows if r["signed_in"]],
-                      "needs_login": [r["account"] for r in rows if not r["signed_in"]]}))
+                      "needs_login": [r["account"] for r in rows if not r["signed_in"]],
+                      "pool": {k: gg.pool_status(k) for k in gg.POOLED}}))
 
 
 def cmd_keepalive(a):
