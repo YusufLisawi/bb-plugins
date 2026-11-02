@@ -44,6 +44,12 @@ bb thread spawn --project <proj> --environment <env> --parent-self --provider co
   (the Google guard: one job at a time, pauses, caps). **Mute the clip audio**; our foley/score carry the sound. Everything else is stills
   with camera moves, parallax, code graphics (the storybook-stills engine).
 
+## Series openings (Parts 2+, owner rule)
+- Start with **Part 1's exact cold open**: reuse its approved voice segment, visuals, animation clips, and code graphics. Cut the voice using the original `hook` line times; never regenerate it or replace it with a new premise.
+- Follow with a **quick recap, approximately 13–16 seconds**, using the supplied narrator take. Run the voice pipeline's Whisper → refine → script alignment and anchor every recap photo to its phrase's actual spoken word. Use polaroids/snapshots from previously delivered shots, a small `PREVIOUSLY` label away from the top edge, a soft whoosh per landing, and no stingers. Keep clean cinematic fonts; no handwriting.
+- Continue with the approved part **after its old `hook` line**. Remove that old hook completely so there is no third opening. Preserve the rest of the performance, splice the audio, and shift all line/word times and the word-anchored plan together.
+- Render the changed edit with the farm, QA the new master and both vertical versions, upload to **new keys**, and update the gallery. The vertical series hook remains consistent across parts.
+
 ## Build, sound, render, deliver
 - Engine: `src/kit/stills` (storybook-stills skill: plan, word anchors, fx/cards, word-by-word text, nothing at the top of the frame,
   captions ≤ 2 words in a rounded pill), `scripts/stills_build.py <slug>`, dev player `scripts/devplayer.sh <Comp>`.
