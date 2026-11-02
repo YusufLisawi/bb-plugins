@@ -8,11 +8,17 @@
 - A push crops: with origin `o` and zoom `z` the visible span is `[o − o/z, o + (100 − o)/z]` %. Use it to keep a flaw or an
   unfinished edge out of frame, never to hide a bug in the final cut (fix the art, `bug-review.md`).
 
-## Text reveal: word by word, never letter by letter
-Every text that appears over time reveals one whole word at a time, the same way everywhere: a `rule` title, `note` lines, `tag` subs, `bubble` and `signtext`, the `flight` / `ago` / `plan` labels, the `cta` question and caption, a `passport` name. The engine is `wordCut(text, k)` in `src/kit/stills/fit.ts` (used by `typedLines`, by `typed` in `draw.tsx`, by the sign and bubble text in `fx2.tsx` and by the CTA question in `cards2.tsx`): a word is shown in full as soon as its first letter would have been typed. Since FLIGHT DELAYED v3c2 there is no typewriter: no letter-by-letter motion and no blinking caret.
-- The `cps` / window argument only sets the pace. At 14 characters a second a five-word title lands one word every ~0.25–0.4 s.
-- Spoken text takes the narrator's own words as its window (`titleAt: "rule1a.Don't"`, `titleTo: "rule1a.end"`), so each word lands on or just before the word it is. Check it on a frame during the reveal: the words already said are there, the next one is not yet.
-- A single word (a name, a city, a Korean sign row without spaces) appears whole on its word. Never split a word across two frames.
+## Text reveal: whole words, fixed final positions
+
+**Owner rule (2026-11-02): never grow a line by appending words.** Measure and wrap the complete final text once. Mount all words at their final positions from the start; hide unspoken words with opacity 0, or show them dim around 30% and highlight the spoken word with colour or a fixed rounded background. Only opacity/colour changes during voice sync. No word moves, scales, changes the line width or forces another word to re-wrap as it appears.
+
+The shared `wordCut(text, n)` in `src/kit/stills/fit.ts` returns stable React word spans containing the **entire** text. `typedLines` and `typed` use it by default. This applies to rule titles, note lines, tag subs, bubbles, signs, captions, flight/ago/plan labels, phone messages, passport names and all CTA text. SVG callers render the node inside `<text>`; HTML callers use `{as: "span"}`. Fit and measure the original full string, never the reveal node. See [text-fit.md](text-fit.md).
+
+- `cps` and reveal windows control visibility only; they never control layout.
+- Use the final voice's word timestamps whenever available. A phrase window (`titleAt` / `titleTo`) is a fallback for older plans.
+- A single word appears whole on its word. No letter-by-letter typewriter or blinking caret.
+- A whole card may drift with its camera; individual words remain fixed relative to their final line. Highlights have their final geometry from the start.
+- HE STILL CALLS typography: Barlow Condensed ExtraBold titles/rules; clean Barlow/Inter page text and small labels. Use black, off-white and one red accent for card mood; no quirky handwriting, marker or typewriter fonts.
 
 ## Holds and readability (cards and highlights)
 - A card is read while the narrator reads it. It stays on screen for its own words (about words ÷ 2.8 s) plus ~0.3 s, and the next picture is cut on a later word of the next line. Never add silence for a card (see `density-and-plan.md`, "No dead air"). `sync_audit.py` prints a stricter `need` of words ÷ 2.8 + 1 s: say in the notes which bar a film was checked against.
@@ -45,7 +51,7 @@ Layer 2 (`fx2.tsx`, added for FLIGHT DELAYED Part 1 v2; all draw on / pop / type
 | `pips` | items [{x, y, n, at}], to, col | numbered ink dots dropping onto things one after another (counting "ten people ahead", three per word); the last one is red (the man) |
 | `signtext` | x, y, w, h, text, ko, at, cps, col, align | REAL text typed into a blank sign / panel of the picture (Korean airport signs: 출구 입국심사 수하물 계단), fitted to the rectangle |
 | `clock` | x, y, min, minTo, at, dur, label | a time pill (minutes since midnight: 1082 = 6:02 PM) that ticks |
-| `tag` | x, y, text, sub, subAt, sub2, sub2At, tx, ty, at, maxW | a taped name tag with a leader line and a red dot on the person; `sub` types at `subAt`, `sub2` is appended at `sub2At` (LEO · 27 · CHICAGO word by word); text wraps / shrinks in the tag, tag clamped inside the frame |
+| `tag` | x, y, text, sub, subAt, sub2, sub2At, tx, ty, at, maxW | a taped name tag with a leader line and a red dot on the person; `sub` types at `subAt`, `sub2` occupies its final space and reveals at `sub2At` (LEO · 27 · CHICAGO word by word); text wraps / shrinks in the tag, tag clamped inside the frame |
 | `loupe` | x, y, r, zoom, lx, ly, at | a magnifier: the picture's own pixels at (x,y) zoomed in a ring at (lx,ly), tied to the spot |
 | `crack` | x, y, at, len, seed | a spider-web crack spreading across glass |
 | `speed` | dir, o, n, at | speed lines streaking (dir −1 left, +1 right) |
