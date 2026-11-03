@@ -7,8 +7,9 @@ import {
   type GeneratedImageRecord,
 } from "./image-events";
 import {
-  resolveWorkspaceImagePaths,
-  type WorkspaceImageImport,
+  extractEmbeddedImagePaths,
+  resolveImportImagePaths,
+  type ImportRoot,
 } from "./workspace-import";
 
 interface StoredImageRow {
@@ -32,6 +33,24 @@ interface ImageSummary {
 const IMAGE_EVENT_TYPES = ["provider/unhandled"] as const;
 const MAX_EVENT_PAGE_SIZE = 100;
 const MAX_IMPORTED_IMAGE_BYTES = 25 * 1024 * 1024;
+
+const AGENT_INSTRUCTIONS = `Generated Images viewer: whenever you create, render, download or screenshot an image the user should see, or point them to an existing image file, register it in this thread's image viewer by running \`bb generated-images import <path> [more paths]\`. Paths may be inside the thread workspace, $BB_THREAD_STORAGE or /tmp. Local images you embed in your final reply as ![alt](path) are imported automatically when the turn ends, but run the command for any other image. Codex built-in image generation is picked up on its own.`;
+
+class ImageImportError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+  ) {
+    super(message);
+  }
+}
+
+interface ImportOptions {
+  cwd?: string;
+  signal?: AbortSignal;
+  /** Skip paths that are outside the allowed roots, missing or unreadable. */
+  lenient?: boolean;
+}
 
 function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
@@ -138,6 +157,120 @@ export default async function plugin(bb: BbPluginApi) {
     }
   });
 
+  /**
+   * Register image files for a thread. Paths must sit inside the thread's
+   * workspace, its thread storage or /tmp on the thread's host; files are
+   * verified there but not copied.
+   */
+  async function importImages(
+    threadId: string,
+    paths: readonly string[],
+    options: ImportOptions = {},
+  ): Promise<GeneratedImageRecord[]> {
+    const signal = options.signal ? { signal: options.signal } : {};
+    const thread = await bb.sdk.threads.get({ threadId, ...signal });
+    if (!thread.environmentId) {
+      throw new ImageImportError(
+        "This thread has no workspace environment to import images from.",
+        "workspace_required",
+      );
+    }
+
+    const environment = await bb.sdk.environments.get({
+      environmentId: thread.environmentId,
+      ...signal,
+    });
+    if (!environment.path) {
+      throw new ImageImportError(
+        "This thread's workspace path is unavailable.",
+        "workspace_unavailable",
+      );
+    }
+
+    const roots: ImportRoot[] = [{ kind: "workspace", path: environment.path }];
+    try {
+      const storage = await bb.sdk.threads.storageLocation({ threadId, ...signal });
+      if (storage.hostId === environment.hostId) {
+        roots.push({ kind: "thread-storage", path: storage.storageRootPath });
+      }
+    } catch (error) {
+      bb.log.warn(`Could not resolve thread storage for ${threadId}: ${String(error)}`);
+    }
+    roots.push({ kind: "tmp", path: "/tmp" });
+
+    let candidates;
+    try {
+      candidates = resolveImportImagePaths(
+        roots,
+        options.cwd ?? environment.path,
+        paths,
+        { skipInvalid: options.lenient === true },
+      );
+    } catch (error) {
+      throw new ImageImportError(
+        error instanceof Error ? error.message : "Invalid image path.",
+        "invalid_image_path",
+      );
+    }
+
+    const existingRows = listImages.all(threadId) as StoredImageRow[];
+    let nextSeq =
+      existingRows.reduce((highest, row) => Math.max(highest, row.seq), 0) + 1;
+    const records: GeneratedImageRecord[] = [];
+
+    for (const candidate of candidates) {
+      let sizeBytes: number;
+      try {
+        const file = await bb.sdk.files.read({
+          hostId: environment.hostId,
+          path: candidate.savedPath,
+          rootPath: candidate.rootPath,
+          ...signal,
+        });
+        sizeBytes = file.sizeBytes;
+      } catch (error) {
+        if (options.lenient) {
+          continue;
+        }
+        throw new ImageImportError(
+          `Could not read ${candidate.relativePath}: ${error instanceof Error ? error.message : String(error)}`,
+          "image_unreadable",
+        );
+      }
+      const problem =
+        sizeBytes <= 0
+          ? new ImageImportError(`${candidate.relativePath} is empty.`, "empty_image")
+          : sizeBytes > MAX_IMPORTED_IMAGE_BYTES
+            ? new ImageImportError(
+                `${candidate.relativePath} exceeds the 25 MB import limit.`,
+                "image_too_large",
+              )
+            : null;
+      if (problem) {
+        if (options.lenient) {
+          continue;
+        }
+        throw problem;
+      }
+
+      const existing = getImage.get(threadId, candidate.itemId) as
+        | StoredImageRow
+        | undefined;
+      records.push({
+        threadId,
+        itemId: candidate.itemId,
+        seq: existing?.seq ?? nextSeq++,
+        savedPath: candidate.savedPath,
+        revisedPrompt: existing?.revised_prompt ?? `Image: ${candidate.relativePath}`,
+        mimeType: candidate.mimeType,
+        createdAt: existing?.created_at ?? Date.now(),
+      });
+    }
+
+    persistImages(records);
+    return records;
+  }
+
   bb.cli.register(
     defineCli({
       name: "generated-images",
@@ -170,86 +303,21 @@ export default async function plugin(bb: BbPluginApi) {
               );
             }
 
-            const thread = await bb.sdk.threads.get({
-              threadId,
-              ...(context.signal ? { signal: context.signal } : {}),
-            });
-            if (!thread.environmentId) {
-              throw new PluginCliError(
-                "This thread has no workspace environment to import images from.",
-                { code: "workspace_required" },
-              );
-            }
-
-            const environment = await bb.sdk.environments.get({
-              environmentId: thread.environmentId,
-              ...(context.signal ? { signal: context.signal } : {}),
-            });
-            if (!environment.path) {
-              throw new PluginCliError(
-                "This thread's workspace path is unavailable.",
-                { code: "workspace_unavailable" },
-              );
-            }
-
-            let candidates: WorkspaceImageImport[];
+            let records: GeneratedImageRecord[];
             try {
-              candidates = resolveWorkspaceImagePaths(
-                environment.path,
-                context.cwd ?? environment.path,
-                input.positionals.paths,
-              );
-            } catch (error) {
-              throw new PluginCliError(
-                error instanceof Error ? error.message : "Invalid image path.",
-                { code: "invalid_image_path" },
-              );
-            }
-            const existingRows = listImages.all(threadId) as StoredImageRow[];
-            let nextSeq = existingRows.reduce(
-              (highest, row) => Math.max(highest, row.seq),
-              0,
-            ) + 1;
-            const records: GeneratedImageRecord[] = [];
-
-            for (const candidate of candidates) {
-              const file = await bb.sdk.files.read({
-                hostId: environment.hostId,
-                path: candidate.savedPath,
-                rootPath: environment.path,
+              records = await importImages(threadId, input.positionals.paths, {
+                ...(context.cwd ? { cwd: context.cwd } : {}),
                 ...(context.signal ? { signal: context.signal } : {}),
               });
-              if (file.sizeBytes <= 0) {
-                throw new PluginCliError(
-                  `${candidate.relativePath} is empty.`,
-                  { code: "empty_image" },
-                );
+            } catch (error) {
+              if (error instanceof ImageImportError) {
+                throw new PluginCliError(error.message, { code: error.code });
               }
-              if (file.sizeBytes > MAX_IMPORTED_IMAGE_BYTES) {
-                throw new PluginCliError(
-                  `${candidate.relativePath} exceeds the 25 MB import limit.`,
-                  { code: "image_too_large" },
-                );
-              }
-
-              const existing = getImage.get(threadId, candidate.itemId) as
-                | StoredImageRow
-                | undefined;
-              records.push({
-                threadId,
-                itemId: candidate.itemId,
-                seq: existing?.seq ?? nextSeq++,
-                savedPath: candidate.savedPath,
-                revisedPrompt: `Workspace image: ${candidate.relativePath}`,
-                mimeType: candidate.mimeType,
-                createdAt: existing?.created_at ?? Date.now(),
-              });
+              throw error;
             }
-
-            persistImages(records);
             return {
               exitCode: 0,
-              stdout: `Imported ${records.length} workspace image${records.length === 1 ? "" : "s"} into thread ${threadId}:\n${records
+              stdout: `Imported ${records.length} image${records.length === 1 ? "" : "s"} into thread ${threadId}:\n${records
                 .map((record) => `- ${basename(record.savedPath)}`)
                 .join("\n")}`,
             };
@@ -443,11 +511,22 @@ export default async function plugin(bb: BbPluginApi) {
     { auth: "local" },
   );
 
-  bb.events.on("thread.idle", ({ thread }) => {
+  bb.events.on("thread.idle", ({ thread, lastAssistantText }) => {
     void scanThread(thread.id).catch((error) => {
       bb.log.warn(`Could not index idle thread ${thread.id}: ${String(error)}`);
     });
+
+    const embedded = extractEmbeddedImagePaths(lastAssistantText);
+    if (embedded.length > 0) {
+      void importImages(thread.id, embedded, { lenient: true }).catch((error) => {
+        bb.log.warn(
+          `Could not import embedded images for ${thread.id}: ${String(error)}`,
+        );
+      });
+    }
   });
+
+  bb.agents.contributeInstructions(() => AGENT_INSTRUCTIONS);
 
   bb.events.on("thread.deleted", ({ thread }) => {
     deleteThreadImages.run(thread.id);

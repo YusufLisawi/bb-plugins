@@ -1,20 +1,21 @@
 ---
 name: generated-images
-description: Import saved workspace images into the current BB thread's generated-images viewer when an image tool did not emit a Codex image-generation event.
+description: Show images to the user in the BB Generated Images viewer. Use whenever you create, render, download or screenshot an image the user should see, or point them to an image file, with any provider; Codex built-in image generation is picked up automatically.
 ---
 
 # Generated images viewer
 
-Use this when the user asks to show image files already saved in the current
-thread's workspace in the Generated Images tray or panel.
-
-Run the plugin command with the thread ID and one or more image paths:
+Register image files in the current thread's Generated Images tray and panel:
 
 ```bash
-bb generated-images import --thread <thread-id> path/to/image.png path/to/other.jpg
+bb generated-images import path/to/image.png /tmp/shot.jpg
 ```
 
-Use paths inside the thread workspace. The command verifies each file on that
-thread's host and rejects paths outside the workspace. It registers paths
-without copying image bytes, so keep the source files in place. Re-importing a
-path updates the existing gallery entry rather than adding a duplicate.
+Pass `--thread <thread-id>` when running outside the thread. Paths may be
+inside the thread workspace, `$BB_THREAD_STORAGE` or `/tmp`; the command
+verifies each file on the thread's host and rejects anything else. It
+registers paths without copying image bytes, so keep the files in place.
+Re-importing a path updates the existing entry rather than adding a duplicate.
+
+Local images embedded in your final reply as `![alt](path)` are imported
+automatically when the turn ends, but running the command is the reliable way.

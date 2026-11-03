@@ -1,28 +1,35 @@
 # Generated Images for BB
 
-This plugin keeps Codex image-generation results visible in the thread
+This plugin keeps images visible in the thread
 conversation after a turn completes. It indexes completed
 `provider/unhandled` image-generation events, stores only their host file paths
-in the plugin database, serves those files through authenticated local routes,
+in the plugin database, also picks up images that other agents register or
+embed (see below), serves those files through authenticated local routes,
 and injects a compact tray directly after the latest assistant message.
 
 The gallery is intentionally separate from BB's existing Image Preview plugin:
 Image Preview can enlarge `<img>` elements that already exist, while this
 plugin creates the missing conversation-level `<img>` elements.
 
-## Import workspace images
+## Images from other tools
 
-Images created by tools that do not emit Codex `imageGeneration` events can be
-registered from the thread workspace with:
+Every thread's agent instructions tell it to register any image the user should
+see, whatever the provider:
 
 ```bash
-bb generated-images import --thread <thread-id> path/to/image.png path/to/other.jpg
+bb generated-images import --thread <thread-id> path/to/image.png /tmp/shot.jpg
 ```
 
-The command verifies the files on the thread's host and only accepts paths
-inside that thread's workspace. It stores file paths, not duplicate image
-bytes; moving or deleting an imported file makes it unavailable to the viewer.
-Importing the same workspace path again updates the existing entry.
+The command verifies the files on the thread's host and accepts paths inside
+the thread workspace, the thread's storage directory (`$BB_THREAD_STORAGE`) or
+`/tmp`. It stores file paths, not duplicate image bytes; moving or deleting an
+imported file makes it unavailable to the viewer. Importing the same path again
+updates the existing entry.
+
+When a turn ends, local images embedded in the assistant's final reply as
+`![alt](path)` or `<img src="path">` are imported automatically. URLs, plain
+links and images inside code are ignored, as are paths outside those roots or
+files that cannot be read.
 
 ## Tray controls
 
