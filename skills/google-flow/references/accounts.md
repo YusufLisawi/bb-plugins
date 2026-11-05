@@ -80,7 +80,7 @@ with `flow.py accounts --only NAME` (add `--force` for one in a cool-down: it is
     ended on that account.
   - **Daily start:** the first job of each day (per kind) starts on the day's account: the signed-in accounts in order, one step
     further each day from `guard.pool_anchor` (2026-11-01 = google1, 11-02 = google2, then around again).
-  - **Last resort:** `guard.last_resort` (default `["google3"]` = yusufisawi@gmail.com, the owner's main account) is never the
+  - **Last resort:** `guard.last_resort` (default `["google3"]`, the owner's main account) is never the
     day's starting account and sits at the end of the rotation: the pool uses it only when every other account is signed out,
     cooling down, over its cap or out of credits, and moves back to a regular account as soon as one can take the job.
   - **Skips:** an account that is signed out (last known state), in a cool-down, over its daily cap, without a Flow project or

@@ -18,7 +18,7 @@ What it enforces (state in ~/.config/google-flow/guard.json, settings in config.
             No automatic retries anywhere.
   POOL      `--account auto` for image / video jobs (pick_account): stay on one account for a BATCH (16 image jobs, 8 video
             jobs; `batch`), then move to the next signed-in account (google1 → google2 → google4 → …, circular). A
-            `last_resort` account (default google3 = yusufisawi@gmail.com, the owner's main account) is never the starting
+            `last_resort` account (default google3, the owner's main account) is never the starting
             account and is used only when every other account is unavailable. Images and
             videos keep separate positions. The day's STARTING account rotates daily (`pool_anchor` day = google1, the next
             day google2, …, over the signed-in accounts). An account in a cool-down, signed out, without a Flow project / credits
@@ -47,7 +47,7 @@ STATE = DIR / "guard.json"
 CONF = DIR / "config.json"
 DEFAULTS = {"pause_s": [20, 60], "cap": {"image": 60, "video": 12, "tts": 80}, "cooldown_min": 120, "wait_min": 30,
             "batch": {"image": 16, "video": 8}, "pool_anchor": "2026-11-01",
-            # never START on these (the owner's main account, yusufisawi@gmail.com): used only when every other account is
+            # never START on these (the owner's main account): used only when every other account is
             # unavailable, and never as the day's starting account. Override in config.json "guard.last_resort".
             "last_resort": ["google3"]}
 POOLED = ("image", "video")

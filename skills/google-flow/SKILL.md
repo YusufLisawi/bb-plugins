@@ -111,7 +111,7 @@ Every command that touches Google goes through one guard, shared by flow.py, ais
   speech fallback picks the account with the most room). `list` / `download` / `status` without `--account` use the account
   that generated last (tiles live in one account's project). Flow characters and uploaded plates are per project: set them up in
   every account's project before relying on the rotation.
-- **Never start on yusufisawi@gmail.com (google3)**, the owner's main account: it is `guard.last_resort`, never the day's
+- **Never start on google3**, the owner's main account: it is `guard.last_resort`, never the day's
   starting account, and the pool uses it only when every other account is unavailable (it switches back as soon as one is free).
   Explicit `--account google3` only when the owner asks for it.
 - **Act like one person, not a bot, and never disguise the bot.** One job, wait for it, download, a human pause, then the next.
@@ -119,7 +119,7 @@ Every command that touches Google goes through one guard, shared by flow.py, ais
   no fingerprint or "stealth" tricks to get past Google's checks: that breaks Flow's terms and risks the account itself (Google
   ties accounts by login, and a signed-in account hopping IPs is a classic trigger for a security lock). On 2026-11-05 ~20
   back-to-back video jobs with instant retries, run from an old copy of this skill without the guard, got "unusual activity" on
-  yusufisawi; the rest had to be paid on the Gemini API (≈ $9 for 17 takes; see `references/gemini-api.md` → Video).
+  the main account; the rest had to be paid on the Gemini API (≈ $9 for 17 takes; see `references/gemini-api.md` → Video).
 - **Paid fallbacks only after asking the owner** (Gemini API Omni, ElevenLabs Veo, Higgsfield), and one take per clip by default.
 Settings live in `~/.config/google-flow/config.json` under `"guard"` (`pause_s`, `cap`, `cooldown_min`, `wait_min`, `last_resort`); usage and
 cool-downs show per account in `flow.py accounts` and `flow.py status` → `guard`. `GOOGLE_GUARD_OFF=1` bypasses it: the owner's call
