@@ -103,7 +103,7 @@ Every command that touches Google goes through one guard, shared by flow.py, ais
 - **Back-off per account:** any "unusual activity", rate-limit, quota or refusal text pauses THAT account for 120 min; the
   others keep working. No automatic retries anywhere: when a job is refused, stop and report.
 - **`--account auto`** (default for video / image) is a **pool with batches**: stay on one account for **16 image jobs** or
-  **8 video jobs**, then move to the next signed-in account (google1 → google2 → google3 → …, circular); images and videos keep
+  **8 video jobs**, then move to the next signed-in account (google1 → google2 → google4 → …, circular); images and videos keep
   separate positions; the **day's starting account rotates daily** (2026-11-01 = google1, the next day google2, …, over the signed-in
   accounts). An account in a cool-down, signed out, over its daily cap, or without a Flow project / credits is skipped and the batch
   moves on. `flow.py accounts` shows the pool (`next`, `used_in_batch`, `left_in_batch`). Settings: `guard.batch`
@@ -111,7 +111,17 @@ Every command that touches Google goes through one guard, shared by flow.py, ais
   speech fallback picks the account with the most room). `list` / `download` / `status` without `--account` use the account
   that generated last (tiles live in one account's project). Flow characters and uploaded plates are per project: set them up in
   every account's project before relying on the rotation.
-Settings live in `~/.config/google-flow/config.json` under `"guard"` (`pause_s`, `cap`, `cooldown_min`, `wait_min`); usage and
+- **Never start on yusufisawi@gmail.com (google3)**, the owner's main account: it is `guard.last_resort`, never the day's
+  starting account, and the pool uses it only when every other account is unavailable (it switches back as soon as one is free).
+  Explicit `--account google3` only when the owner asks for it.
+- **Act like one person, not a bot, and never disguise the bot.** One job, wait for it, download, a human pause, then the next.
+  On an error, `list` first to see whether a tile exists; never re-submit straight away. No proxies or IP rotation per account,
+  no fingerprint or "stealth" tricks to get past Google's checks: that breaks Flow's terms and risks the account itself (Google
+  ties accounts by login, and a signed-in account hopping IPs is a classic trigger for a security lock). On 2026-11-05 ~20
+  back-to-back video jobs with instant retries, run from an old copy of this skill without the guard, got "unusual activity" on
+  yusufisawi; the rest had to be paid on the Gemini API (≈ $9 for 17 takes; see `references/gemini-api.md` → Video).
+- **Paid fallbacks only after asking the owner** (Gemini API Omni, ElevenLabs Veo, Higgsfield), and one take per clip by default.
+Settings live in `~/.config/google-flow/config.json` under `"guard"` (`pause_s`, `cap`, `cooldown_min`, `wait_min`, `last_resort`); usage and
 cool-downs show per account in `flow.py accounts` and `flow.py status` → `guard`. `GOOGLE_GUARD_OFF=1` bypasses it: the owner's call
 only. Never run two agents on one account at once (an "unusual activity" warning once came from Flow and AI Studio jobs overlapping).
 The Gemini API route (`gemini_audio.py`) is not behind this guard: it is an API key, not an account session.

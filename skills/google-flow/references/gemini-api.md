@@ -109,6 +109,35 @@ sometimes answers with text tokens, not billed) once. Everything else fails at o
   confirms it.
 - Image input (up to 10 images with the text) exists in the API; not wrapped.
 
+## Video: Gemini Omni 1.1 Flash (paid fallback when Flow is blocked; ask the owner first)
+
+The same Omni model as in Flow, on this API key, outside the Flow account sessions (no guard, no "unusual activity" blocks).
+Tested 2026-11-05 for the segurodedecesos.com ads.
+
+- **Endpoint:** `POST /v1beta/interactions`, model `gemini-omni-1.1-flash`, header `x-goog-api-key`. Image-to-video:
+  `input: [{type:"image", data:<base64>, mime_type:"image/jpeg"}, {type:"text", text:"…"}]`,
+  `response_format: {type:"video", aspect_ratio:"9:16", resolution:"720p"}` (also `360p`, `1080p`/`4k` upscaled),
+  `background:false, store:false, stream:false` for one synchronous call (~30 s for a 4–6 s clip). The video comes back in
+  `steps[].content[]` (`type:"video"`, base64 `data`, or `uri` for large files); `output_video` is SDK-only.
+- **Say it in the prompt:** "the attached image is the exact first frame", "a single continuous shot, no scene cuts" (Omni
+  otherwise cuts between shots), the duration ("a 6-second video"), the line in quotes, and the voice (see below).
+- **Price:** ≈ **$0.10 per second at 720p** (5,792 output tokens per second at $17.50 / 1M; input and thinking are cents).
+  A 4 s take ≈ $0.40, 6 s ≈ $0.60. 17 takes for one ad set cost ≈ $9: make **one take per clip** and retake only failures.
+- **One voice across lines = one session.** Each separate call invents a new voice (and sometimes a Latin American accent).
+  The API has no voice or audio reference ("uploading audio references is unsupported", "voice editing is not supported"),
+  but the voice carries over when you **extend the same generated video**: turn 1 with `store:true`, then
+  `previous_interaction_id: <turn-1 id>` and `input: "Extend this video by 6 seconds … with exactly the same voice, accent and
+  tone as before, and says: '…'"` (an image can be added to an extension for the next shot). Each turn returns the whole
+  video so far; an extension bills only its new seconds. Cut the lines apart in the edit. Describe the voice identically in
+  every turn, e.g. "a warm, smooth, gentle female voice from Madrid, Spain, about 38, soft mid-low pitch, native Castilian
+  Spanish (Spain) pronunciation with the Castilian 'z/c' (θ) as in 'precio', 'decesos'; never a Latin American accent".
+  A speaker check (ElevenLabs STT `diarize=true`) on the cut confirmed one voice across all three lines.
+- **Do not paste another TTS voice onto generated lips.** Re-voicing Omni clips with ElevenLabs and time-warping words onto the
+  mouth sounded cut and slowed ("abajo" stretched 1.8× to fill a pause where she points). Without a real lip-sync model,
+  on-camera speech should come from the video model itself; ElevenLabs stays for voice-over where no lips move.
+- Transcribe every take: Omni sometimes stutters ("ase-aseguradoras") or repeats a phrase; cut at a point you have checked
+  by transcribing the joined audio.
+
 ## Sources
 
 ai.google.dev/gemini-api/docs/speech-generation, /music-generation, /pricing, /rate-limits (2026-11-01); the model list and token

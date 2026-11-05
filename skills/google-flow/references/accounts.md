@@ -74,12 +74,15 @@ with `flow.py accounts --only NAME` (add `--force` for one in a cool-down: it is
   `guard.cap`) and **per-account cool-downs**: a warning ("unusual activity", quota, rate limit, refusal…) pauses only the
   account that saw it, for `cooldown_min` (120). The other accounts keep working.
 - **`auto` = the pool** (images and videos; `google_guard.pick_account`):
-  - **Batches:** 16 image jobs stay on one account, then the next signed-in account takes over (google1 → google2 → google3 → …,
+  - **Batches:** 16 image jobs stay on one account, then the next signed-in account takes over (google1 → google2 → google4 → …,
     circular); videos: 8 jobs per account. A job is one `image` / `video` command (`--count 4` is still one job). Images and
     videos have separate positions (`guard.json` → `pool.image` / `pool.video`: `{day, account, used}`); `used` counts jobs that
     ended on that account.
   - **Daily start:** the first job of each day (per kind) starts on the day's account: the signed-in accounts in order, one step
-    further each day from `guard.pool_anchor` (2026-11-01 = google1, 11-02 = google2, 11-03 = google3, then around again).
+    further each day from `guard.pool_anchor` (2026-11-01 = google1, 11-02 = google2, then around again).
+  - **Last resort:** `guard.last_resort` (default `["google3"]` = yusufisawi@gmail.com, the owner's main account) is never the
+    day's starting account and sits at the end of the rotation: the pool uses it only when every other account is signed out,
+    cooling down, over its cap or out of credits, and moves back to a regular account as soon as one can take the job.
   - **Skips:** an account that is signed out (last known state), in a cool-down, over its daily cap, without a Flow project or
     out of credits is skipped and the batch moves on (a fresh batch starts on the next eligible account; if only one account
     is left its batches simply restart). If none qualifies the error lists why for each.

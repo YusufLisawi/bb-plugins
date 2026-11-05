@@ -17,7 +17,9 @@ What it enforces (state in ~/.config/google-flow/guard.json, settings in config.
             until it ends every guarded call for it fails at once with the minutes left. The other accounts keep working.
             No automatic retries anywhere.
   POOL      `--account auto` for image / video jobs (pick_account): stay on one account for a BATCH (16 image jobs, 8 video
-            jobs; `batch`), then move to the next signed-in account (google1 → google2 → google3 → …, circular). Images and
+            jobs; `batch`), then move to the next signed-in account (google1 → google2 → google4 → …, circular). A
+            `last_resort` account (default google3 = yusufisawi@gmail.com, the owner's main account) is never the starting
+            account and is used only when every other account is unavailable. Images and
             videos keep separate positions. The day's STARTING account rotates daily (`pool_anchor` day = google1, the next
             day google2, …, over the signed-in accounts). An account in a cool-down, signed out, without a Flow project / credits
             or over its daily cap is skipped (the batch moves on). Other kinds (speech fallback): the signed-in account with
@@ -44,7 +46,10 @@ LOCK = DIR / "google.lock"
 STATE = DIR / "guard.json"
 CONF = DIR / "config.json"
 DEFAULTS = {"pause_s": [20, 60], "cap": {"image": 60, "video": 12, "tts": 80}, "cooldown_min": 120, "wait_min": 30,
-            "batch": {"image": 16, "video": 8}, "pool_anchor": "2026-11-01"}
+            "batch": {"image": 16, "video": 8}, "pool_anchor": "2026-11-01",
+            # never START on these (the owner's main account, yusufisawi@gmail.com): used only when every other account is
+            # unavailable, and never as the day's starting account. Override in config.json "guard.last_resort".
+            "last_resort": ["google3"]}
 POOLED = ("image", "video")
 WARN = re.compile(r"unusual activity|suspicious|automated|captcha|verify (it'?s|that) you|too many requests|rate.?limit|"
                   r"quota|resource.?exhausted|\b429\b|try again (later|in)|temporarily (blocked|unavailable)|exceeded", re.I)
@@ -163,23 +168,38 @@ def _ineligible(n, kind, st, s, need_project):
 
 
 def _start_account(signed, s):
-    """the day's starting account: the signed-in accounts in order, one step further each day from `pool_anchor`"""
+    """the day's starting account: the signed-in accounts in order, one step further each day from `pool_anchor`;
+    a `last_resort` account is never the starting one (unless it is the only one signed in)"""
     import datetime
     days = (datetime.date.fromisoformat(_today()) - datetime.date.fromisoformat(s["pool_anchor"])).days
-    return signed[days % len(signed)]
+    first = [n for n in signed if n not in s.get("last_resort", [])] or signed
+    return first[days % len(first)]
+
+
+def _order(names, s):
+    """account order with every `last_resort` account moved to the end"""
+    lr = s.get("last_resort", [])
+    return [n for n in names if n not in lr] + [n for n in names if n in lr]
 
 
 def _pool_plan(kind, st, s, need_project):
     """Where the next `kind` job goes under the batch rotation: (account | None, new pool position, skipped reasons).
     Pure: nothing is saved here."""
     names = list(accounts.NAMES)
+    lr = s.get("last_resort", [])
     signed = [n for n in names if accounts.state(n).get("signed_in") is True]
     batch = max(1, int(s["batch"].get(kind, 1)))
     pool = dict(st.get("pool", {}).get(kind) or {})
     if pool.get("day") != _today() or pool.get("account") not in names:   # a new day: back to the day's starting account
-        pool = {"day": _today(), "account": _start_account(signed, s) if signed else names[0], "used": 0}
-    i = names.index(pool["account"])
-    ring = names[i:] + names[:i]
+        pool = {"day": _today(), "account": _start_account(signed, s) if signed else _order(names, s)[0], "used": 0}
+    primary = [n for n in names if n not in lr]
+    if pool["account"] in lr and primary:   # back on a regular account as soon as one can take the job
+        pool = {"day": _today(), "account": primary[0], "used": 0}
+    if pool["account"] in primary:
+        i = primary.index(pool["account"])
+        ring = primary[i:] + primary[:i] + [n for n in names if n in lr]   # last-resort accounts only after every other one
+    else:
+        ring = _order(names, s)
     skipped, full = {}, None
     for n in ring:
         why = _ineligible(n, kind, st, s, need_project)
@@ -228,7 +248,8 @@ def pick_account(kind: str, need_project: bool = False) -> str:
         rows.append(((cap - used) if cap is not None else 10 ** 6, accounts.state(n).get("last_used", 0), n))
     if not rows:
         _fail(f"no Google account is available for {kind}: " + "; ".join(f"{n}: {why}" for n, why in skipped.items()), skipped=skipped)
-    rows.sort(key=lambda r: (-r[0], r[1]))
+    lr = s.get("last_resort", [])
+    rows.sort(key=lambda r: (r[2] in lr, -r[0], r[1]))   # a last-resort account only when no other one can
     _log(f"auto → {rows[0][2]} ({rows[0][0]} {kind} left today)" + (f"; skipped {skipped}" if skipped else ""))
     return rows[0][2]
 
