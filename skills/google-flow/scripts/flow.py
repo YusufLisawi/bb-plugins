@@ -782,6 +782,9 @@ def run_generation(a, kind):
     refs = [f.ensure_asset(r, "ingredient") for r in (getattr(a, "ingredient", None) or getattr(a, "ref", None) or [])]
     chars = list(getattr(a, "character", None) or [])
     f.call("clearPromptBar")
+    if kind == "video" and "1.2" in str(cfg.get("model")) and not cfg.get("secs"):
+        # Omni 1.2 Flash has no length option and inherits the last one chosen on 1.1: set the longest (10 s) there first
+        configure(f, {**cfg, "model": "Omni 1.1 Flash", "secs": "10s"})
     st = configure(f, cfg)
     quoted, model = st.get("price"), st.get("model")
     log(f"{st.get('model')} · {st.get('summary')} · quoted {quoted} credits")
