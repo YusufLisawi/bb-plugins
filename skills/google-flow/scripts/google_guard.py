@@ -52,7 +52,7 @@ DEFAULTS = {"pause_s": [20, 60], "cap": {"image": 60, "video": 12, "tts": 80}, "
             "last_resort": ["google3"]}
 POOLED = ("image", "video")
 WARN = re.compile(r"unusual activity|suspicious|automated|captcha|verify (it'?s|that) you|too many requests|rate.?limit|"
-                  r"quota|resource.?exhausted|\b429\b|try again (later|in)|temporarily (blocked|unavailable)|exceeded", re.I)
+                  r"quota|resource.?exhausted|\b429\b|try again (later|in)|temporarily (blocked|unavailable)|(?<!deadline )exceeded", re.I)
 CURRENT: str | None = None   # the account this process works on
 
 

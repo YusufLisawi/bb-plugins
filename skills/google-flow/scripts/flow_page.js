@@ -50,9 +50,15 @@
   const openPanel = async () => {
     if (panelOpen()) return true;
     await closeMenus();
+    // Flow 2026-11: an "Agent" toggle (aria-pressed) hides the classic settings; switch it off first
+    const agent = all('button').find((b) => txt(b) === 'Agent' && b.getAttribute('aria-pressed') === 'true');
+    if (agent) { agent.click(); await sleep(500); if (panelOpen()) return true; }
     const t = trigger();
-    if (!t) return false;
-    t.click();
+    if (t) { t.click(); if (await waitFor(panelOpen, 2500)) return true; await closeMenus(); }
+    // fallback: the "tune" Settings button in the prompt box
+    const tune = all('button[aria-label="Settings"]').find((b) => txt(b) === '' || /tune/.test(b.innerText || ''));
+    if (!tune) return false;
+    tune.click();
     return !!(await waitFor(panelOpen, 4000));
   };
   const priceText = () => {
@@ -351,6 +357,7 @@
     buf = '';
     const f = new File([u], name, { type });
     await closeMenus();
+
     const target = document.querySelector('flow-tile-container')?.parentElement ||
       document.elementFromPoint(innerWidth / 2, innerHeight / 3) || document.body;
     const dt = new DataTransfer();
@@ -358,7 +365,10 @@
     const r = target.getBoundingClientRect();
     const opts = { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + r.width / 2, clientY: r.top + Math.min(r.height / 2, 300) };
     for (const t of ['dragenter', 'dragover', 'drop']) target.dispatchEvent(new DragEvent(t, opts));
-    return { ok: true, size: f.size };
+    // Flow 2026-11: a per-upload "Rights to use this image" consent holds the upload until "I agree"
+    const agree = await waitFor(() => all('flow-upload-consent-dialog button, mat-dialog-actions button').find((x) => txt(x) === 'I agree'), 4000);
+    if (agree) agree.click();
+    return { ok: true, size: f.size, consent: !!agree };
   };
 
   // ---- account --------------------------------------------------------------------------
@@ -384,7 +394,7 @@
     .map(txt).filter(Boolean).slice(0, 5);
 
   window.__flow = {
-    v: 8, sleep, txt, panelState, openPanel, configure, models, selectModel, price, setPrompt, setFrame,
+    v: 12, sleep, txt, panelState, openPanel, configure, models, selectModel, price, setPrompt, setFrame,
     addIngredient, clearPromptBar, generate, tiles, tileMenu, downloadOptions, scrollTop, bufReset, bufAdd,
     dropFile, account, errors, closeMenus, dlArm, dlStatus, dlChunk, dlDone, selectIngredients, ingredientCount,
     pickerTab, pickerSearch, assetOption: (n) => { const o = assetOption(n); return o ? optName(o) : null; }, clickOption: async (n) => { const o = await waitFor(() => assetOption(n), 8000); if (!o) return false; o.click(); return true; },

@@ -714,7 +714,8 @@ def gen_cfg(a, kind):
         cfg["input"] = "Ingredients" if (getattr(a, "ingredient", None) or getattr(a, "character", None)) else "Frames"
         is_veo = "veo" in str(model).lower()
         cfg["res"] = a.res or (None if is_veo else d.get("res"))
-        cfg["secs"] = norm_secs(a.secs) if a.secs else (None if is_veo else d.get("secs"))
+        fixed_len = is_veo or "1.2" in str(model)  # Veo and Omni 1.2 Flash have a fixed length
+        cfg["secs"] = norm_secs(a.secs) if a.secs else (None if fixed_len else d.get("secs"))
     return cfg
 
 
