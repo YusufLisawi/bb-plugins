@@ -5,6 +5,11 @@
 import { useState, useSyncExternalStore } from "react";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "./lib/utils";
+import {
+  accountWindows, formatMultiplier, groupWindow, isUltra, planLabel, planMultiplier,
+  type PlanOverride, type PlanOverrides, type UsageWindowValue,
+} from "./usage-model";
+export { accountWindows, planMultiplier } from "./usage-model";
 
 const POOL_PLUGIN_ID = "account-pool-plus";
 
@@ -51,6 +56,7 @@ interface PoolSnapshot {
   routingMode: "ordered" | "balanced" | null;
   error: string | null;
   pendingIds: ReadonlySet<string>;
+  planOverrides: PlanOverrides;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +70,7 @@ let snapshot: PoolSnapshot = {
   routingMode: null,
   error: null,
   pendingIds: new Set(),
+  planOverrides: {},
 };
 
 function update(next: Partial<PoolSnapshot>) {
@@ -81,9 +88,9 @@ export function usePool(): PoolSnapshot {
   );
 }
 
-async function poolRpc<T>(method: string, input: unknown): Promise<T> {
+async function poolRpc<T>(method: string, input: unknown, pluginId = POOL_PLUGIN_ID): Promise<T> {
   const response = await fetch(
-    `/api/v1/plugins/${POOL_PLUGIN_ID}/rpc/${encodeURIComponent(method)}`,
+    `/api/v1/plugins/${pluginId}/rpc/${encodeURIComponent(method)}`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -97,11 +104,11 @@ async function poolRpc<T>(method: string, input: unknown): Promise<T> {
     | null;
   if (body?.ok) return body.result;
   const error = body?.error;
-  throw new Error(
+  throw Object.assign(new Error(
     typeof error === "string"
       ? error
-      : (error?.message ?? `Account Pooler+ returned HTTP ${response.status}.`),
-  );
+      : (error?.message ?? `${pluginId} returned HTTP ${response.status}.`),
+  ), { status: response.status });
 }
 
 function errorMessage(cause: unknown) {
@@ -117,18 +124,21 @@ export function refreshPool(): Promise<void> {
     poolRpc<{ routingMode?: "ordered" | "balanced" }>("config.get", null).catch(
       () => ({ routingMode: undefined }),
     ),
+    poolRpc<PlanOverrides>("getPlanOverrides", null, "usage"),
   ])
-    .then(([accounts, groups, config]) =>
+    .then(([accounts, groups, config, planOverrides]) =>
       update({
         accounts,
         groups,
         routingMode: config.routingMode ?? null,
+        planOverrides,
         error: null,
       }),
     )
-    .catch(() => {
-      // No Account Pooler+ on this server: the section stays hidden.
-      update({ accounts: null, groups: [] });
+    .catch((cause) => {
+      if (cause instanceof Error && "status" in cause && cause.status === 404)
+        update({ accounts: null, groups: [], error: null });
+      else update({ error: errorMessage(cause) });
     })
     .finally(() => {
       refreshing = null;
@@ -217,6 +227,13 @@ function move(account: PoolAccount, to: number) {
   });
 }
 
+function setPlanOverride(accountId: string, plan: PlanOverride | null) {
+  return mutate([accountId], async () => {
+    const planOverrides = await poolRpc<PlanOverrides>("setPlanOverride", { accountId, plan }, "usage");
+    update({ planOverrides });
+  });
+}
+
 function setRoutingMode(routingMode: "ordered" | "balanced") {
   return mutate([], async () => {
     await poolRpc("config.set", { routingMode });
@@ -245,48 +262,6 @@ function members(group: AccountGroup, accounts: PoolAccount[]) {
 // ---------------------------------------------------------------------------
 // Usage windows
 // ---------------------------------------------------------------------------
-
-export interface UsageWindowValue {
-  label: string;
-  minutes: number;
-  utilization: number;
-  resetAt: number | null;
-}
-
-function windowLabel(minutes: number) {
-  if (minutes === 300) return "5h";
-  if (minutes === 10_080) return "Weekly";
-  if (minutes === 1_440) return "Daily";
-  return minutes % 1_440 === 0 ? `${minutes / 1_440}d` : `${minutes / 60}h`;
-}
-
-/**
- * The account's live windows, shortest first. Claude reports 5h / 7d in
- * dedicated fields; Codex reports its windows as a list, and some plans
- * (Pro) only have a weekly one. Windows that are not reported are left out.
- */
-export function accountWindows(account: PoolAccount): UsageWindowValue[] {
-  const windows: UsageWindowValue[] = [];
-  const push = (
-    minutes: number,
-    utilization: number | null,
-    resetAt: number | null,
-  ) => {
-    if (utilization === null) return;
-    if (windows.some((window) => window.minutes === minutes)) return;
-    windows.push({ label: windowLabel(minutes), minutes, utilization, resetAt });
-  };
-  push(300, account.fiveHourUtilization, account.fiveHourResetAt);
-  push(10_080, account.sevenDayUtilization, account.sevenDayResetAt);
-  for (const window of account.limitWindows ?? []) {
-    push(
-      window.windowMinutes ?? (window.slot === "primary" ? 300 : 10_080),
-      window.utilization,
-      window.resetAt,
-    );
-  }
-  return windows.sort((left, right) => left.minutes - right.minutes);
-}
 
 /** "2h 14m", "3d 4h", or "now". */
 function timeLeft(resetAt: number | null) {
@@ -390,35 +365,10 @@ function SecondaryWindow({ window }: { window: UsageWindowValue }) {
 // Plans and capacity
 // ---------------------------------------------------------------------------
 
-/** Claude capacity relative to Pro (Team 1.25x); Codex counts as 1. */
-export function planMultiplier(account: PoolAccount): number {
-  if (account.provider === "codex") return 1;
-  const max = (account.rateLimitTier ?? "").match(/max_(\d+)x/u);
-  if (max?.[1] !== undefined) return Number(max[1]);
-  const plan = (account.subscriptionType ?? "").toLowerCase();
-  if (plan.includes("team")) return 1.25;
-  if (plan === "max") return 5;
-  return 1;
-}
-
-function formatMultiplier(value: number) {
-  return `${Number.isInteger(value) ? value : value.toFixed(2).replace(/0$/u, "")}x`;
-}
-
-function planLabel(account: PoolAccount) {
-  if (account.provider === "codex") {
-    const plan = account.subscriptionType ?? "ChatGPT";
-    return plan.charAt(0).toUpperCase() + plan.slice(1);
-  }
-  const plan = (account.subscriptionType ?? "").toLowerCase();
-  if (plan.includes("team")) return "Team";
-  return formatMultiplier(planMultiplier(account));
-}
-
 /** "10×1.25x" when every account has the same plan, else the total. */
-function capacityLabel(accounts: PoolAccount[]) {
+function capacityLabel(accounts: PoolAccount[], overrides: PlanOverrides) {
   if (accounts[0]?.provider === "codex") return `${accounts.length} accounts`;
-  const multipliers = accounts.map(planMultiplier);
+  const multipliers = accounts.map((account) => planMultiplier(account, 10_080, overrides[account.id]));
   const [first] = multipliers;
   if (
     multipliers.length > 1 &&
@@ -428,33 +378,6 @@ function capacityLabel(accounts: PoolAccount[]) {
     return `${multipliers.length}×${formatMultiplier(first)}`;
   }
   return formatMultiplier(multipliers.reduce((sum, value) => sum + value, 0));
-}
-
-/**
- * Plan-weighted usage of one window length across accounts, for the group
- * row; accounts without that window are left out.
- */
-function groupWindow(
-  accounts: PoolAccount[],
-  minutes: number,
-): UsageWindowValue | null {
-  let used = 0;
-  let capacity = 0;
-  let resetAt: number | null = null;
-  for (const account of accounts) {
-    const window = accountWindows(account).find(
-      (item) => item.minutes === minutes,
-    );
-    if (window === undefined) continue;
-    const weight = planMultiplier(account);
-    used += window.utilization * weight;
-    capacity += weight;
-    if (window.resetAt !== null && (resetAt === null || window.resetAt < resetAt))
-      resetAt = window.resetAt;
-  }
-  return capacity === 0
-    ? null
-    : { label: windowLabel(minutes), minutes, utilization: used / capacity, resetAt };
 }
 
 // ---------------------------------------------------------------------------
@@ -534,7 +457,9 @@ function AccountCard({
   full: boolean;
 }) {
   const name = accountName(account);
-  const [primary, ...rest] = accountWindows(account);
+  const pool = usePool();
+  const override = pool.planOverrides[account.id];
+  const [primary, ...rest] = accountWindows(account, override);
   const weekly = rest.find((window) => window.minutes >= 1_440);
   return (
     <div
@@ -557,7 +482,7 @@ function AccountCard({
         >
           {name}
         </span>
-        <PlanBadge>{planLabel(account)}</PlanBadge>
+        <PlanBadge>{planLabel(account, pool.planOverrides[account.id])}</PlanBadge>
         {account.current ? <NextTag /> : null}
         {full ? (
           <>
@@ -596,6 +521,25 @@ function AccountCard({
         <PrimaryWindow window={primary} />
       )}
       {weekly === undefined ? null : <SecondaryWindow window={weekly} />}
+      {isUltra(account, override) && !accountWindows(account, override).some((w) => w.minutes === 300) ? (
+        <p className="text-[10px] text-muted-foreground">No 5-hour limit</p>
+      ) : null}
+      {full && account.provider === "claude" ? (
+        <label className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+          Plan
+          <select
+            aria-label={`Plan for ${name}`}
+            title="Override saved plan details after an upgrade. Ultra applies to verified accounts with no 5-hour limit."
+            value={override ?? "detected"}
+            disabled={pending}
+            onChange={(event) => void setPlanOverride(account.id, event.target.value === "ultra" ? "ultra" : null)}
+            className="h-6 max-w-[13rem] rounded border border-border bg-background px-1 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="detected">Detected · {planLabel(account)}</option>
+            <option value="ultra">Ultra · 10x weekly, no 5h</option>
+          </select>
+        </label>
+      ) : null}
     </div>
   );
 }
@@ -609,6 +553,7 @@ function GroupEditor({
   initial: AccountGroup | null;
   onDone: () => void;
 }) {
+  const pool = usePool();
   const [name, setName] = useState(initial?.name ?? "");
   const [selected, setSelected] = useState(
     () => new Set(initial?.accountIds ?? []),
@@ -655,7 +600,7 @@ function GroupEditor({
               }}
             />
             <span className="min-w-0 flex-1 truncate">{accountName(account)}</span>
-            <PlanBadge>{planLabel(account)}</PlanBadge>
+            <PlanBadge>{planLabel(account, pool.planOverrides[account.id])}</PlanBadge>
           </label>
         ))}
       </div>
@@ -699,18 +644,18 @@ function GroupAccordion({
   full: boolean;
   onEdit: () => void;
 }) {
-  const [open, setOpen] = useState(() => expandedGroups.has(group.id));
+  const [open, setOpen] = useState(() => expandedGroups.has(`${list[0]?.provider}:${group.id}`));
   const active = list.filter((account) => account.enabled);
   const paused = list.length > 0 && active.length === 0;
   const pending = list.some((account) => pool.pendingIds.has(account.id));
   const measured = active.length > 0 ? active : list;
   const shortest = [300, 10_080]
-    .map((minutes) => groupWindow(measured, minutes))
+    .map((minutes) => groupWindow(measured, minutes, pool.planOverrides))
     .filter((window): window is UsageWindowValue => window !== null);
   const [primary, weekly] = shortest;
   const toggle = () => {
-    if (open) expandedGroups.delete(group.id);
-    else expandedGroups.add(group.id);
+    if (open) expandedGroups.delete(`${list[0]?.provider}:${group.id}`);
+    else expandedGroups.add(`${list[0]?.provider}:${group.id}`);
     setOpen(!open);
   };
   return (
@@ -746,7 +691,7 @@ function GroupAccordion({
             title="Combined capacity relative to a Pro plan; usage is weighted by plan size"
             className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
           >
-            {capacityLabel(list)} · {active.length}/{list.length} on
+            {capacityLabel(list, pool.planOverrides)} · {active.length}/{list.length} on
           </span>
           {list.some((account) => account.current) ? <NextTag /> : null}
           <IconButton
@@ -958,18 +903,18 @@ export function PoolTotals({ provider }: { provider: PoolProvider }) {
   const enabled = all.filter((account) => account.enabled);
   const counted = enabled.length > 0 ? enabled : all;
   const capacity = counted.reduce(
-    (sum, account) => sum + planMultiplier(account),
+    (sum, account) => sum + planMultiplier(account, 10_080, pool.planOverrides[account.id]),
     0,
   );
   const rows = [300, 10_080]
     .map((minutes) => {
-      const window = groupWindow(counted, minutes);
+      const window = groupWindow(counted, minutes, pool.planOverrides);
       if (window === null) return null;
       const covered = counted.filter((account) =>
-        accountWindows(account).some((item) => item.minutes === minutes),
+        accountWindows(account, pool.planOverrides[account.id]).some((item) => item.minutes === minutes),
       );
       const coveredCapacity = covered.reduce(
-        (sum, account) => sum + planMultiplier(account),
+        (sum, account) => sum + planMultiplier(account, minutes, pool.planOverrides[account.id]),
         0,
       );
       return { window, covered, coveredCapacity };
@@ -981,10 +926,13 @@ export function PoolTotals({ provider }: { provider: PoolProvider }) {
         All accounts
         <span className="text-[10px] font-normal tabular-nums text-muted-foreground">
           {provider === "claude"
-            ? `${formatMultiplier(capacity)} · ${counted.length} accounts`
+            ? `${formatMultiplier(capacity)} weekly · ${counted.length} accounts`
             : `${counted.length} accounts`}
         </span>
       </p>
+      {counted.some((account) => isUltra(account, pool.planOverrides[account.id]) && !accountWindows(account, pool.planOverrides[account.id]).some((w) => w.minutes === 300)) ? (
+        <p className="text-[10px] text-muted-foreground">Ultra accounts have no 5-hour limit.</p>
+      ) : null}
       {rows.length === 0 ? (
         <p className="text-[11px] text-muted-foreground">No usage reported yet.</p>
       ) : (

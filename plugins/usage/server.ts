@@ -1,6 +1,7 @@
 // bb-plugin-usage — surfaces BB's provider usage & limits in a sidebar panel.
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import type { PlanOverrides } from "./usage-model";
 
 const usageWindowSchema = z.object({
   label: z.string(),
@@ -60,7 +61,15 @@ const usageResponseSchema = z.object({
 
 export type UsageResponse = z.infer<typeof usageResponseSchema>;
 
+const planOverridesSchema = z.record(z.string(), z.literal("ultra"));
+const PLAN_OVERRIDES_KEY = "account-plan-overrides";
+
 export const rpcContract = defineRpcContract({
+  getPlanOverrides: { input: z.null(), output: planOverridesSchema },
+  setPlanOverride: {
+    input: z.object({ accountId: z.string().min(1).max(128), plan: z.literal("ultra").nullable() }),
+    output: planOverridesSchema,
+  },
   getUsage: {
     input: z.null(),
     output: usageResponseSchema,
@@ -68,7 +77,22 @@ export const rpcContract = defineRpcContract({
 });
 
 export default async function plugin(bb: BbPluginApi) {
+  const readOverrides = async (): Promise<PlanOverrides> =>
+    planOverridesSchema.parse(await bb.storage.kv.get(PLAN_OVERRIDES_KEY) ?? {});
+  let saving: Promise<unknown> = Promise.resolve();
   bb.rpc.register(rpcContract, {
+    getPlanOverrides: readOverrides,
+    async setPlanOverride({ accountId, plan }) {
+      const result = saving.then(async () => {
+        const overrides = await readOverrides();
+        if (plan === null) delete overrides[accountId];
+        else overrides[accountId] = plan;
+        await bb.storage.kv.set(PLAN_OVERRIDES_KEY, overrides);
+        return overrides;
+      });
+      saving = result.catch(() => undefined);
+      return result;
+    },
     async getUsage() {
       const usage = await bb.sdk.system.usageLimits();
       // `usageLimits()` is keyed by the provider's registered id in current

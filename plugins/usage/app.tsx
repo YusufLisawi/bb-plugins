@@ -1,9 +1,10 @@
 // bb-plugin-usage — hover popover and click-to-open modal on the sidebar
 // footer icon showing provider usage & limits.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import type { ProviderMeta, UsageResponse } from "./server";
+import { availableSelection, parseSelection, toggleProvider, type ProviderKey } from "./provider-selection";
 import {
   Dialog,
   DialogContent,
@@ -170,24 +171,35 @@ function MiniProviderSection({
   );
 }
 
-type TabKey = "claudeCode" | "codex" | "cursor";
-
-const TAB_POOL: Record<TabKey, PoolProvider | null> = {
+const TAB_POOL: Record<ProviderKey, PoolProvider | null> = {
   claudeCode: "claude",
   codex: "codex",
   cursor: null,
 };
-const TAB_STORAGE_KEY = "bb-plugin-usage:tab";
-let lastTab: TabKey | null = null;
+const SELECTION_STORAGE_KEY = "bb-plugin-usage:providers";
+let lastSelection: ProviderKey[] | null = null;
+const selectionListeners = new Set<() => void>();
 
-function readTab(): TabKey | null {
-  if (lastTab !== null) return lastTab;
+function readSelection(): ProviderKey[] {
+  if (lastSelection !== null) return lastSelection;
   try {
-    const stored = window.localStorage.getItem(TAB_STORAGE_KEY);
-    if (stored === "claudeCode" || stored === "codex" || stored === "cursor")
-      return stored;
-  } catch {}
-  return null;
+    lastSelection = parseSelection(
+      window.localStorage.getItem(SELECTION_STORAGE_KEY),
+      window.localStorage.getItem("bb-plugin-usage:tab"),
+    );
+  } catch { lastSelection = []; }
+  return lastSelection;
+}
+
+function subscribeSelection(listener: () => void) {
+  selectionListeners.add(listener);
+  return () => { selectionListeners.delete(listener); };
+}
+
+function selectProviders(selected: ProviderKey[]) {
+  lastSelection = selected;
+  try { window.localStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(selected)); } catch {}
+  for (const listener of selectionListeners) listener();
 }
 
 /** Provider logo drawn as a mask so it takes the tab's color. */
@@ -233,7 +245,7 @@ function UsagePopoverContent({
   full?: boolean;
 }) {
   const pool = usePool();
-  const [requested, setRequested] = useState<TabKey | null>(readTab);
+  const requested = useSyncExternalStore(subscribeSelection, readSelection);
   if (!data) {
     return <p className="text-xs text-muted-foreground">Loading usage…</p>;
   }
@@ -251,38 +263,28 @@ function UsagePopoverContent({
       </p>
     );
   }
-  const active =
-    tabs.find(({ key }) => key === requested) ?? tabs[0] ?? null;
-  if (active === null) return null;
-  const select = (key: TabKey) => {
-    lastTab = key;
-    setRequested(key);
-    try {
-      window.localStorage.setItem(TAB_STORAGE_KEY, key);
-    } catch {}
-  };
-  const pooled = TAB_POOL[active.key];
-  const local = data[active.key];
+  const selected = availableSelection(requested, tabs.map(({ key }) => key));
+  const visible = tabs.filter(({ key }) => selected.includes(key));
+  const combined = visible.length > 1;
   return (
     <div className="space-y-3">
       <div
-        role="tablist"
-        aria-label="Provider"
+        role="group"
+        aria-label="Providers to show; select one or more"
         className="flex items-center gap-1 border-b border-border pb-2"
       >
         {tabs.map(({ key, name }) => {
-          const isActive = key === active.key;
+          const isActive = selected.includes(key);
           return (
             <button
               key={key}
               type="button"
-              role="tab"
-              aria-selected={isActive}
+              aria-pressed={isActive}
               aria-label={name}
-              title={name}
-              onClick={() => select(key)}
+              title={`${name} — click to show or hide; select multiple providers`}
+              onClick={() => selectProviders(toggleProvider(selected, key))}
               className={cn(
-                "flex h-7 w-8 items-center justify-center rounded-md",
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isActive
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground opacity-70 hover:text-foreground hover:opacity-100",
@@ -296,21 +298,38 @@ function UsagePopoverContent({
             </button>
           );
         })}
-        <span className="ml-auto truncate text-xs font-medium text-foreground">
-          {active.name}
-        </span>
+        <div className="ml-auto min-w-0 text-right">
+          <p className="truncate text-xs font-medium text-foreground">
+            {visible.map(({ name }) => name).join(" + ")}
+          </p>
+          <p className="text-[10px] text-muted-foreground">Select one or more</p>
+        </div>
       </div>
-      {pooled !== null && poolHasProvider(pool, pooled) ? (
-        <>
-          {/* Threads use the pool, so its totals replace this machine's own login. */}
-          <PoolTotals provider={pooled} />
-          <div className="border-t border-border pt-3">
-            <PoolSection provider={pooled} full={full} />
-          </div>
-        </>
-      ) : local.status === "not_installed" ? null : (
-        <MiniProviderSection name="This machine" usage={local} />
-      )}
+      {visible.map(({ key, name }) => {
+        const pooled = TAB_POOL[key];
+        const local = data[key];
+        return (
+          <section key={key} aria-label={`${name} usage`} className="space-y-3 [&+section]:border-t [&+section]:border-border [&+section]:pt-3">
+            {combined ? (
+              <h3 className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <ProviderLogo meta={data.providers?.[key] ?? null} active fallback={name.slice(0, 2)} />
+                {name}
+              </h3>
+            ) : null}
+            {pooled !== null && poolHasProvider(pool, pooled) ? (
+              <>
+                <PoolTotals provider={pooled} />
+                <div className="border-t border-border pt-3">
+                  <PoolSection provider={pooled} full={full} />
+                </div>
+              </>
+            ) : local.status === "not_installed" ? null : (
+              <MiniProviderSection name="This machine" usage={local} />
+            )}
+          </section>
+        );
+      })}
+      {pool.error && pool.accounts === null ? <p role="alert" className="text-[11px] text-destructive">{pool.error}</p> : null}
     </div>
   );
 }
@@ -420,6 +439,9 @@ function UsageModal({
   data: UsageData | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  // Remove the portal immediately on close. A stale exit-animation presence
+  // must not retain the modal overlay or block the sidebar after a reload.
+  if (!open) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-md">
@@ -478,9 +500,9 @@ function UsageOverlays() {
     <>
       {open && rect && !modalOpen ? (
         <div
-          className="fixed z-50 max-h-[min(80vh,640px)] w-96 overflow-y-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+          className="fixed z-50 max-h-[min(80vh,640px)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg"
           style={{
-            left: rect.right + 8,
+            left: Math.max(8, Math.min(rect.right + 8, window.innerWidth - Math.min(384, window.innerWidth - 16) - 8)),
             bottom: Math.max(8, window.innerHeight - rect.bottom),
           }}
           ref={panelRef}
