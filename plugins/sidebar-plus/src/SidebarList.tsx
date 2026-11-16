@@ -242,27 +242,6 @@ function SidebarListContent({
       setChromeHost(null);
     };
   }, []);
-  // In chrome mode Extensions leaves the nav list; we draw a toolbox button
-  // in the footer (where Remote access sat). Clicking it activates the host's
-  // own (hidden) Extensions row so navigation stays SPA routing.
-  const extensionsInFooter = layout.primaryStyle === "chrome";
-  const [footerHost, setFooterHost] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    if (!extensionsInFooter) return;
-    const menu = document.querySelector<HTMLElement>(
-      '[data-sidebar="footer"] ul',
-    );
-    if (!menu) return;
-    const item = document.createElement("li");
-    item.className = "min-w-0";
-    item.dataset.sbpExtensions = "";
-    menu.insertBefore(item, menu.children[1] ?? null);
-    setFooterHost(item);
-    return () => {
-      item.remove();
-      setFooterHost(null);
-    };
-  }, [extensionsInFooter]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [nowMinute, setNowMinute] = useState(() =>
     Math.floor(Date.now() / 60_000),
@@ -561,26 +540,6 @@ function SidebarListContent({
     </Popover.Root>
   );
 
-  const extensionsButton = footerHost
-    ? createPortal(
-        <button
-          type="button"
-          aria-label="Extensions"
-          title="Extensions"
-          onClick={() => {
-            const hostRow = document.querySelector<HTMLButtonElement>(
-              '[data-testid="plugin-nav-sidebar-items"] button:has([data-icon="Toolbox"])',
-            );
-            hostRow?.click();
-          }}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring [&>svg]:opacity-80"
-        >
-          <Icon name="Toolbox" className="size-4" />
-        </button>,
-        footerHost,
-      )
-    : null;
-
   return (
     <ProjectSectionsProvider
       childrenOf={childrenOf}
@@ -589,7 +548,6 @@ function SidebarListContent({
       isCompactViewport={isCompactViewport}
     >
     <div className="flex min-h-0 flex-1 flex-col">
-      {extensionsButton}
       {chromeHost ? (
         createPortal(customizer, chromeHost)
       ) : (

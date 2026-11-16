@@ -1,7 +1,10 @@
 // bb-plugin-usage — hover popover and click-to-open modal on the sidebar
-// footer icon showing provider usage & limits.
+// rail icon (with a footer fallback) showing provider usage & limits.
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
+import { createPortal } from "react-dom";
+import { Icon } from "./components/ui/icon";
+import { mountUsageRail, type UsageRailPlacement } from "./rail-placement";
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import type { ProviderMeta, UsageResponse } from "./server";
 import { availableSelection, parseSelection, toggleProvider, type ProviderKey } from "./provider-selection";
@@ -23,7 +26,7 @@ import {
 } from "./pool";
 
 const PLUGIN_ID = "usage";
-const FOOTER_BUTTON_SELECTOR = '[aria-label="Usage & limits"]';
+const USAGE_BUTTON_SELECTOR = '[aria-label="Usage & limits"]';
 const OPEN_MODAL_EVENT = "bb-plugin-usage:open-modal";
 const CLOSE_DELAY_MS = 150;
 const POLL_INTERVAL_MS = 60_000;
@@ -459,10 +462,13 @@ function UsageModal({
 
 function UsageOverlays() {
   const { open, rect, panelRef, unpin, panelHandlers } = useHoverAnchor(
-    FOOTER_BUTTON_SELECTOR,
+    USAGE_BUTTON_SELECTOR,
   );
   const [data, setData] = useState<UsageData | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [railPlacement, setRailPlacement] = useState<UsageRailPlacement | null>(null);
+
+  useEffect(() => mountUsageRail(document, setRailPlacement), []);
 
   useEffect(() => {
     if (open || modalOpen) void refreshPool();
@@ -498,6 +504,22 @@ function UsageOverlays() {
 
   return (
     <>
+      {railPlacement ? createPortal(
+        <button
+          type="button"
+          aria-label="Usage & limits"
+          aria-haspopup="dialog"
+          aria-expanded={modalOpen}
+          title="Usage & limits"
+          data-usage-rail-trigger=""
+          data-state={open || modalOpen ? "open" : "closed"}
+          className={railPlacement.buttonClassName}
+          onClick={() => window.dispatchEvent(new Event(OPEN_MODAL_EVENT))}
+        >
+          <Icon name="ChartColumn" aria-hidden="true" className="pointer-events-none size-(--bb-sidebar-control-icon-size) shrink-0" />
+        </button>,
+        railPlacement.host,
+      ) : null}
       {open && rect && !modalOpen ? (
         <div
           className="fixed z-50 max-h-[min(80vh,640px)] w-96 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg"

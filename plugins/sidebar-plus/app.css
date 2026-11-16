@@ -181,10 +181,8 @@ html[data-sbp-primary="chrome"]
   margin-right: 0.25rem;
 }
 
-/* --- Extensions lives in the sidebar footer -----------------------------
- * In chrome mode the Extensions nav row disappears from the list; the
- * plugin registers a footer icon (toolbox) in its place, and the connect
- * plugin's Remote access footer button is hidden (reachable via Settings). */
+/* Hide legacy navigation entries in chrome mode. Plugin management lives
+ * in the native rail; Remote access remains reachable through Settings. */
 html[data-sbp-primary="chrome"]
   [data-testid="plugin-nav-sidebar-items"]
   > div:has([data-icon="Toolbox"]) {
