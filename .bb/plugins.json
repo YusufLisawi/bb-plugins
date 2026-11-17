@@ -11,6 +11,8 @@
     { "name": "sidebar-plus", "source": "./plugins/sidebar-plus" },
     { "name": "sync", "source": "./plugins/sync" },
     { "name": "system-tools", "source": "./plugins/system-tools" },
-    { "name": "usage", "source": "./plugins/usage" }
+    { "name": "task-board", "source": "./plugins/task-board" },
+    { "name": "usage", "source": "./plugins/usage" },
+    { "name": "voice-guard", "source": "./plugins/voice-guard" }
   ]
 }
