@@ -1073,6 +1073,32 @@ describe("Account Pool plugin", () => {
     await expect(fs.access(hostTwoTokenFile)).rejects.toThrow();
   });
 
+  it("serves the bare hub token when bb resolves env without a thread", async () => {
+    const dataDir = await mkdtemp(path.join(tmpdir(), "bb-pool-catalog-"));
+    const host = createFakePluginHost({ pluginId: "account-pool", dataDir, sdk: sdkStubs() });
+    await createAccountPoolPlugin()(host.bb);
+    cleanups.push(async () => {
+      await host.harness.lifecycle.dispose();
+      await fs.rm(dataDir, { recursive: true, force: true });
+    });
+    await host.harness.behavior.callRpc("account.add", {
+      provider: "claude",
+      source: { kind: "api-key", apiKey: "sk-account" },
+      label: null,
+      priority: 100,
+    });
+    // The model catalog launch passes threadId: null.
+    const entries = await host.harness.behavior.resolveProviderEnv("claude-code", {
+      threadId: null as unknown as string,
+      projectId: null as unknown as string,
+      hostId: "host-one",
+    });
+    const token = entries.find((entry) => entry.name === "ANTHROPIC_AUTH_TOKEN");
+    expect(typeof token?.value).toBe("string");
+    expect(String(token?.value)).not.toContain(".");
+    expect(await resolveToken(host, "host-one", "thread-one")).toContain(String(token?.value));
+  });
+
   it("uses a single-process token cache and throttles last-use file writes", async () => {
     let now = 1_000;
     const dataDir = await mkdtemp(path.join(tmpdir(), "bb-pool-tokens-"));

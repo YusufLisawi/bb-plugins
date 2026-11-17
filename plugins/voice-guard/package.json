@@ -1,0 +1,35 @@
+{
+  "name": "bb-plugin-voice-guard",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.49",
+    "bbPluginSdk": ">=0.6.132"
+  },
+  "bb": {
+    "name": "Voice Guard",
+    "description": "Saves every dictation to disk and transcribes it with Codex, falling back to Groq Whisper so long recordings never get lost.",
+    "branding": {
+      "icon": "Mic"
+    },
+    "server": "./server.ts",
+    "skills": [
+      "skills"
+    ]
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.132",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
+    "hono": "^4.11.9",
+    "tsx": "^4",
+    "typescript": "^5.7.0"
+  },
+  "description": "Reliable voice input: every recording is saved to disk, transcribed by Codex with a fast Groq Whisper backup.",
+  "scripts": {
+    "build": "bb plugin build",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  }
+}

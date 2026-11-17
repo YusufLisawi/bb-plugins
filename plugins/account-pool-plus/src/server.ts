@@ -318,7 +318,17 @@ export function createAccountPoolPlugin(
         provider: PoolProvider,
         serving: (token: string) => Promise<PoolEnvEntry[]>,
       ) =>
-      async (context: { threadId: string; hostId: string }) => {
+      async (context: { threadId: string | null; hostId: string }) => {
+        // bb also resolves provider env with no thread, for the model
+        // catalog launch, despite the SDK type. Serve the bare hub token then
+        // and skip the per-thread routing records.
+        if (context.threadId === null) {
+          if (!(await canServe(provider))) {
+            return parentPool === null ? [] : neutralized(provider);
+          }
+          const token = await hubTokens.forHost(context.hostId);
+          return [...(await serving(token)), ...markerEntries(token)];
+        }
         const bypassed = await routing.isBypassed(context.threadId);
         if (!bypassed && (await canServe(provider))) {
           await bb.storage.kv.set(`retry-route:${context.threadId}`, provider);

@@ -158,6 +158,8 @@ export function openStore(bb: BbPluginApi) {
       updated_at INTEGER NOT NULL,
       PRIMARY KEY (kind, id)
     )`,
+    // Per-message lookups by server uid (flag sync, prune) were folder scans.
+    `CREATE INDEX IF NOT EXISTS messages_account_folder_uid ON messages (account, folder, uid)`,
   ]);
 
   const upsert = db.prepare(`INSERT INTO messages (id, folder, uid, message_id, from_json, to_json, cc_json, reply_to_json, references_json, subject, snippet, date, seen, text, html, attachments_json, truncated, notify_seq, in_reply_to, automated, account)
@@ -303,15 +305,21 @@ export function openStore(bb: BbPluginApi) {
 
     /** Mirror server flags for already-cached messages; returns whether anything changed. */
     syncSeen(account: string, folder: Folder, flags: Map<number, boolean>): boolean {
-      const update = db.prepare(`UPDATE messages SET seen = ? WHERE account = ? AND folder = ? AND uid = ? AND seen != ?`);
-      let changed = false;
+      // The server reports every message in the folder; only cached ones whose
+      // read state differs need a write. One read beats a lookup per uid, which
+      // stalled the whole bb server for most of a minute on big mailboxes.
+      const cached = db.prepare(`SELECT uid, seen FROM messages WHERE account = ? AND folder = ?`).all(account, folder) as { uid: number; seen: number }[];
+      const stale = cached.filter((row) => {
+        const seen = flags.get(row.uid);
+        return seen !== undefined && (seen ? 1 : 0) !== row.seen;
+      });
+      if (stale.length === 0) return false;
+      const update = db.prepare(`UPDATE messages SET seen = ? WHERE account = ? AND folder = ? AND uid = ?`);
       db.transaction(() => {
-        for (const [uid, seen] of flags) {
-          if (update.run(seen ? 1 : 0, account, folder, uid, seen ? 1 : 0).changes > 0) changed = true;
-        }
+        for (const row of stale) update.run(row.seen ? 0 : 1, account, folder, row.uid);
       })();
-      if (changed) bump();
-      return changed;
+      bump();
+      return true;
     },
 
     /** Drop cached messages that were deleted or moved on the server. */
