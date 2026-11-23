@@ -26,6 +26,9 @@ brief → concept + script → stills (start frames) → takes (image-to-video, 
   animatics), `remotion-render-farm` (fast renders), `watch-video` (break down a reference ad),
   `motion-video-ads` / brand video skills (pure motion graphics, voice-over), `generated-images` (show stills).
 
+- Keys and installs: [references/setup.md](references/setup.md) and `.env.example` (Gemini, ElevenLabs; Remotion
+  needs no key but check its license).
+
 ## Stage map
 
 | Stage | Decide / produce | Read |
