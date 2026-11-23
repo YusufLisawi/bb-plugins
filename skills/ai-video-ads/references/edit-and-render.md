@@ -16,6 +16,14 @@ For each take keep a word-timed transcript (`scripts/stt.py`). Define shots as r
   stutters/repeats ("qué, qué") by splitting the range. Keep a deliberate dramatic pause.
 - Speech-to-text sometimes stretches a word across a silence; confirm boundaries with
   `ffmpeg -i take.mp4 -af silencedetect=n=-35dB:d=0.25 -f null -` and fix the timing by hand.
+- **Long UGC monologues (chained takes): cut automatically against the script.** Transcribe every turn, normalise
+  tokens (lower case, accents stripped, digits → words, "%" → "por ciento", brand name split as spoken), then
+  align spoken words to script words with a longest-common-subsequence pass run on the *reversed* sequences so
+  the latest occurrence wins (seams repeat words). Keep only aligned words; a run of kept words becomes one range;
+  break the range wherever a dropped word sits between two kept ones. Then split each range on real audio
+  silence (`silencedetect=n=-36dB:d=0.35`, cut 0.12 s after silence start and 0.08 s before its end), because STT
+  stretches words over pauses and leaves 4–5 s gaps if trusted. Print the dropped words and read them. `scripts/align_cut.py`
+  does all of this: `align_cut.py script.txt cut.mp4 t1.mp4 t2.mp4 --lang spa --numbers numbers.json`.
 - `who` is explicit, never inferred from file names.
 - Build each shot as a 1080×1920 @ 30 fps JPEG frame sequence + a sample-exact WAV + its words re-timed to the
   shot. Voice chain: high-pass ~85 Hz, gentle presence EQ, light compression, −16 LUFS. **Never pitch-shift voices.**
@@ -36,7 +44,11 @@ voice-over line. Every graphic, chip, logo or sound effect is anchored to a word
 ## 3. Graphics patterns (components)
 
 - **Captions**: 2–4 words per group, current word highlighted, placed in the lower third away from faces; hide them
-  under full-screen cards.
+  under full-screen cards. A group stays up until the next one starts (no blank frames between groups, which read
+  as flicker).
+- **Product screens**: see product-screens.md (phone full screen without the face, true ratio, ≤ 4.5 s per screen).
+- **Cards over the creator** (price card, big stat, chips): place them in the lower-middle band, clear of the face
+  and above the captions; slide/scale in on the spoken word, out before the next beat.
 - **Hook title** (first ~2.5 s): the hook line as a bold tilted stamp, short enough for one line.
 - **Chips** landing on spoken words (list items, features) with a tick and a soft sound.
 - **URL pill** typing in when the URL is said; **logo strip** of partners when they are mentioned.
@@ -65,6 +77,14 @@ N−1 frames otherwise).
 - `ffprobe` size/duration; `scripts/stt.py final.mp4` must read as the script (captions are not proof of audio).
 - Contact sheet of 10–12 frames across the timeline: hook visible in the first second, captions clear of faces,
   graphics land on their words, end card complete.
+- Automated gates on every final:
+  - `silencedetect=n=-40dB:d=0.7` on the voice: no gap > 0.7 s (except a deliberate pause you can name).
+  - `freezedetect=n=0.003:d=3`: no frozen picture > 3 s.
+  - One-frame glitches: compare each frame with its neighbours (mean abs diff); a spike that returns on the next
+    frame is a glitch (a missing asset, a caption flash, a seam).
+  - STT with diarization: one creator = one speaker; audio-event tagging catches throat-clears, "ehm" and
+    breaths that some STT models silently drop.
+  - `ebur128`: −14 LUFS integrated, true peak ≤ −1.5 dBTP.
 - Watch one full playback when possible; listen for accent and level jumps between speakers.
 
 ## 7. Deliver

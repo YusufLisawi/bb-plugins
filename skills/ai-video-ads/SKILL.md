@@ -1,6 +1,6 @@
 ---
 name: ai-video-ads
-description: "Make short ad videos with AI-generated people for any brand — UGC to camera, testimonials, explainers, two-person conversations or calls — end to end: concept and script, start-frame stills, image-to-video takes on Google Flow (owner's account in the browser) or the Gemini API (Omni / Nano Banana), cutting by word timings, a Remotion edit with captions and brand graphics, render, QA and delivery. Use for social video ads, Reels/TikTok/Shorts with talking people, remaking or adding variants to such ads, or when choosing Flow vs API for generated footage."
+description: "Make short ad videos with AI-generated people for any brand — UGC to camera, testimonials, explainers, two-person conversations or calls — end to end: concept and script, start-frame stills, image-to-video takes on Google Flow (owner's account in the browser) or the Gemini API (Omni / Nano Banana), cutting by word timings, a Remotion edit with captions and brand graphics, render, QA and delivery. Use for social video ads, Reels/TikTok/Shorts with talking people, remaking or adding variants to such ads, UGC ads that show a real app or web product on screen, the matching static ads from the same campaign brief, or when choosing Flow vs API for generated footage."
 ---
 
 # AI video ads with generated people
@@ -33,7 +33,9 @@ brief → concept + script → stills (start frames) → takes (image-to-video, 
 | Concept | 2–6 ideas, each with a hook line, angle and audience; owner picks | [references/concepts.md](references/concepts.md) |
 | Stills | one start frame per speaker/angle; the look is decided here, not in the video prompt | [references/stills.md](references/stills.md) |
 | Takes | image-to-video per speaker; all of a speaker's lines in one take | [references/generation.md](references/generation.md) |
+| Product screens | real captured screens, measured highlights, phone full screen without face | [references/product-screens.md](references/product-screens.md) |
 | Edit | word-timed cuts, captions, graphics on spoken words, end card, mix, render | [references/edit-and-render.md](references/edit-and-render.md) |
+| Static ads | same brief: exact file names, claims scan, layout lessons | [references/static-ads.md](references/static-ads.md) |
 
 ## Rules that held across every project
 
@@ -41,7 +43,8 @@ brief → concept + script → stills (start frames) → takes (image-to-video, 
   those timings. Never eyeball sync.
 - **One take per speaker, all their lines in it.** Each generation invents a new voice. Separate clips of the
   same person sound like different people; one continuous take (lines separated by listening pauses that you cut
-  out) keeps one voice. For a speaker who needs more than one take, extend the same generation session.
+  out) keeps one voice. For a speaker who needs more than one take, extend the same generation session (API
+  extensions stop at a 30 s input, so a chain is ~4 turns; see generation.md).
 - **One person per shot.** Two-person dialogue = two single-person shots (A/B reverse angles of the same room),
   intercut. Say "nobody else in the frame, no shoulder or hand at any edge" or a stray shoulder appears.
 - **Speech starts on frame 1.** Write "from the very first frame she is already speaking"; otherwise models pause,
@@ -52,6 +55,9 @@ brief → concept + script → stills (start frames) → takes (image-to-video, 
   American"). Without it the accent drifts between takes.
 - **Check words, not just pictures.** Models drop or swap words (numbers, currencies, the brand name). Compare the
   transcript to the script before editing; regenerate rather than patch audio.
+- **Show the real product.** Screens in an ad are captured from the real app/web, never recreated; highlights
+  come from measured element boxes. A recreated screen or a guessed circle gets the whole cut rejected.
+- **No dead air, no frozen frames.** Gaps > 0.7 s and any picture frozen > 3 s fail QA, however good the rest is.
 - **Typeset all text yourself.** Never ask an image or video model for captions, logos, prices or UI text.
 - **Look at frames.** Contact sheets of every take and of every render; full-size checks of stills. Numbers find
   sync bugs, eyes find layout bugs; you need both.
@@ -63,5 +69,5 @@ brief → concept + script → stills (start frames) → takes (image-to-video, 
 ## Done means
 
 Finals at the target size and length, each transcribed and matching the script, contact sheet reviewed, mix
-loudness checked, delivered as files or a link the owner can open remotely (and the public link removed once
+loudness checked, no silence > 0.7 s or freeze > 3 s, one speaker voice per creator, delivered as files or a link the owner can open remotely (and the public link removed once
 they confirm the download). Temporary frames deleted; sources, prompts and the edit kept so variants are cheap.

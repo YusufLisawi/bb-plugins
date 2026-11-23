@@ -51,7 +51,16 @@ acting. [Ambient] sound only. No music, no text, no subtitles, no other voices.
 
 Omni does not take audio references. Keep a voice by extending the same session: first call with `store: true`,
 next calls with `previous_interaction_id` and the same voice description; each turn continues the same video, so
-the speaker sounds the same. `scripts/omni_chain.py` does this. Re-voicing with TTS and time-warping words onto the
+the speaker sounds the same. `scripts/omni_chain.py` does this.
+
+- **30 s ceiling.** An extension fails once the video so far is longer than 30 s ("Videos longer than 30s are not
+  supported for extension"). Plan ~10 s turns, at most 4 per chain (~40 s). For a longer script start a second
+  chain from the same still with the identical voice description, and split at a sentence where the edit cuts
+  away (a product screen or a full-screen card) so a slight voice change is not heard on the face.
+- **Seams repeat or garble words.** A turn often re-says the end of the previous one or slurs its first word.
+  Don't fix this by hand: align all turns to the script and keep the latest clean occurrence of each word
+  (edit-and-render.md §1).
+- Write each turn as "Continuing, she says: ..." plus the same voice + camera lock text every time. Re-voicing with TTS and time-warping words onto the
 lips was tried and rejected (choppy, stretched words).
 
 ## After every take
